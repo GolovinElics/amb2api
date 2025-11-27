@@ -1040,12 +1040,33 @@ async def get_rates(region: str = "US", force: bool = False) -> Dict[str, Any]:
         ],
     }
 
+    # 导入价格格式化函数
+    from src.price_formatter import format_price
+    
+    # 格式化所有价格，添加 display 字段
+    def add_price_display(items, region):
+        """为每个项目添加格式化后的价格显示"""
+        for item in items:
+            if "rate" in item:
+                item["rate_display"] = format_price(item["rate"], region)
+        return items
+    
     result = {"region": region}
-    result["speech_to_text"] = parsed.get("speech_to_text") or fallback["speech_to_text"]
-    result["streaming"] = parsed.get("streaming") or fallback["streaming"]
-    result["speech_understanding"] = parsed.get("speech_understanding") or fallback["speech_understanding"]
-    result["llm_gateway_input"] = parsed.get("llm_gateway_input") or fallback["llm_gateway_input"]
-    result["llm_gateway_output"] = parsed.get("llm_gateway_output") or fallback["llm_gateway_output"]
+    result["speech_to_text"] = add_price_display(
+        parsed.get("speech_to_text") or fallback["speech_to_text"], region
+    )
+    result["streaming"] = add_price_display(
+        parsed.get("streaming") or fallback["streaming"], region
+    )
+    result["speech_understanding"] = add_price_display(
+        parsed.get("speech_understanding") or fallback["speech_understanding"], region
+    )
+    result["llm_gateway_input"] = add_price_display(
+        parsed.get("llm_gateway_input") or fallback["llm_gateway_input"], region
+    )
+    result["llm_gateway_output"] = add_price_display(
+        parsed.get("llm_gateway_output") or fallback["llm_gateway_output"], region
+    )
     result["notes"] = fallback["notes"]
 
     _cache_set(cache_key, result)

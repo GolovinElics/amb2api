@@ -7381,17 +7381,26 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     const map = {};
                     (data.llm_gateway_input || []).forEach(item => {
                         const k = item.model || '-';
-                        if (!map[k]) map[k] = { in: 0, out: 0, unit: item.unit || '' };
+                        if (!map[k]) map[k] = { in: 0, out: 0, inDisplay: '-', outDisplay: '-', unit: item.unit || '' };
                         map[k].in = item.rate || 0;
+                        map[k].inDisplay = item.rate_display || ('$' + (item.rate || 0).toFixed(2));
                         map[k].unit = item.unit || map[k].unit || '';
                     });
                     (data.llm_gateway_output || []).forEach(item => {
                         const k = item.model || '-';
-                        if (!map[k]) map[k] = { in: 0, out: 0, unit: item.unit || '' };
+                        if (!map[k]) map[k] = { in: 0, out: 0, inDisplay: '-', outDisplay: '-', unit: item.unit || '' };
                         map[k].out = item.rate || 0;
+                        map[k].outDisplay = item.rate_display || ('$' + (item.rate || 0).toFixed(2));
                         map[k].unit = item.unit || map[k].unit || '';
                     });
-                    const rows = Object.keys(map).map(k => ({ model: k, in: map[k].in, out: map[k].out, unit: map[k].unit })).sort((a,b)=>{
+                    const rows = Object.keys(map).map(k => ({ 
+                        model: k, 
+                        in: map[k].in, 
+                        out: map[k].out, 
+                        inDisplay: map[k].inDisplay,
+                        outDisplay: map[k].outDisplay,
+                        unit: map[k].unit 
+                    })).sort((a,b)=>{
                         function vendor(n){ const s=(n||'').toLowerCase(); if(s.includes('gpt'))return 0; if(s.includes('claude'))return 1; if(s.includes('gemini'))return 2; return 3; }
                         const v = vendor(a.model)-vendor(b.model); if(v!==0) return v; return (b.out||0)-(a.out||0);
                     });
@@ -7400,8 +7409,8 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     html += '<div style="overflow-x:auto;">';
                     html += '<table class="table" style="width: 100%; min-width: 460px;"><thead><tr><th>模型</th><th>输入</th><th>输出</th><th>单位</th></tr></thead><tbody>';
                     rows.forEach(r => {
-                        const inTxt = (typeof r.in === 'number') ? ('$' + r.in.toFixed(2)) : '-';
-                        const outTxt = (typeof r.out === 'number') ? ('$' + r.out.toFixed(2)) : '-';
+                        const inTxt = r.inDisplay || '-';
+                        const outTxt = r.outDisplay || '-';
                         html += `<tr><td style="word-break: break-word;">${r.model}</td><td>${inTxt}</td><td>${outTxt}</td><td>${r.unit||'-'}</td></tr>`;
                     });
                     html += '</tbody></table>';

@@ -6,6 +6,34 @@ test_*
 debug_*
 creds/
 
+# But allow specific important files
+!README.md
+!pyproject.toml
+!tests/test_*.py
+!docs/**/*.md
+
+# Ignore debug/temp directories in tests
+tests/py/
+tests/sh/
+tests/md/
+
+# Temporary analysis files (specific patterns)
+tests/temp_*
+tests/*_analysis.*
+tests/*_comparison.*
+tests/*_parsing.*
+tests/*_precision.*
+tests/apimd.md
+tests/billing_rates_*
+tests/eu_rates_*
+tests/cleanup_*
+tests/EXECUTIVE_SUMMARY.md
+tests/SOLUTION.md
+tests/INDEX.md
+tests/FILES_TO_COMMIT.md
+tests/README_FIXES.md
+tests/US_VS_EU_COMPARISON.md
+
 # Environment configuration
 .env
 
