@@ -1,4 +1,27 @@
 #!/bin/bash
+# AMB2API 发布脚本
+# 
+# 功能：
+#   1. 自动从 pyproject.toml 读取版本号
+#   2. 检查是否有未提交的更改
+#   3. 推送代码到 Git 仓库
+#   4. 创建并推送 Git 标签（如 v0.3.0）
+#   5. 构建多架构 Docker 镜像（linux/amd64 和 linux/arm64）
+#   6. 推送镜像到 Docker Hub（带版本号和 latest 标签）
+#
+# 使用方法：
+#   ./release.sh
+#
+# 发布新版本流程：
+#   1. 更新 pyproject.toml 和 web.py 中的版本号
+#   2. 提交更改：git commit -am "chore: bump version to x.x.x"
+#   3. 运行此脚本：./release.sh
+#
+# 前置要求：
+#   - 已登录 Docker Hub：docker login
+#   - Docker buildx 已安装并可用
+#   - 有 Git 仓库推送权限
+#
 set -e
 
 # 颜色输出
