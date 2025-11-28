@@ -78,14 +78,15 @@
             font-variant-numeric: tabular-nums;
         }
         
-        /* 暗黑模式下模型标签适配 */
+        /* 暗黑模式下模型标签适配 - 保留分类颜色，仅调整透明度 */
         [data-theme="dark"] .model-chip {
-            background: var(--card-bg) !important;
-            border-color: var(--border-color) !important;
+            /* 不覆盖背景和边框颜色，让 getCatColors 的暗黑模式颜色生效 */
+            opacity: 0.95;
         }
         
         [data-theme="dark"] .model-chip .model-ctx {
-            color: var(--text-secondary) !important;
+            /* 保留原有颜色，仅微调透明度 */
+            opacity: 0.8;
         }
 
         /* 暗黑模式下的额外样式覆盖 */
@@ -661,12 +662,12 @@
             position: fixed;
             top: 20px;
             right: 20px;
-            z-index: 100;
+            z-index: 9999;
             background: var(--container-bg);
             border: 2px solid var(--border-color);
             border-radius: 50px;
             padding: 8px 16px;
-            cursor: move;
+            cursor: pointer;
             display: flex;
             align-items: center;
             gap: 8px;
@@ -677,12 +678,13 @@
             overflow: hidden;
             max-width: 200px;
             user-select: none;
-            touch-action: none;
+            touch-action: manipulation;
         }
         
         .theme-toggle.dragging {
+            cursor: move;
             transition: none;
-            z-index: 101;
+            z-index: 10000;
             box-shadow: 0 4px 20px var(--shadow-color);
         }
 
@@ -710,41 +712,29 @@
             white-space: nowrap;
         }
         
-        /* 移动端暗黑模式按钮折叠 */
+        /* 移动端暗黑模式按钮 */
         @media (max-width: 768px) {
             .theme-toggle {
                 padding: 0;
-                width: 42px;
-                height: 42px;
+                width: 44px;
+                height: 44px;
                 border-radius: 50%;
                 justify-content: center;
                 gap: 0;
+                /* 移动端强制固定位置，禁用拖动保存的位置 */
+                top: 12px !important;
+                right: 12px !important;
+                left: auto !important;
+                bottom: auto !important;
             }
             
             .theme-toggle .icon {
                 margin: 0;
+                font-size: 20px;
             }
             
             .theme-toggle #themeText {
-                opacity: 0;
-                width: 0;
-                overflow: hidden;
-                position: absolute;
-            }
-            
-            .theme-toggle:hover,
-            .theme-toggle:active {
-                width: auto;
-                padding: 8px 16px;
-                border-radius: 50px;
-                gap: 8px;
-            }
-            
-            .theme-toggle:hover #themeText,
-            .theme-toggle:active #themeText {
-                opacity: 1;
-                width: auto;
-                position: static;
+                display: none;
             }
         }
 
@@ -757,6 +747,18 @@
             color: var(--text-color);
             transition: background-color 0.3s ease, color 0.3s ease;
         }
+        
+        @media (max-width: 768px) {
+            body {
+                padding: 12px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            body {
+                padding: 8px;
+            }
+        }
 
         .container {
             background-color: var(--container-bg);
@@ -764,11 +766,21 @@
             border-radius: 10px;
             box-shadow: 0 2px 10px var(--shadow-color);
             transition: background-color 0.3s ease;
-            overflow-x: hidden;
+            overflow-x: visible;
         }
 
+        @media (max-width: 768px) {
+            .container { 
+                padding: 20px 16px; 
+                border-radius: 8px;
+            }
+        }
+        
         @media (max-width: 480px) {
-            .container { padding: 16px; }
+            .container { 
+                padding: 16px 12px; 
+                border-radius: 6px;
+            }
         }
 
         h1 {
@@ -993,7 +1005,11 @@
         @media (max-width: 768px) {
             .tabs { 
                 gap: 4px;
-                padding-bottom: 4px;
+                padding-bottom: 8px;
+                margin-left: -16px;
+                margin-right: -16px;
+                padding-left: 16px;
+                padding-right: 16px;
             }
             .tab { 
                 padding: 10px 16px; 
@@ -1004,14 +1020,58 @@
         @media (max-width: 480px) {
             .tabs { 
                 gap: 3px;
+                margin-left: -16px;
+                margin-right: -16px;
+                padding-left: 16px;
+                padding-right: 16px;
+                padding-bottom: 10px;
+            }
+            .tab { 
+                padding: 8px 12px; 
+                font-size: 13px;
+            }
+        }
+        
+        /* 账户管理子标签页移动端优化 */
+        .account-sub-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            flex-wrap: nowrap;
+            align-items: center;
+            overflow-x: auto;
+            overflow-y: hidden;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
+            scrollbar-color: var(--border-color) transparent;
+            padding-bottom: 8px;
+        }
+        
+        .account-sub-tabs::-webkit-scrollbar {
+            height: 4px;
+        }
+        
+        .account-sub-tabs::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        .account-sub-tabs::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 2px;
+        }
+        
+        @media (max-width: 480px) {
+            .account-sub-tabs {
+                gap: 6px;
                 margin-left: -12px;
                 margin-right: -12px;
                 padding-left: 12px;
                 padding-right: 12px;
             }
-            .tab { 
-                padding: 8px 12px; 
-                font-size: 13px;
+            
+            .account-sub-tabs .btn-sm {
+                flex-shrink: 0;
+                white-space: nowrap;
             }
         }
 
@@ -1022,14 +1082,48 @@
             gap: 12px;
         }
         .responsive-item { min-width: 0; }
-        .summary-card { text-align: center; padding: 20px; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color); }
-        .summary-card .summary-title { font-size: 14px; color: var(--text-secondary); }
-        .summary-card .summary-sub { font-size: 14px; color: var(--text-secondary); }
-        .summary-card .summary-value { font-size: 42px; font-weight: bold; color: var(--text-color); }
-        .summary-card { width: 100%; box-sizing: border-box; }
+        .summary-card { 
+            text-align: center; 
+            padding: 20px; 
+            background: var(--card-bg); 
+            border-radius: 8px; 
+            border: 1px solid var(--border-color); 
+            width: 100%; 
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+        .summary-card .summary-title { 
+            font-size: 14px; 
+            color: var(--text-secondary); 
+            word-break: break-word;
+            overflow-wrap: anywhere;
+        }
+        .summary-card .summary-sub { 
+            font-size: 14px; 
+            color: var(--text-secondary); 
+            word-break: break-word;
+            overflow-wrap: anywhere;
+        }
+        .summary-card .summary-value { 
+            font-size: 42px; 
+            font-weight: bold; 
+            color: var(--text-color); 
+            word-break: break-all;
+        }
         .cost-label { word-break: break-word; overflow-wrap: anywhere; }
+        
+        @media (max-width: 768px) {
+            .summary-card { padding: 16px; }
+            .summary-card .summary-value { font-size: 36px; }
+            .summary-card .summary-title,
+            .summary-card .summary-sub { font-size: 13px; }
+        }
+        
         @media (max-width: 480px) {
-            .summary-card .summary-value { font-size: 30px; }
+            .summary-card { padding: 12px; }
+            .summary-card .summary-value { font-size: 28px; }
+            .summary-card .summary-title,
+            .summary-card .summary-sub { font-size: 12px; }
             .responsive-grid { grid-template-columns: 1fr; }
         }
 
@@ -1199,12 +1293,13 @@
             }
             
             /* 移动端账户管理标签栏优化 */
-            #accountLoggedInSection > div:first-child {
-                justify-content: space-between;
+            .account-sub-tabs {
+                gap: 6px !important;
             }
             
             .account-logout-btn {
                 margin-left: auto !important;
+                flex-shrink: 0;
             }
             
             /* 移动端登录表单优化 */
@@ -1253,9 +1348,286 @@
                 word-break: break-word;
             }
             
-            /* 移动端表格容器 */
-            div[style*="overflow-x:auto"] {
-                -webkit-overflow-scrolling: touch;
+            /* ========== 费率和成本表格等比例缩小 ========== */
+            /* 取消横向滚动，改为等比例缩小 */
+            .rates-table-wrap,
+            .cost-table-wrap {
+                overflow-x: visible !important;
+            }
+            
+            /* 费率表格等比例缩小 */
+            .rates-table {
+                font-size: 11px !important;
+                width: 100% !important;
+                min-width: 0 !important;
+                table-layout: fixed;
+            }
+            
+            .rates-table th,
+            .rates-table td {
+                padding: 6px 3px !important;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            
+            .rates-table th:first-child,
+            .rates-table td:first-child {
+                width: 42%;
+                white-space: normal;
+                word-break: break-word;
+            }
+            
+            .rates-table th:nth-child(2),
+            .rates-table td:nth-child(2),
+            .rates-table th:nth-child(3),
+            .rates-table td:nth-child(3) {
+                width: 26%;
+                text-align: right;
+                white-space: nowrap;
+            }
+            
+            /* 隐藏单位列 - 移动端节省空间 */
+            .rates-unit-col {
+                display: none !important;
+            }
+            
+            /* 成本分析表格等比例缩小 */
+            .cost-model-table,
+            .cost-items-table {
+                font-size: 11px !important;
+                width: 100% !important;
+                min-width: 0 !important;
+                table-layout: fixed;
+            }
+            
+            .cost-model-table th,
+            .cost-model-table td,
+            .cost-items-table th,
+            .cost-items-table td {
+                padding: 6px 3px !important;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            
+            /* 按模型分类表格 - 隐藏输入输出成本列 */
+            .cost-model-table th:nth-child(2),
+            .cost-model-table td:nth-child(2),
+            .cost-model-table th:nth-child(3),
+            .cost-model-table td:nth-child(3) {
+                display: none;
+            }
+            
+            .cost-model-table th:first-child,
+            .cost-model-table td:first-child {
+                width: 55%;
+                white-space: normal;
+                word-break: break-word;
+            }
+            
+            .cost-model-table th:last-child,
+            .cost-model-table td:last-child {
+                width: 45%;
+                text-align: right;
+                white-space: nowrap;
+            }
+            
+            /* 日期明细表格 - 隐藏输入输出成本列 */
+            .cost-items-table th:nth-child(3),
+            .cost-items-table td:nth-child(3),
+            .cost-items-table th:nth-child(4),
+            .cost-items-table td:nth-child(4) {
+                display: none;
+            }
+            
+            .cost-items-table th:first-child,
+            .cost-items-table td:first-child {
+                width: 25%;
+                white-space: nowrap;
+            }
+            
+            .cost-items-table th:nth-child(2),
+            .cost-items-table td:nth-child(2) {
+                width: 50%;
+                white-space: normal;
+                word-break: break-word;
+            }
+            
+            .cost-items-table th:last-child,
+            .cost-items-table td:last-child {
+                width: 25%;
+                text-align: right;
+                white-space: nowrap;
+            }
+            
+            /* 成本卡片内边距优化 */
+            .cost-card,
+            .rates-card,
+            .usage-card {
+                padding: 12px !important;
+            }
+            
+            /* ========== 使用量页面模型列表优化 ========== */
+            .usage-model-row {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 6px 0;
+                border-bottom: 1px solid var(--border-color);
+                gap: 8px;
+            }
+            
+            .usage-model-info {
+                display: flex;
+                align-items: center;
+                flex: 1;
+                min-width: 0;
+            }
+            
+            .usage-model-dot {
+                width: 10px;
+                height: 10px;
+                border-radius: 50%;
+                margin-right: 6px;
+                flex-shrink: 0;
+            }
+            
+            .usage-model-name {
+                color: var(--text-color);
+                font-size: 12px;
+                word-break: break-word;
+                line-height: 1.3;
+            }
+            
+            .usage-model-stats {
+                display: flex;
+                align-items: center;
+                flex-shrink: 0;
+                gap: 3px;
+                font-size: 11px;
+            }
+            
+            .usage-model-tokens {
+                font-weight: bold;
+                color: var(--text-color);
+            }
+            
+            .usage-model-unit {
+                color: var(--text-secondary);
+            }
+            
+            .usage-model-percent {
+                color: var(--text-muted);
+            }
+            
+            /* 简单2列费率表格样式 */
+            .rates-simple-table {
+                font-size: 11px !important;
+                width: 100% !important;
+                table-layout: fixed;
+            }
+            
+            .rates-simple-table th,
+            .rates-simple-table td {
+                padding: 6px 3px !important;
+            }
+            
+            .rates-simple-table th:first-child,
+            .rates-simple-table td:first-child {
+                width: 60%;
+                white-space: normal;
+                word-break: break-word;
+            }
+            
+            .rates-simple-table th:last-child,
+            .rates-simple-table td:last-child {
+                width: 40%;
+                text-align: right;
+                white-space: nowrap;
+            }
+        }
+        
+        /* 更小屏幕进一步优化 */
+        @media (max-width: 480px) {
+            /* 费率表格进一步缩小 */
+            .rates-table {
+                font-size: 10px !important;
+            }
+            
+            .rates-table th,
+            .rates-table td {
+                padding: 4px 2px !important;
+            }
+            
+            .rates-table th:first-child,
+            .rates-table td:first-child {
+                width: 45%;
+            }
+            
+            .rates-table th:nth-child(2),
+            .rates-table td:nth-child(2),
+            .rates-table th:nth-child(3),
+            .rates-table td:nth-child(3) {
+                width: 27%;
+            }
+            
+            /* 成本分析表格进一步缩小 */
+            .cost-model-table,
+            .cost-items-table {
+                font-size: 10px !important;
+            }
+            
+            .cost-model-table th,
+            .cost-model-table td,
+            .cost-items-table th,
+            .cost-items-table td {
+                padding: 4px 2px !important;
+            }
+            
+            /* 卡片边距更紧凑 */
+            .cost-card,
+            .rates-card,
+            .usage-card {
+                padding: 8px !important;
+            }
+            
+            /* 使用量页面进一步优化 */
+            .usage-model-name {
+                font-size: 11px;
+            }
+            
+            .usage-model-stats {
+                font-size: 10px;
+            }
+            
+            .usage-model-dot {
+                width: 8px;
+                height: 8px;
+            }
+            
+            /* 简单费率表格进一步缩小 */
+            .rates-simple-table {
+                font-size: 10px !important;
+            }
+            
+            .rates-simple-table th,
+            .rates-simple-table td {
+                padding: 4px 2px !important;
+            }
+            
+            /* 标题更小 */
+            .cost-card h4,
+            .rates-card h5 {
+                font-size: 13px !important;
+                margin-bottom: 8px !important;
+            }
+            
+            /* 总结卡片字体缩小 */
+            #accountCostContent div[style*="font-size: 36px"] {
+                font-size: 28px !important;
+            }
+            
+            #accountCostContent div[style*="font-size: 14px"] {
+                font-size: 12px !important;
             }
         }
         
@@ -1265,6 +1637,55 @@
             .table td {
                 word-break: normal;
                 overflow-wrap: normal;
+            }
+            
+            /* 桌面端使用量页面样式 */
+            .usage-model-row {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 8px 0;
+                border-bottom: 1px solid var(--border-color);
+            }
+            
+            .usage-model-info {
+                display: flex;
+                align-items: center;
+                flex: 1;
+            }
+            
+            .usage-model-dot {
+                width: 12px;
+                height: 12px;
+                border-radius: 50%;
+                margin-right: 8px;
+                flex-shrink: 0;
+            }
+            
+            .usage-model-name {
+                word-break: break-word;
+                color: var(--text-color);
+            }
+            
+            .usage-model-stats {
+                text-align: right;
+                margin-left: 12px;
+                white-space: nowrap;
+            }
+            
+            .usage-model-tokens {
+                font-weight: bold;
+                color: var(--text-color);
+            }
+            
+            .usage-model-unit {
+                color: var(--text-secondary);
+                margin-left: 4px;
+            }
+            
+            .usage-model-percent {
+                color: var(--text-muted);
+                margin-left: 8px;
             }
         }
 
@@ -1830,12 +2251,12 @@
         .ranking-container { background:var(--card-bg); border:1px solid var(--border-color); border-radius:8px; padding:12px; }
         .ranking-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; font-size:14px; }
         .ranking-list { display:flex; flex-direction:column; gap:8px; max-height:300px; overflow-y:auto; }
-        .ranking-item { display:flex; align-items:center; gap:12px; }
-        .ranking-label { min-width:200px; font-size:12px; color:var(--text-color); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-        .ranking-bar { flex:1; height:18px; background:var(--input-bg); border-radius:9px; position:relative; overflow:hidden; }
-        .ranking-bar-success { position:absolute; left:0; top:0; height:100%; background:#4caf50; }
-        .ranking-bar-fail { position:absolute; top:0; height:100%; background:#dc3545; }
-        .ranking-count { width:60px; text-align:right; font-size:12px; color:#666; }
+        .ranking-item { display:grid; grid-template-columns: 180px 1fr 50px; align-items:center; gap:12px; }
+        .ranking-label { font-size:12px; color:var(--text-color); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .ranking-bar { height:18px; background:var(--input-bg); border-radius:9px; position:relative; overflow:hidden; min-width:20px; }
+        .ranking-bar-success { position:absolute; left:0; top:0; height:100%; background:#4caf50; border-radius:9px 0 0 9px; }
+        .ranking-bar-fail { position:absolute; top:0; height:100%; background:#dc3545; border-radius:0 9px 9px 0; }
+        .ranking-count { text-align:right; font-size:12px; color:var(--text-secondary); font-weight:600; }
         .legend { display:flex; gap:12px; font-size:12px; color:#666; margin-bottom:8px; }
         .legend .success-dot { width:10px; height:10px; background:#4caf50; border-radius:50%; display:inline-block; margin-right:6px; }
         .legend .fail-dot { width:10px; height:10px; background:#dc3545; border-radius:50%; display:inline-block; margin-right:6px; }
@@ -2159,6 +2580,447 @@
         [data-theme="dark"] .switch input:checked + .slider {
             background-color: #34d399;
         }
+
+        /* ========== 密钥管理弹窗基础样式 ========== */
+        .key-modal-content {
+            width: 900px;
+            max-width: 95%;
+            max-height: 90vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .key-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 1px solid var(--border-color, #e1e4e8);
+            padding-bottom: 12px;
+        }
+        
+        .key-modal-title-wrap {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .key-modal-title {
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .key-modal-tag {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a5a);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        
+        .key-stat-badge {
+            background: var(--card-bg, #f0f0f0);
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+        
+        .key-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            padding: 20px 0;
+            border-bottom: 1px solid var(--border-color, #e1e4e8);
+        }
+        
+        .key-stat-card {
+            background: var(--card-bg, #f8f9fa);
+            border-radius: 12px;
+            padding: 15px;
+        }
+        
+        .key-stat-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        
+        .key-stat-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        
+        .key-stat-label {
+            color: var(--text-secondary, #666);
+            font-size: 13px;
+        }
+        
+        .key-stat-value {
+            font-size: 24px;
+            font-weight: bold;
+        }
+        
+        .key-stat-card .progress-bar {
+            height: 4px;
+            margin-top: 8px;
+            background: #e9ecef;
+            border-radius: 2px;
+        }
+        
+        .key-stat-card .progress-fill {
+            height: 100%;
+            border-radius: 2px;
+            width: 0%;
+            transition: width 0.3s;
+        }
+        
+        .key-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .key-toolbar-filter {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .key-toolbar-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .key-toolbar-actions .btn {
+            background: #f0f0f0;
+            color: #333;
+            border: none;
+        }
+        
+        .key-toolbar-actions .btn-outline-primary {
+            background: transparent;
+            color: #4285f4;
+            border: 1px solid #4285f4;
+        }
+        
+        .key-toolbar-actions .btn-outline-danger {
+            background: transparent;
+            color: #dc3545;
+            border: 1px solid #dc3545;
+        }
+        
+        .key-toolbar-actions .btn-outline-warning {
+            background: transparent;
+            color: #ffc107;
+            border: 1px solid #ffc107;
+        }
+        
+        .key-toolbar-actions .btn-outline-info {
+            background: transparent;
+            color: #17a2b8;
+            border: 1px solid #17a2b8;
+        }
+        
+        .key-table-container {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: auto;
+        }
+        
+        .key-table {
+            width: 100%;
+            min-width: 500px;
+        }
+        
+        .key-table thead {
+            position: sticky;
+            top: 0;
+            background: var(--container-bg, white);
+            z-index: 1;
+        }
+        
+        .key-col-index { width: 60px; }
+        .key-col-key { min-width: 200px; }
+        .key-col-status { width: 80px; }
+        .key-col-reason { min-width: 100px; }
+        .key-col-time { min-width: 100px; }
+        .key-col-action { width: 80px; text-align: right; }
+        
+        .key-pagination {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            border-top: 1px solid var(--border-color, #e1e4e8);
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .key-pagination-info {
+            color: var(--text-secondary, #666);
+            font-size: 13px;
+        }
+        
+        .key-pagination-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .key-pagination-current {
+            padding: 6px 12px;
+            background: #4285f4;
+            color: white;
+            border-radius: 4px;
+        }
+        
+        .key-pagination-label {
+            margin-left: 10px;
+            font-size: 13px;
+        }
+        
+        .key-pagination-input {
+            width: 50px;
+            padding: 4px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        /* ========== 密钥管理弹窗移动端适配 ========== */
+        @media (max-width: 768px) {
+            /* 弹窗整体全屏 */
+            .key-modal-content {
+                width: 100% !important;
+                max-width: 100% !important;
+                height: 100vh !important;
+                max-height: 100vh !important;
+                margin: 0 !important;
+                border-radius: 0 !important;
+                padding: 12px !important;
+            }
+            
+            /* 头部优化 */
+            .key-modal-header {
+                gap: 8px;
+                padding-bottom: 10px;
+            }
+            
+            .key-modal-title-wrap {
+                gap: 6px;
+            }
+            
+            .key-modal-title {
+                font-size: 16px;
+                width: 100%;
+            }
+            
+            .key-stat-badge {
+                font-size: 11px;
+                padding: 3px 8px;
+            }
+            
+            /* 统计卡片保持3列但缩小 */
+            .key-stats-grid {
+                gap: 8px;
+                padding: 12px 0;
+            }
+            
+            .key-stat-card {
+                padding: 10px;
+            }
+            
+            .key-stat-value {
+                font-size: 18px;
+            }
+            
+            .key-stat-label {
+                font-size: 11px;
+            }
+            
+            /* 工具栏垂直布局 */
+            .key-toolbar {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 8px;
+                padding: 10px 0;
+            }
+            
+            /* 按钮组横向滚动 */
+            .key-toolbar-actions {
+                display: flex;
+                flex-wrap: nowrap;
+                overflow-x: auto;
+                padding-bottom: 5px;
+                gap: 6px;
+                -webkit-overflow-scrolling: touch;
+            }
+            
+            .key-toolbar-actions::-webkit-scrollbar {
+                height: 3px;
+            }
+            
+            .key-toolbar-actions .btn-sm {
+                padding: 5px 8px;
+                font-size: 11px;
+                white-space: nowrap;
+                flex-shrink: 0;
+            }
+            
+            /* 筛选下拉框 */
+            .key-toolbar-filter .filter-select {
+                font-size: 12px;
+                padding: 6px 8px;
+            }
+            
+            /* 表格隐藏禁用原因和禁用时间列 */
+            .key-col-reason,
+            .key-col-time,
+            .key-table th:nth-child(4),
+            .key-table td:nth-child(4),
+            .key-table th:nth-child(5),
+            .key-table td:nth-child(5) {
+                display: none;
+            }
+            
+            .key-col-index { width: 40px; }
+            .key-col-key { 
+                min-width: 80px; 
+                max-width: 120px;
+                word-break: break-all;
+                font-size: 11px;
+            }
+            .key-col-status { 
+                width: 50px; 
+                font-size: 10px; 
+                text-align: center;
+            }
+            .key-col-status .status-badge {
+                padding: 2px 6px !important;
+                font-size: 10px !important;
+                white-space: nowrap;
+            }
+            .key-col-action { width: 50px; }
+            
+            .key-table {
+                min-width: auto;
+                font-size: 12px;
+            }
+            
+            /* 分页优化 */
+            .key-pagination {
+                flex-direction: column;
+                align-items: center;
+                gap: 10px;
+                padding: 12px 0;
+            }
+            
+            .key-pagination-controls {
+                justify-content: center;
+            }
+            
+            .key-pagination-info,
+            .key-pagination-label {
+                font-size: 12px;
+            }
+            
+            .key-pagination-label {
+                margin-left: 6px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            /* 更小屏幕进一步优化 */
+            .key-modal-content {
+                padding: 6px !important;
+            }
+            
+            /* 工具栏按钮更小 */
+            .key-toolbar-actions .btn-sm {
+                padding: 4px 6px !important;
+                font-size: 10px !important;
+            }
+            
+            .key-toolbar-filter .filter-select {
+                font-size: 11px !important;
+                padding: 5px 6px !important;
+            }
+            
+            /* 统计卡片横向布局 */
+            .key-stats-grid {
+                grid-template-columns: 1fr;
+                gap: 6px;
+            }
+            
+            .key-stat-card {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 8px 12px;
+            }
+            
+            .key-stat-header {
+                margin-bottom: 0;
+            }
+            
+            .key-stat-value {
+                font-size: 18px;
+                margin: 0;
+            }
+            
+            .key-stat-card .progress-bar {
+                display: none;
+            }
+            
+            /* 表格进一步缩小 */
+            .key-table {
+                font-size: 10px;
+            }
+            
+            .key-table th,
+            .key-table td {
+                padding: 4px 2px;
+            }
+            
+            .key-col-index {
+                width: 30px !important;
+            }
+            
+            .key-col-key {
+                max-width: 90px;
+                font-size: 10px !important;
+            }
+            
+            .key-col-status {
+                width: 45px !important;
+            }
+            
+            .key-col-status .status-badge {
+                padding: 1px 4px !important;
+                font-size: 9px !important;
+            }
+            
+            .key-col-action {
+                width: 45px !important;
+            }
+            
+            /* 操作按钮缩小 */
+            .key-table td:last-child .btn,
+            .key-table td:last-child button {
+                padding: 3px 5px !important;
+                font-size: 9px !important;
+            }
+        }
     </style>
 </head>
 
@@ -2393,83 +3255,83 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
 
             <!-- 多密钥管理弹窗 -->
             <div class="modal" id="keyManagementModal">
-                <div class="modal-content" style="width: 900px; max-width: 95%; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column;">
-                    <div class="modal-header" style="border-bottom: 1px solid var(--border-color, #e1e4e8); padding-bottom: 12px;">
-                        <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
-                            <h4 class="modal-title" style="margin: 0; display: flex; align-items: center; gap: 8px;">
+                <div class="modal-content key-modal-content">
+                    <div class="modal-header key-modal-header">
+                        <div class="key-modal-title-wrap">
+                            <h4 class="modal-title key-modal-title">
                                 多密钥管理
-                                <span style="background: linear-gradient(135deg, #ff6b6b, #ee5a5a); color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px;">⛩️ OpenAI</span>
+                                <span class="key-modal-tag">⛩️ OpenAI</span>
                             </h4>
-                            <span class="key-stat-badge" style="background: var(--card-bg, #f0f0f0); padding: 4px 10px; border-radius: 12px; font-size: 12px;">总密钥数: <span id="modalKeyTotal">0</span></span>
-                            <span class="key-stat-badge" style="background: var(--card-bg, #f0f0f0); padding: 4px 10px; border-radius: 12px; font-size: 12px;"><span id="modalAggregationMode">轮询模式</span></span>
+                            <span class="key-stat-badge">总密钥数: <span id="modalKeyTotal">0</span></span>
+                            <span class="key-stat-badge"><span id="modalAggregationMode">轮询模式</span></span>
                         </div>
-                        <button class="modal-close" onclick="closeKeyManagementModal()" style="font-size: 24px; background: none; border: none; cursor: pointer;">&times;</button>
+                        <button class="modal-close" onclick="closeKeyManagementModal()">&times;</button>
                     </div>
                     
                     <!-- 统计卡片 -->
-                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; padding: 20px 0; border-bottom: 1px solid var(--border-color, #e1e4e8);">
-                        <div class="key-stat-card" style="background: var(--card-bg, #f8f9fa); border-radius: 12px; padding: 15px;">
-                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                                <span style="width: 8px; height: 8px; background: #28a745; border-radius: 50%;"></span>
-                                <span style="color: var(--text-secondary, #666); font-size: 13px;">已启用</span>
+                    <div class="key-stats-grid">
+                        <div class="key-stat-card">
+                            <div class="key-stat-header">
+                                <span class="key-stat-dot" style="background: #28a745;"></span>
+                                <span class="key-stat-label">已启用</span>
                             </div>
-                            <div style="font-size: 24px; font-weight: bold; color: #28a745;"><span id="modalKeyEnabled">0</span> / <span id="modalKeyTotal2">0</span></div>
-                            <div class="progress-bar" style="height: 4px; margin-top: 8px; background: #e9ecef; border-radius: 2px;">
-                                <div id="enabledProgressBar" style="height: 100%; background: #28a745; border-radius: 2px; width: 0%; transition: width 0.3s;"></div>
-                            </div>
-                        </div>
-                        <div class="key-stat-card" style="background: var(--card-bg, #f8f9fa); border-radius: 12px; padding: 15px;">
-                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                                <span style="width: 8px; height: 8px; background: #dc3545; border-radius: 50%;"></span>
-                                <span style="color: var(--text-secondary, #666); font-size: 13px;">手动禁用</span>
-                            </div>
-                            <div style="font-size: 24px; font-weight: bold; color: #dc3545;"><span id="modalKeyManualDisabled">0</span> / <span id="modalKeyTotal3">0</span></div>
-                            <div class="progress-bar" style="height: 4px; margin-top: 8px; background: #e9ecef; border-radius: 2px;">
-                                <div id="manualDisabledProgressBar" style="height: 100%; background: #dc3545; border-radius: 2px; width: 0%; transition: width 0.3s;"></div>
+                            <div class="key-stat-value" style="color: #28a745;"><span id="modalKeyEnabled">0</span> / <span id="modalKeyTotal2">0</span></div>
+                            <div class="progress-bar">
+                                <div id="enabledProgressBar" class="progress-fill" style="background: #28a745;"></div>
                             </div>
                         </div>
-                        <div class="key-stat-card" style="background: var(--card-bg, #f8f9fa); border-radius: 12px; padding: 15px;">
-                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                                <span style="width: 8px; height: 8px; background: #ffc107; border-radius: 50%;"></span>
-                                <span style="color: var(--text-secondary, #666); font-size: 13px;">自动禁用</span>
+                        <div class="key-stat-card">
+                            <div class="key-stat-header">
+                                <span class="key-stat-dot" style="background: #dc3545;"></span>
+                                <span class="key-stat-label">手动禁用</span>
                             </div>
-                            <div style="font-size: 24px; font-weight: bold; color: #ffc107;"><span id="modalKeyAutoDisabled">0</span> / <span id="modalKeyTotal4">0</span></div>
-                            <div class="progress-bar" style="height: 4px; margin-top: 8px; background: #e9ecef; border-radius: 2px;">
-                                <div id="autoDisabledProgressBar" style="height: 100%; background: #ffc107; border-radius: 2px; width: 0%; transition: width 0.3s;"></div>
+                            <div class="key-stat-value" style="color: #dc3545;"><span id="modalKeyManualDisabled">0</span> / <span id="modalKeyTotal3">0</span></div>
+                            <div class="progress-bar">
+                                <div id="manualDisabledProgressBar" class="progress-fill" style="background: #dc3545;"></div>
+                            </div>
+                        </div>
+                        <div class="key-stat-card">
+                            <div class="key-stat-header">
+                                <span class="key-stat-dot" style="background: #ffc107;"></span>
+                                <span class="key-stat-label">自动禁用</span>
+                            </div>
+                            <div class="key-stat-value" style="color: #ffc107;"><span id="modalKeyAutoDisabled">0</span> / <span id="modalKeyTotal4">0</span></div>
+                            <div class="progress-bar">
+                                <div id="autoDisabledProgressBar" class="progress-fill" style="background: #ffc107;"></div>
                             </div>
                         </div>
                     </div>
                     
                     <!-- 工具栏 -->
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px 0; flex-wrap: wrap; gap: 10px;">
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <select id="modalKeyStatusFilter" class="filter-select" onchange="loadKeyManagementModal()" style="padding: 6px 12px; border-radius: 6px;">
+                    <div class="key-toolbar">
+                        <div class="key-toolbar-filter">
+                            <select id="modalKeyStatusFilter" class="filter-select" onchange="loadKeyManagementModal()">
                                 <option value="all">全部状态</option>
                                 <option value="enabled">已启用</option>
                                 <option value="disabled">已禁用</option>
                                 <option value="invalid">失效密钥</option>
                             </select>
                         </div>
-                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                            <button class="btn btn-sm" onclick="loadKeyManagementModal()" style="background: #f0f0f0; color: #333; border: none;">刷新</button>
-                            <button class="btn btn-sm" onclick="enableAllKeys()" style="background: transparent; color: #4285f4; border: 1px solid #4285f4;">启用全部</button>
-                            <button class="btn btn-sm" onclick="disableAllKeys()" style="background: transparent; color: #dc3545; border: 1px solid #dc3545;">禁用全部</button>
-                            <button class="btn btn-sm" onclick="deleteAutoDisabledKeys()" style="background: transparent; color: #ffc107; border: 1px solid #ffc107;">删除自动禁用密钥</button>
-                            <button class="btn btn-sm" onclick="cleanupKeyStats()" style="background: transparent; color: #17a2b8; border: 1px solid #17a2b8;">🧹 清理过期统计</button>
+                        <div class="key-toolbar-actions">
+                            <button class="btn btn-sm" onclick="loadKeyManagementModal()">刷新</button>
+                            <button class="btn btn-sm btn-outline-primary" onclick="enableAllKeys()">启用全部</button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="disableAllKeys()">禁用全部</button>
+                            <button class="btn btn-sm btn-outline-warning" onclick="deleteAutoDisabledKeys()">删除自动禁用密钥</button>
+                            <button class="btn btn-sm btn-outline-info" onclick="cleanupKeyStats()">🧹 清理过期统计</button>
                         </div>
                     </div>
                     
                     <!-- 密钥表格 -->
-                    <div style="flex: 1; overflow-y: auto;">
-                        <table class="table" style="width: 100%;">
-                            <thead style="position: sticky; top: 0; background: var(--container-bg, white); z-index: 1;">
+                    <div class="key-table-container">
+                        <table class="table key-table">
+                            <thead>
                                 <tr>
-                                    <th style="width: 60px;">索引</th>
-                                    <th style="min-width: 300px;">密钥</th>
-                                    <th style="width: 80px;">状态</th>
-                                    <th>禁用原因</th>
-                                    <th>禁用时间</th>
-                                    <th style="width: 80px; text-align: right;">操作</th>
+                                    <th class="key-col-index">索引</th>
+                                    <th class="key-col-key">密钥</th>
+                                    <th class="key-col-status">状态</th>
+                                    <th class="key-col-reason">禁用原因</th>
+                                    <th class="key-col-time">禁用时间</th>
+                                    <th class="key-col-action">操作</th>
                                 </tr>
                             </thead>
                             <tbody id="keyManagementTableBody">
@@ -2479,21 +3341,20 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     </div>
                     
                     <!-- 分页 -->
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-top: 1px solid var(--border-color, #e1e4e8); flex-wrap: wrap; gap: 10px;">
-                        <span style="color: var(--text-secondary, #666); font-size: 13px;">显示第 <span id="keyPageStart">1</span> 条-第 <span id="keyPageEnd">10</span> 条，共 <span id="keyPageTotal">0</span> 条</span>
-                        <div style="display: flex; align-items: center; gap: 8px;">
+                    <div class="key-pagination">
+                        <span class="key-pagination-info">显示第 <span id="keyPageStart">1</span> 条-第 <span id="keyPageEnd">10</span> 条，共 <span id="keyPageTotal">0</span> 条</span>
+                        <div class="key-pagination-controls">
                             <button class="pagination-btn" id="keyPrevPage" onclick="changeKeyPage(-1)">&lt;</button>
-                            <span id="keyCurrentPage" style="padding: 6px 12px; background: #4285f4; color: white; border-radius: 4px;">1</span>
+                            <span id="keyCurrentPage" class="key-pagination-current">1</span>
                             <button class="pagination-btn" id="keyNextPage" onclick="changeKeyPage(1)">&gt;</button>
-                            <span style="margin-left: 10px;">每页条数:</span>
-                            <select id="keyPageSize" class="filter-select" onchange="loadKeyManagementModal()" style="padding: 4px 8px;">
+                            <span class="key-pagination-label">每页条数:</span>
+                            <select id="keyPageSize" class="filter-select" onchange="loadKeyManagementModal()">
                                 <option value="10">10</option>
                                 <option value="20">20</option>
                                 <option value="50">50</option>
                             </select>
-                            <span style="margin-left: 10px;">跳至</span>
-                            <input type="number" id="keyJumpPage" style="width: 50px; padding: 4px; border: 1px solid #ddd; border-radius: 4px;" min="1" onchange="jumpToKeyPage()">
-                            <span>页</span>
+                            <span class="key-pagination-label">跳至</span>
+                            <input type="number" id="keyJumpPage" class="key-pagination-input" min="1" onchange="jumpToKeyPage()">
                         </div>
                     </div>
                 </div>
@@ -2540,8 +3401,8 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
 
                 <div class="manage-actions">
                     <button class="refresh-btn" onclick="refreshUsageStats()">刷新统计</button>
-                    <button class="btn" onclick="checkInvalidKeys()" style="background:#6c757d">检查失效密钥</button>
-                    <button class="btn" onclick="deleteInvalidKeys()" style="background:#dc3545">移除失效密钥数据</button>
+                    <button class="btn btn-sm" onclick="checkInvalidKeys()" style="background:#6c757d">检查失效密钥</button>
+                    <button class="btn btn-sm" onclick="deleteInvalidKeys()" style="background:#dc3545">移除失效密钥数据</button>
                 </div>
 
                 <div class="config-group">
@@ -2971,7 +3832,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 <!-- 已登录区域 -->
                 <div id="accountLoggedInSection" class="hidden">
                     <!-- 子标签页导航 -->
-                    <div style="display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;">
+                    <div class="account-sub-tabs">
                         <button class="btn btn-sm" id="accountSubTabOverview" onclick="switchAccountSubTab('overview')" style="background: #4285f4;">概览</button>
                         <button class="btn btn-sm" id="accountSubTabUsage" onclick="switchAccountSubTab('usage')" style="background: #6c757d;">使用量</button>
                         <button class="btn btn-sm" id="accountSubTabCost" onclick="switchAccountSubTab('cost')" style="background: #6c757d;">成本</button>
@@ -3118,6 +3979,21 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             html.setAttribute('data-theme', newTheme);
             localStorage.setItem('theme', newTheme);
             updateThemeButton(newTheme);
+            
+            // 重新渲染使用动态颜色的组件
+            refreshThemeAwareComponents();
+        }
+        
+        // 刷新需要响应主题变化的组件
+        function refreshThemeAwareComponents() {
+            // 刷新模型配置标签
+            if (typeof renderSelectedModelsChips === 'function') {
+                renderSelectedModelsChips();
+            }
+            // 刷新使用统计卡片（如果已加载）
+            if (typeof renderUsageList === 'function' && usageStatsData && Object.keys(usageStatsData).length > 0) {
+                renderUsageList(usageStatsData);
+            }
         }
 
         function updateThemeButton(theme) {
@@ -3146,28 +4022,38 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             if (!themeToggle) return;
 
             let isDragging = false;
+            let hasMoved = false;
             let startX, startY;
             let initialX, initialY;
-            let clickStartTime;
-            const CLICK_THRESHOLD = 200; // 200ms内的操作视为点击
-            const MOVE_THRESHOLD = 5; // 移动5px以上才视为拖动
+            let clickStartTime = 0;
+            const CLICK_THRESHOLD = 300; // 300ms内的操作视为点击
+            const MOVE_THRESHOLD = 8; // 移动8px以上才视为拖动
 
-            // 从 localStorage 加载位置
-            const savedPosition = localStorage.getItem('themeTogglePosition');
-            if (savedPosition) {
-                try {
-                    const { top, right, bottom, left } = JSON.parse(savedPosition);
-                    if (top !== null) themeToggle.style.top = top + 'px';
-                    if (right !== null) themeToggle.style.right = right + 'px';
-                    if (bottom !== null) themeToggle.style.bottom = bottom + 'px';
-                    if (left !== null) themeToggle.style.left = left + 'px';
-                } catch (e) {
-                    console.error('Failed to load theme toggle position:', e);
+            // 检测是否为移动设备
+            const isMobile = window.innerWidth <= 768;
+
+            // 从 localStorage 加载位置 (仅桌面端)
+            if (!isMobile) {
+                const savedPosition = localStorage.getItem('themeTogglePosition');
+                if (savedPosition) {
+                    try {
+                        const { top, right, bottom, left } = JSON.parse(savedPosition);
+                        if (top !== null) themeToggle.style.top = top + 'px';
+                        if (right !== null) themeToggle.style.right = right + 'px';
+                        if (bottom !== null) themeToggle.style.bottom = bottom + 'px';
+                        if (left !== null) themeToggle.style.left = left + 'px';
+                    } catch (e) {
+                        console.error('Failed to load theme toggle position:', e);
+                    }
                 }
             }
 
             function startDrag(e) {
+                // 移动端禁用拖动
+                if (window.innerWidth <= 768) return;
+                
                 clickStartTime = Date.now();
+                hasMoved = false;
                 const touch = e.type.includes('touch') ? e.touches[0] : e;
                 startX = touch.clientX;
                 startY = touch.clientY;
@@ -3183,6 +4069,8 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             }
 
             function onDrag(e) {
+                if (window.innerWidth <= 768) return;
+                
                 const touch = e.type.includes('touch') ? e.touches[0] : e;
                 const deltaX = touch.clientX - startX;
                 const deltaY = touch.clientY - startY;
@@ -3190,6 +4078,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 // 判断是否超过移动阈值
                 if (!isDragging && (Math.abs(deltaX) > MOVE_THRESHOLD || Math.abs(deltaY) > MOVE_THRESHOLD)) {
                     isDragging = true;
+                    hasMoved = true;
                     themeToggle.classList.add('dragging');
                 }
 
@@ -3215,13 +4104,9 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 if (isDragging) {
                     themeToggle.classList.remove('dragging');
                     snapToEdge();
-                } else {
-                    // 如果没有拖动且时间很短，视为点击
-                    const clickDuration = Date.now() - clickStartTime;
-                    if (clickDuration < CLICK_THRESHOLD) {
-                        toggleTheme();
-                    }
+                    hasMoved = true; // 标记为已移动，阻止click事件
                 }
+                // 注意：不在这里调用toggleTheme()，由click事件统一处理
                 
                 // 重置拖动状态
                 isDragging = false;
@@ -3297,20 +4182,18 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 }, 300);
             }
 
+            // 桌面端添加拖动事件
             themeToggle.addEventListener('mousedown', startDrag);
-            themeToggle.addEventListener('touchstart', startDrag);
             
-            // 为移动端添加额外的点击处理（作为备用）
+            // 所有设备都支持直接点击切换主题
             themeToggle.addEventListener('click', (e) => {
-                // 如果是触摸设备且没有拖动，确保切换主题
-                if ('ontouchstart' in window) {
-                    const clickDuration = Date.now() - clickStartTime;
-                    if (!isDragging && clickDuration < CLICK_THRESHOLD) {
-                        e.preventDefault();
-                        toggleTheme();
-                    }
+                // 如果发生了拖动，不触发点击
+                if (hasMoved) {
+                    hasMoved = false;
+                    return;
                 }
-            }, { passive: false });
+                toggleTheme();
+            });
         })();
 
         // 分页和筛选相关变量
@@ -5763,8 +6646,15 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             let kHtml = '<table class="table"><thead><tr><th>密钥</th><th>成功</th><th>失败</th><th>模型分布</th></tr></thead><tbody>';
             Object.entries(keys).forEach(([kk,v])=>{
                 const md = v.models||{};
-                const mdStr = Object.entries(md).map(([m,c])=>`${m}: ${c.ok||0}/${c.fail||0}`).join(', ');
-                kHtml += `<tr><td>${kk}</td><td>${v.ok||0}</td><td>${v.fail||0}</td><td>${mdStr}</td></tr>`;
+                // 按调用次数排序
+                const sortedModels = Object.entries(md)
+                    .map(([m, c]) => ({ model: m, ok: c.ok || 0, fail: c.fail || 0, total: (c.ok || 0) + (c.fail || 0) }))
+                    .sort((a, b) => b.total - a.total);
+                const mdHtml = sortedModels.map(item => {
+                    const cat = getModelCategory(item.model);
+                    return `<span class="model-tag model-tag-${cat}" style="font-size:11px; padding:2px 6px; margin:1px;">${item.model}: ${item.ok}/${item.fail}</span>`;
+                }).join('');
+                kHtml += `<tr><td>${kk}</td><td>${v.ok||0}</td><td>${v.fail||0}</td><td style="display:flex; flex-wrap:wrap; gap:2px;">${mdHtml || '-'}</td></tr>`;
             });
             kHtml += '</tbody></table>';
             mDiv.innerHTML = mHtml;
@@ -5783,24 +6673,25 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             entries.sort((a,b)=> b.count - a.count);
             const max = Math.max(1, ...entries.map(e=> e.count));
             const total = entries.reduce((sum,e)=> sum + e.count, 0);
-            let html = `<div class="ranking-header"><div>模型调用次数排行</div><div style="font-size:12px; color:#666;">总计: ${total}</div></div>`;
+            let html = `<div class="ranking-header"><div>模型调用次数排行</div><div style="font-size:12px; color:var(--text-secondary);">总计: ${total}</div></div>`;
             html += `<div class="legend"><div><span class="success-dot"></span>成功</div><div><span class="fail-dot"></span>失败</div></div>`;
             html += `<div class="ranking-list">`;
             entries.forEach(e=>{
-                const totalWidth = Math.round((e.count / max) * 100);
-                let okW = 0, failW = 0;
+                // 进度条宽度相对于最大值
+                const barWidth = Math.round((e.count / max) * 100);
+                // 成功/失败比例是相对于自身的总数
+                let okPercent = 0, failPercent = 0;
                 if (only === 'success') {
-                    okW = totalWidth;
-                    failW = 0;
+                    okPercent = 100;
+                    failPercent = 0;
                 } else if (only === 'fail') {
-                    okW = 0;
-                    failW = totalWidth;
+                    okPercent = 0;
+                    failPercent = 100;
                 } else {
-                    const ratio = e.count ? (e.ok / e.count) : 0;
-                    okW = Math.round(totalWidth * ratio);
-                    failW = totalWidth - okW;
+                    okPercent = e.count ? Math.round((e.ok / e.count) * 100) : 0;
+                    failPercent = 100 - okPercent;
                 }
-                html += `<div class="ranking-item"><div class="ranking-label" title="${e.name}">${e.name}</div><div class="ranking-bar"><div class="ranking-bar-success" style="width:${okW}%"></div><div class="ranking-bar-fail" style="width:${failW}%; left:${okW}%"></div></div><div class="ranking-count">${e.count}</div></div>`;
+                html += `<div class="ranking-item"><div class="ranking-label" title="${e.name}">${e.name}</div><div class="ranking-bar" style="width:${barWidth}%"><div class="ranking-bar-success" style="width:${okPercent}%"></div><div class="ranking-bar-fail" style="width:${failPercent}%; left:${okPercent}%"></div></div><div class="ranking-count">${e.count}</div></div>`;
             });
             html += `</div>`;
             const container = document.getElementById('modelRanking');
@@ -7080,15 +7971,16 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 if (data.logged_in) {
                     document.getElementById('accountLoginSection').classList.add('hidden');
                     document.getElementById('accountLoggedInSection').classList.remove('hidden');
-                    // 并发预加载所有子页数据（不阻塞，写入缓存），提升切换体验
-                    Promise.all([
-                        loadAccountOverview(false),
-                        loadAccountUsage(false),
-                        loadAccountCost(false),
-                        loadAccountRates(false)
-                    ]).catch(e => console.error('Failed to preload account data:', e));
-                    // 默认显示概览
+                    // 默认显示概览（立即显示，不等待预加载）
                     switchAccountSubTab('overview');
+                    // 后台并发预加载其他子页数据（不阻塞当前页面）
+                    setTimeout(() => {
+                        Promise.all([
+                            loadAccountUsage(false),
+                            loadAccountCost(false),
+                            loadAccountRates(false)
+                        ]).catch(e => console.error('Failed to preload account data:', e));
+                    }, 500); // 延迟500ms再预加载，优先保证当前页面响应
                 } else {
                     document.getElementById('accountLoginSection').classList.remove('hidden');
                     document.getElementById('accountLoggedInSection').classList.add('hidden');
@@ -7177,20 +8069,32 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     loadAccountBilling();
                 }
             } else if (tabName === 'usage') {
-                // 优先使用缓存
+                // 优先使用缓存，即使不完整也先显示
                 const el = document.getElementById('accountUsageContent');
-                const cacheKey = 'default';
-                if (el && accountCache.usage[cacheKey] && accountCache.usage[cacheKey].html && isFresh(accountCache.usage[cacheKey].ts)) {
-                    el.innerHTML = accountCache.usage[cacheKey].html;
+                const cacheKey = 'summary';
+                const cached = accountCache.usage[cacheKey];
+                if (el && cached && cached.html && isFresh(cached.ts)) {
+                    // 先显示缓存内容（即使不完整）
+                    el.innerHTML = cached.html;
+                    // 如果数据不完整，在后台静默刷新
+                    if (!cached.complete) {
+                        loadAccountUsage(true, true); // force=true, silent=true
+                    }
                 } else {
                     loadAccountUsage();
                 }
             } else if (tabName === 'cost') {
-                // 优先使用缓存
+                // 优先使用缓存，即使不完整也先显示
                 const el = document.getElementById('accountCostContent');
-                const cacheKey = 'default';
-                if (el && accountCache.cost[cacheKey] && accountCache.cost[cacheKey].html && isFresh(accountCache.cost[cacheKey].ts)) {
-                    el.innerHTML = accountCache.cost[cacheKey].html;
+                const cacheKey = 'summary';
+                const cached = accountCache.cost[cacheKey];
+                if (el && cached && cached.html && isFresh(cached.ts)) {
+                    // 先显示缓存内容（即使不完整）
+                    el.innerHTML = cached.html;
+                    // 如果数据不完整，在后台静默刷新
+                    if (!cached.complete) {
+                        loadAccountCost(true, true); // force=true, silent=true
+                    }
                 } else {
                     loadAccountCost();
                 }
@@ -7431,13 +8335,13 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             return `window_size=${window_size}`;
         }
 
-        async function loadAccountUsage(force = false) {
+        async function loadAccountUsage(force = false, silent = false) {
             const el = document.getElementById('accountUsageContent');
             if (!el) return;
             const key = 'summary';
             
             // 强制刷新时清除缓存
-            if (force) {
+            if (force && !silent) {
                 delete accountCache.usage[key];
             }
             
@@ -7448,7 +8352,10 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     return;
                 }
             }
-            el.innerHTML = '<div class="loading">加载中...</div>';
+            // 静默模式不显示加载中
+            if (!silent) {
+                el.innerHTML = '<div class="loading">加载中...</div>';
+            }
             try {
                 // 强制刷新时添加force参数和时间戳防止缓存
                 const timestamp = Date.now();
@@ -7505,22 +8412,22 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     html += '</div>';
                     html += '</div>';
 
-                    html += '<div style="padding: 16px; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color);">';
+                    html += '<div class="usage-card" style="padding: 16px; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color);">';
                     html += '<h4 style="margin-bottom: 12px; color: var(--text-color);">按模型分类</h4>';
                     groups.forEach(function(group){
                         html += '<div style="font-weight:600; color: var(--text-secondary); margin:8px 0;">' + group.vendor + '</div>';
                         group.items.forEach(function(item){
                             const color = colorMap[item.model];
                             const percentage = totalTokens > 0 ? ((item.tokens / totalTokens) * 100).toFixed(1) : 0;
-                            html += '<div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-color);">';
-                            html += '<div style="display: flex; align-items: center; flex: 1;">';
-                            html += '<span style="width: 12px; height: 12px; border-radius: 50%; background: ' + color + '; margin-right: 8px; flex-shrink: 0;"></span>';
-                            html += '<span style="word-break: break-word; color: var(--text-color);">' + item.model + '</span>';
+                            html += '<div class="usage-model-row">';
+                            html += '<div class="usage-model-info">';
+                            html += '<span class="usage-model-dot" style="background: ' + color + ';"></span>';
+                            html += '<span class="usage-model-name">' + item.model + '</span>';
                             html += '</div>';
-                            html += '<div style="text-align: right; margin-left: 12px; white-space: nowrap;">';
-                            html += '<span style="font-weight: bold; color: var(--text-color);">' + item.tokens.toLocaleString() + '</span>';
-                            html += '<span style="color: var(--text-secondary); margin-left: 4px;">tokens</span>';
-                            html += '<span style="color: var(--text-muted); margin-left: 8px;">(' + percentage + '%)</span>';
+                            html += '<div class="usage-model-stats">';
+                            html += '<span class="usage-model-tokens">' + item.tokens.toLocaleString() + '</span>';
+                            html += '<span class="usage-model-unit">tokens</span>';
+                            html += '<span class="usage-model-percent">(' + percentage + '%)</span>';
                             html += '</div>';
                             html += '</div>';
                         });
@@ -7534,7 +8441,10 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     });
                     html += '</tbody></table>';
                     html += '</div>';
-                } else if (totalTokens === 0) {
+                } else if (totalTokens > 0) {
+                    // 有总量但没有详细数据
+                    html += '<div class="status warning">详细使用量数据正在加载中，请稍候或点击刷新按钮重试...</div>';
+                } else {
                     html += '<div class="status info">暂无使用量数据，请稍后刷新重试</div>';
                 }
                 
@@ -7551,29 +8461,40 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 
                 html += '</div>';
                 
-                // 只有在数据完整时才缓存（有by_model或items数据）
-                if (hasModelData || hasItemsData || totalTokens > 0) {
-                    accountCache.usage[key] = { ts: Date.now(), html };
-                    console.log('Usage data cached successfully');
+                // 只有在数据完整时才缓存（必须有by_model数据，不能只有总量）
+                const isComplete = hasModelData || hasItemsData;
+                if (isComplete) {
+                    accountCache.usage[key] = { ts: Date.now(), html, complete: true };
+                    console.log('Usage data cached successfully (complete)');
+                } else if (totalTokens > 0) {
+                    // 有总量但没有详细数据，缓存但标记为不完整，30秒后自动重试
+                    accountCache.usage[key] = { ts: Date.now(), html, complete: false };
+                    console.warn('Usage data incomplete (only total), will retry');
+                    // 30秒后自动静默重试获取完整数据
+                    setTimeout(() => {
+                        if (currentAccountSubTab === 'usage') {
+                            loadAccountUsage(true, true); // 静默刷新
+                        }
+                    }, 30000);
                 } else {
-                    console.warn('Usage data incomplete, not caching');
+                    console.warn('Usage data empty, not caching');
                 }
                 
                 el.innerHTML = html;
             } catch (e) {
                 console.error('Failed to load usage:', e);
-                el.innerHTML = '<div class="status error">加载失败: ' + e.message + '<br><button class="btn btn-sm" onclick="loadAccountUsage()" style="margin-top: 8px;">重试</button></div>';
+                el.innerHTML = '<div class="status error">加载失败: ' + e.message + '<br><button class="btn btn-sm" onclick="loadAccountUsage(true)" style="margin-top: 8px;">重试</button></div>';
             }
         }
 
         // 加载成本数据
-        async function loadAccountCost(force = false) {
+        async function loadAccountCost(force = false, silent = false) {
             const el = document.getElementById('accountCostContent');
             if (!el) return;
             const key = 'summary';
             
-            // 强制刷新时清除缓存
-            if (force) {
+            // 强制刷新时清除缓存（非静默模式）
+            if (force && !silent) {
                 delete accountCache.cost[key];
             }
             
@@ -7584,7 +8505,10 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     return;
                 }
             }
-            el.innerHTML = '<div class="loading">加载中...</div>';
+            // 静默模式不显示加载中
+            if (!silent) {
+                el.innerHTML = '<div class="loading">加载中...</div>';
+            }
             try {
                 // 强制刷新时添加force参数和时间戳防止缓存
                 const timestamp = Date.now();
@@ -7659,10 +8583,10 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 
                 if (hasModelCostData) {
                     hasAnyData = true;
-                    html += '<div style="padding: 16px; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color);">';
+                    html += '<div class="cost-card" style="padding: 16px; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color);">';
                     html += '<h4 style="margin-bottom: 12px; color: var(--text-color);">按模型分类</h4>';
-                    html += '<div style="overflow-x: auto;">';
-                    html += '<table class="table" style="width: 100%; min-width: 360px;"><thead><tr><th style="color: var(--text-color);">模型</th><th style="color: var(--text-color);">输入成本</th><th style="color: var(--text-color);">输出成本</th><th style="color: var(--text-color);">总成本</th></tr></thead><tbody>';
+                    html += '<div class="cost-table-wrap">';
+                    html += '<table class="table cost-model-table"><thead><tr><th style="color: var(--text-color);">模型</th><th style="color: var(--text-color);">输入成本</th><th style="color: var(--text-color);">输出成本</th><th style="color: var(--text-color);">总成本</th></tr></thead><tbody>';
                     data.by_model.forEach(function(item) {
                         html += '<tr><td style="color: var(--text-color);">' + (item.model || '-') + '</td><td style="color: var(--text-color);">$' + (item.input_cost || 0).toFixed(5) + '</td><td style="color: var(--text-color);">$' + (item.output_cost || 0).toFixed(5) + '</td><td style="color: var(--text-color);">$' + (item.cost || 0).toFixed(5) + '</td></tr>';
                     });
@@ -7672,9 +8596,9 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 }
                 if (hasItemsCostData) {
                     hasAnyData = true;
-                    html += '<div style="padding: 16px; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color);">';
-                    html += '<div style="overflow-x: auto;">';
-                    html += '<table class="table" style="width: 100%; min-width: 420px;"><thead><tr><th style="color: var(--text-color);">日期</th><th style="color: var(--text-color);">模型</th><th style="color: var(--text-color);">输入成本</th><th style="color: var(--text-color);">输出成本</th><th style="color: var(--text-color);">总成本</th></tr></thead><tbody>';
+                    html += '<div class="cost-card" style="padding: 16px; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color);">';
+                    html += '<div class="cost-table-wrap">';
+                    html += '<table class="table cost-items-table"><thead><tr><th style="color: var(--text-color);">日期</th><th style="color: var(--text-color);">模型</th><th style="color: var(--text-color);">输入成本</th><th style="color: var(--text-color);">输出成本</th><th style="color: var(--text-color);">总成本</th></tr></thead><tbody>';
                     data.items.forEach(function(item) {
                         html += '<tr><td style="color: var(--text-color);">' + (item.date || '-') + '</td><td style="color: var(--text-color);">' + (item.model || '-') + '</td><td style="color: var(--text-color);">$' + (item.input_cost || 0).toFixed(5) + '</td><td style="color: var(--text-color);">$' + (item.output_cost || 0).toFixed(5) + '</td><td style="color: var(--text-color);">$' + (item.cost || 0).toFixed(5) + '</td></tr>';
                     });
@@ -7699,18 +8623,29 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 
                 html += '</div>';
                 
-                // 只有在数据完整时才缓存（有by_model或by_service数据）
-                if (hasModelCostData || (data.by_service && data.by_service.length > 0) || totalCost > 0) {
-                    accountCache.cost[key] = { ts: Date.now(), html };
-                    console.log('Cost data cached successfully, by_model count:', data.by_model ? data.by_model.length : 0);
+                // 只有在数据完整时才缓存（必须有by_model或by_service详细数据）
+                const isComplete = hasModelCostData || (data.by_service && data.by_service.length > 0);
+                if (isComplete) {
+                    accountCache.cost[key] = { ts: Date.now(), html, complete: true };
+                    console.log('Cost data cached successfully (complete), by_model count:', data.by_model ? data.by_model.length : 0);
+                } else if (totalCost > 0) {
+                    // 有总成本但没有详细数据，缓存但标记为不完整
+                    accountCache.cost[key] = { ts: Date.now(), html, complete: false };
+                    console.warn('Cost data incomplete (only total), will retry');
+                    // 30秒后自动重试
+                    setTimeout(() => {
+                        if (currentAccountSubTab === 'cost') {
+                            loadAccountCost(true);
+                        }
+                    }, 30000);
                 } else {
-                    console.warn('Cost data incomplete, not caching');
+                    console.warn('Cost data empty, not caching');
                 }
                 
                 el.innerHTML = html;
             } catch (e) {
                 console.error('Failed to load cost:', e);
-                el.innerHTML = '<div class="status error">加载失败: ' + e.message + '<br><button class="btn btn-sm" onclick="loadAccountCost()" style="margin-top: 8px;">重试</button></div>';
+                el.innerHTML = '<div class="status error">加载失败: ' + e.message + '<br><button class="btn btn-sm" onclick="loadAccountCost(true)" style="margin-top: 8px;">重试</button></div>';
             }
         }
         // 导出成本数据
@@ -7777,14 +8712,14 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                         function vendor(n){ const s=(n||'').toLowerCase(); if(s.includes('gpt'))return 0; if(s.includes('claude'))return 1; if(s.includes('gemini'))return 2; return 3; }
                         const v = vendor(a.model)-vendor(b.model); if(v!==0) return v; return (b.out||0)-(a.out||0);
                     });
-                    html += '<div style="padding: 16px; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color);">';
+                    html += '<div class="rates-card" style="padding: 16px; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color);">';
                     html += '<h5 style="color: var(--text-color);">LLM Gateway</h5>';
-                    html += '<div style="overflow-x:auto; -webkit-overflow-scrolling: touch;">';
-                    html += '<table class="table rates-table" style="width: 100%;"><thead><tr><th style="min-width: 120px;">模型</th><th style="min-width: 60px;">输入</th><th style="min-width: 60px;">输出</th><th style="min-width: 50px;">单位</th></tr></thead><tbody>';
+                    html += '<div class="rates-table-wrap">';
+                    html += '<table class="table rates-table"><thead><tr><th>模型</th><th>输入</th><th>输出</th><th class="rates-unit-col">单位</th></tr></thead><tbody>';
                     rows.forEach(r => {
                         const inTxt = r.inDisplay || '-';
                         const outTxt = r.outDisplay || '-';
-                        html += `<tr><td style="word-break: break-word; max-width: 200px;">${r.model}</td><td style="white-space: nowrap;">${inTxt}</td><td style="white-space: nowrap;">${outTxt}</td><td style="white-space: nowrap;">${r.unit||'-'}</td></tr>`;
+                        html += `<tr><td>${r.model}</td><td>${inTxt}</td><td>${outTxt}</td><td class="rates-unit-col">${r.unit||'-'}</td></tr>`;
                     });
                     html += '</tbody></table>';
                     html += '</div>';
@@ -7793,7 +8728,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 
                 // Speech-to-Text
                 if (data.speech_to_text && data.speech_to_text.length > 0) {
-                    html += '<div style="padding: 16px; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color);"><h5 style="color: var(--text-color);">Speech-to-Text</h5><table class="table" style="width: 100%;"><thead><tr><th>模型</th><th>费率</th></tr></thead><tbody>';
+                    html += '<div class="rates-card" style="padding: 16px; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color);"><h5 style="color: var(--text-color);">Speech-to-Text</h5><table class="table rates-simple-table"><thead><tr><th>模型</th><th>费率</th></tr></thead><tbody>';
                     data.speech_to_text.forEach(item => {
                         html += `<tr><td>${item.model}${item.beta ? ' <span style="color: #ffc107; font-size: 11px;">Beta</span>' : ''}</td><td>$${item.rate} / ${item.unit}</td></tr>`;
                     });
@@ -7802,7 +8737,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 
                 // Streaming
                 if (data.streaming && data.streaming.length > 0) {
-                    html += '<div style="padding: 16px; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color);"><h5 style="color: var(--text-color);">Streaming</h5><table class="table" style="width: 100%;"><thead><tr><th>模型</th><th>费率</th></tr></thead><tbody>';
+                    html += '<div class="rates-card" style="padding: 16px; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color);"><h5 style="color: var(--text-color);">Streaming</h5><table class="table rates-simple-table"><thead><tr><th>模型</th><th>费率</th></tr></thead><tbody>';
                     data.streaming.forEach(item => {
                         html += `<tr><td>${item.model}${item.beta ? ' <span style="color: #ffc107; font-size: 11px;">Beta</span>' : ''}</td><td>$${item.rate} / ${item.unit}</td></tr>`;
                     });

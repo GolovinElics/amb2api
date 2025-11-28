@@ -343,16 +343,59 @@ async def fake_stream_response_for_assembly(openai_request: ChatCompletionReques
             # response 已在上面获取
             
             # 处理结果
-            if hasattr(response, 'body'):
-                body_str = response.body.decode() if isinstance(response.body, bytes) else str(response.body)
+            # JSONResponse 的内容存储在 body 属性中（bytes）
+            if isinstance(response, JSONResponse):
+                # JSONResponse 的 body 是 bytes，需要解码
+                body_str = response.body.decode('utf-8') if isinstance(response.body, bytes) else str(response.body)
+            elif hasattr(response, 'body'):
+                body_str = response.body.decode('utf-8') if isinstance(response.body, bytes) else str(response.body)
             elif hasattr(response, 'content'):
-                body_str = response.content.decode() if isinstance(response.content, bytes) else str(response.content)
+                body_str = response.content.decode('utf-8') if isinstance(response.content, bytes) else str(response.content)
+            elif hasattr(response, 'text'):
+                body_str = response.text
             else:
                 body_str = str(response)
             
             try:
                 response_data = json.loads(body_str)
                 log.debug(f"Parsed response data: {json.dumps(response_data, ensure_ascii=False)[:500]}...")
+
+                # 检查是否是错误响应
+                if "error" in response_data:
+                    error_info = response_data["error"]
+                    error_message = error_info.get("message", "Unknown error")
+                    error_type = error_info.get("type", "error")
+                    error_code = error_info.get("code", "")
+                    
+                    log.warning(f"Error response in fake stream: {error_message} (type: {error_type}, code: {error_code})")
+                    
+                    # 构建用户友好的错误消息
+                    user_message = error_message
+                    if error_code == "no_available_keys":
+                        user_message = "所有 API 密钥已被禁用，无法处理请求。请在管理面板中启用至少一个密钥。"
+                    elif error_type == "invalid_request_error":
+                        user_message = f"请求错误: {error_message}"
+                    elif error_type == "api_error":
+                        user_message = f"API 错误: {error_message}"
+                    
+                    # 以流式格式返回错误信息（符合 OpenAI 格式）
+                    error_chunk = {
+                        "id": str(uuid.uuid4()),
+                        "object": "chat.completion.chunk",
+                        "created": int(time.time()),
+                        "model": openai_request.model,
+                        "choices": [{
+                            "index": 0,
+                            "delta": {
+                                "role": "assistant",
+                                "content": user_message
+                            },
+                            "finish_reason": "stop"
+                        }]
+                    }
+                    yield f"data: {json.dumps(error_chunk, ensure_ascii=False)}\n\n".encode()
+                    yield b"data: [DONE]\n\n"
+                    return
 
                 # 从响应中提取内容和工具调用
                 content = ""

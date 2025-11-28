@@ -168,10 +168,12 @@ async def _next_key_index_async(n: int) -> int:
     1. 使用 KeySelector 进行智能选择
     2. 考虑速率限制状态
     3. 考虑轮换策略
-    4. 失败记录会在 60 秒后自动清除
+    4. 考虑密钥禁用状态
+    5. 失败记录会在 60 秒后自动清除
     """
     import time
     from .models_key import KeyInfo, KeyStatus
+    from .key_manager import get_key_manager
     
     current_time = time.time()
     
@@ -180,18 +182,28 @@ async def _next_key_index_async(n: int) -> int:
     for k in expired_keys:
         del _failed_keys[k]
     
-    # 获取速率限制管理器和密钥选择器
+    # 获取速率限制管理器、密钥选择器和密钥管理器
     try:
         rate_limiter = await get_rate_limiter()
         key_selector = get_key_selector()
+        key_manager = await get_key_manager()
     except Exception as e:
-        log.warning(f"Failed to get rate limiter or key selector, falling back to sync selection: {e}")
+        log.warning(f"Failed to get rate limiter, key selector or key manager, falling back to sync selection: {e}")
         return _next_key_index(n)
     
     # 同步失败记录到 KeySelector
     for idx, fail_time in _failed_keys.items():
         if idx not in key_selector.get_failed_keys():
             await key_selector.mark_key_failed(idx, "sync from assembly_client")
+    
+    # 从 KeyManager 获取所有密钥信息（包含禁用状态）
+    try:
+        all_keys_info = await key_manager.get_all_keys()
+        # 构建索引到启用状态的映射
+        enabled_map = {key.index: key.enabled for key in all_keys_info}
+    except Exception as e:
+        log.warning(f"Failed to get key enabled status from KeyManager: {e}")
+        enabled_map = {}
     
     # 构建 KeyInfo 列表
     keys = []
@@ -200,12 +212,23 @@ async def _next_key_index_async(n: int) -> int:
         is_exhausted = await rate_limiter.is_key_exhausted(i)
         status = KeyStatus.EXHAUSTED if is_exhausted else KeyStatus.ACTIVE
         
+        # 从 KeyManager 获取实际的禁用状态，默认为启用
+        is_enabled = enabled_map.get(i, True)
+        
         keys.append(KeyInfo(
             index=i,
             key=f"key_{i}",  # 占位符
-            enabled=True,
+            enabled=is_enabled,
             status=status
         ))
+    
+    # 获取所有启用的密钥索引（用于后续回退逻辑）
+    enabled_indices = [i for i in range(n) if enabled_map.get(i, True)]
+    
+    # 如果没有启用的密钥，返回 -1 表示无可用密钥
+    if not enabled_indices:
+        log.error("No enabled keys available - all keys are disabled")
+        return -1  # 特殊值表示无可用密钥
     
     # 使用 KeySelector 选择密钥
     selected = await key_selector.select_next_key(keys)
@@ -221,20 +244,20 @@ async def _next_key_index_async(n: int) -> int:
                 return next_selected.index
         return selected.index
     
-    # 所有 Key 都用尽或失败，尝试找最早重置的
-    all_indices = list(range(n))
-    next_available = await rate_limiter.get_next_available_key(all_indices)
+    # 所有启用的 Key 都用尽或失败，尝试找最早重置的（只考虑启用的密钥）
+    next_available = await rate_limiter.get_next_available_key(enabled_indices)
     if next_available is not None:
         return next_available
     
-    # 回退到失败时间最早的
-    if _failed_keys:
-        oldest_idx = min(_failed_keys.keys(), key=lambda k: _failed_keys[k])
+    # 回退到失败时间最早的（只考虑启用的密钥）
+    enabled_failed = {k: v for k, v in _failed_keys.items() if k in enabled_indices}
+    if enabled_failed:
+        oldest_idx = min(enabled_failed.keys(), key=lambda k: enabled_failed[k])
         return oldest_idx
     
-    # 最后回退到 Round-Robin
+    # 最后回退到 Round-Robin（只在启用的密钥中选择）
     i = next(_rr_counter)
-    return i % n
+    return enabled_indices[i % len(enabled_indices)]
 
 def _mark_key_failed(idx: int):
     """标记 Key 失败"""
@@ -485,6 +508,23 @@ async def send_assembly_request(
     retry_enabled = await get_retry_429_enabled()
     retry_interval = await get_retry_429_interval()
 
+    # 在重试循环前检查是否有可用的密钥
+    from fastapi.responses import JSONResponse
+    precheck_idx = await _next_key_index_async(len(keys))
+    if precheck_idx < 0 or precheck_idx >= len(keys):
+        log.error("No enabled API keys available - all keys are disabled or invalid")
+        # 返回符合 OpenAI 格式的错误响应
+        return JSONResponse(
+            content={
+                "error": {
+                    "message": "No enabled API keys available. All keys have been disabled.",
+                    "type": "invalid_request_error",
+                    "code": "no_available_keys"
+                }
+            },
+            status_code=503
+        )
+
     post_data = json.dumps(payload)
 
     for attempt in range(max_retries + 1):
@@ -492,6 +532,21 @@ async def send_assembly_request(
             async with http_client.get_client(timeout=None) as client:
                 # 使用异步密钥选择（集成速率限制检查）
                 idx = await _next_key_index_async(len(keys))
+                
+                # 再次检查（防止在重试过程中所有密钥都被禁用）
+                if idx < 0 or idx >= len(keys):
+                    log.error("No enabled API keys available during retry - all keys are disabled or invalid")
+                    return JSONResponse(
+                        content={
+                            "error": {
+                                "message": "No enabled API keys available. All keys have been disabled.",
+                                "type": "invalid_request_error",
+                                "code": "no_available_keys"
+                            }
+                        },
+                        status_code=503
+                    )
+                
                 api_key = keys[idx]
                 headers = {"Authorization": api_key, "Content-Type": "application/json"}
                 
