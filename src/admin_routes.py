@@ -260,13 +260,34 @@ async def usage_aggregated(model: str = None, key: str = None, only: str = None,
         cfg_keys = await adapter.get_config("assembly_api_keys", [])
         if isinstance(cfg_keys, str):
             cfg_keys = [x.strip() for x in cfg_keys.replace("\n", ",").split(",") if x.strip()]
+        
+        # 创建脱敏密钥到完整密钥的映射
+        def mask_key(key: str) -> str:
+            """脱敏密钥，与 assembly_client.py 中的 _mask_key 保持一致"""
+            if not key:
+                return ""
+            k = str(key)
+            if len(k) <= 8:
+                return k[:2] + "***"
+            return k[:4] + "..." + k[-4:]
+        
+        masked_to_full = {mask_key(k): k for k in cfg_keys}
         cfg_set = set(cfg_keys or [])
-        # 只显示当前配置中的密钥
-        # 构造过滤后的 keys
+        
+        # 构造过滤后的 keys，将脱敏密钥映射回完整密钥
         filtered = {}
-        for kname, kv in keys.items():
-            if kname in cfg_set:
-                filtered[kname] = kv
+        for masked_key, kv in keys.items():
+            # 尝试找到对应的完整密钥
+            full_key = masked_to_full.get(masked_key)
+            if full_key:
+                # 使用完整密钥作为键，但保留脱敏密钥用于显示
+                kv["masked_key"] = masked_key
+                kv["display_key"] = masked_key
+                filtered[full_key] = kv
+            elif masked_key in cfg_set:
+                # 如果日志中的密钥本身就在配置中（不太可能，但保险起见）
+                filtered[masked_key] = kv
+        
         # 添加配置中的密钥（即使没有使用记录）
         for cfg_key in cfg_set:
             if cfg_key not in filtered:
@@ -274,9 +295,18 @@ async def usage_aggregated(model: str = None, key: str = None, only: str = None,
                     "ok": 0,
                     "fail": 0,
                     "models": {},
-                    "model_counts": {}
+                    "model_counts": {},
+                    "masked_key": mask_key(cfg_key),
+                    "display_key": mask_key(cfg_key)
                 }
         keys = filtered
+        
+        # 将 keys 字典的键从完整密钥改为脱敏密钥（用于前端显示）
+        display_keys = {}
+        for full_key, key_data in keys.items():
+            masked = key_data.get("masked_key") or key_data.get("display_key") or mask_key(full_key)
+            display_keys[masked] = key_data
+        keys = display_keys
         
         # 重新计算模型统计，只包含当前有效密钥使用的模型
         filtered_models = {}

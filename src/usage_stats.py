@@ -4,8 +4,8 @@ Uses the simpler logic: compare current time with next_reset_time.
 """
 import os
 import time
+import asyncio
 from datetime import datetime, timezone, timedelta
-from threading import Lock
 from typing import Dict, Any, Optional
 
 from config import get_credentials_dir, is_mongodb_mode
@@ -34,7 +34,7 @@ class UsageStats:
     """
     
     def __init__(self):
-        self._lock = Lock()
+        self._lock = asyncio.Lock()
         # 状态文件路径将在初始化时异步设置
         self._state_file = None
         self._state_manager = None
@@ -270,7 +270,7 @@ class UsageStats:
         if not self._initialized:
             await self.initialize()
         
-        with self._lock:
+        async with self._lock:
             try:
                 normalized_filename = self._normalize_filename(filename)
                 stats = self._get_or_create_stats(normalized_filename)
@@ -302,7 +302,7 @@ class UsageStats:
                     log.info(f"Daily quota was reset for {normalized_filename}")
                 
             except Exception as e:
-                log.error(f"Failed to record usage statistics: {e}")
+                log.error(f"Failed to record usage statistics: {e}", exc_info=True)
         
         # 同时记录到 StatsTracker（用于密钥级别统计）
         try:
@@ -330,7 +330,7 @@ class UsageStats:
         if not self._initialized:
             await self.initialize()
         
-        with self._lock:
+        async with self._lock:
             if filename:
                 normalized_filename = self._normalize_filename(filename)
                 stats = self._get_or_create_stats(normalized_filename)
@@ -394,7 +394,7 @@ class UsageStats:
         if not self._initialized:
             await self.initialize()
         
-        with self._lock:
+        async with self._lock:
             try:
                 normalized_filename = self._normalize_filename(filename)
                 stats = self._get_or_create_stats(normalized_filename)
@@ -420,7 +420,7 @@ class UsageStats:
         if not self._initialized:
             await self.initialize()
         
-        with self._lock:
+        async with self._lock:
             if filename:
                 normalized_filename = self._normalize_filename(filename)
                 if normalized_filename in self._stats_cache:

@@ -574,13 +574,15 @@ async def send_assembly_request(
                 except Exception as e:
                     log.debug(f"RES Details - Body: [Unable to decode: {e}]")
                 
-                try:
-                    if 200 <= resp.status_code < 400:
+                # 记录成功的调用统计
+                if 200 <= resp.status_code < 400:
+                    try:
                         import hashlib
                         key_id = f"key:{hashlib.sha256(api_key.encode('utf-8')).hexdigest()[:16]}"
                         await record_successful_call(key_id, openai_request.model, _mask_key(api_key))
-                except Exception:
-                    pass
+                        log.debug(f"Successfully recorded usage stats for key {_mask_key(api_key)}, model {openai_request.model}")
+                    except Exception as e:
+                        log.error(f"Failed to record usage statistics: {e}", exc_info=True)
                 return resp
         except Exception as e:
             if attempt < max_retries:

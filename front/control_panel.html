@@ -661,19 +661,29 @@
             position: fixed;
             top: 20px;
             right: 20px;
-            z-index: 1001;
+            z-index: 100;
             background: var(--container-bg);
             border: 2px solid var(--border-color);
             border-radius: 50px;
             padding: 8px 16px;
-            cursor: pointer;
+            cursor: move;
             display: flex;
             align-items: center;
             gap: 8px;
             font-size: 14px;
             color: var(--text-color);
             box-shadow: 0 2px 10px var(--shadow-color);
-            transition: all 0.3s ease;
+            transition: box-shadow 0.3s ease, transform 0.3s ease;
+            overflow: hidden;
+            max-width: 200px;
+            user-select: none;
+            touch-action: none;
+        }
+        
+        .theme-toggle.dragging {
+            transition: none;
+            z-index: 101;
+            box-shadow: 0 4px 20px var(--shadow-color);
         }
 
         .theme-toggle:hover {
@@ -688,10 +698,54 @@
         .theme-toggle .icon {
             font-size: 18px;
             transition: transform 0.3s ease;
+            flex-shrink: 0;
         }
 
         .theme-toggle:hover .icon {
             transform: rotate(20deg);
+        }
+        
+        .theme-toggle #themeText {
+            transition: opacity 0.3s ease, width 0.3s ease;
+            white-space: nowrap;
+        }
+        
+        /* 移动端暗黑模式按钮折叠 */
+        @media (max-width: 768px) {
+            .theme-toggle {
+                padding: 0;
+                width: 42px;
+                height: 42px;
+                border-radius: 50%;
+                justify-content: center;
+                gap: 0;
+            }
+            
+            .theme-toggle .icon {
+                margin: 0;
+            }
+            
+            .theme-toggle #themeText {
+                opacity: 0;
+                width: 0;
+                overflow: hidden;
+                position: absolute;
+            }
+            
+            .theme-toggle:hover,
+            .theme-toggle:active {
+                width: auto;
+                padding: 8px 16px;
+                border-radius: 50px;
+                gap: 8px;
+            }
+            
+            .theme-toggle:hover #themeText,
+            .theme-toggle:active #themeText {
+                opacity: 1;
+                width: auto;
+                position: static;
+            }
         }
 
         body {
@@ -854,13 +908,21 @@
         }
 
         .login-form input[type="password"] {
-            width: 300px;
+            width: 100%;
+            max-width: 400px;
             padding: 12px;
             border: 2px solid #ddd;
             border-radius: 5px;
             font-size: 16px;
             margin-bottom: 20px;
             box-sizing: border-box;
+        }
+        
+        .login-form .btn {
+            width: 100%;
+            max-width: 400px;
+            padding: 12px;
+            font-size: 16px;
         }
 
         .tabs {
@@ -1089,8 +1151,121 @@
             min-width: 300px;
         }
 
-        @media (max-width: 480px) {
+        @media (max-width: 768px) {
             .cred-filename { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+            
+            /* 移动端表格优化 */
+            .rates-table {
+                font-size: 12px;
+            }
+            
+            .rates-table th,
+            .rates-table td {
+                padding: 6px 3px !important;
+                word-break: break-word;
+            }
+            
+            .rates-table th:first-child,
+            .rates-table td:first-child {
+                padding-left: 6px !important;
+            }
+            
+            .rates-table th:last-child,
+            .rates-table td:last-child {
+                padding-right: 6px !important;
+            }
+            
+            /* 移动端 config-group 优化 */
+            .config-group {
+                padding: 12px;
+                margin: 10px 0;
+            }
+            
+            .config-group h4 {
+                font-size: 16px;
+                margin-bottom: 10px;
+            }
+            
+            /* 移动端表格通用优化 */
+            .table {
+                font-size: 12px;
+            }
+            
+            .table th,
+            .table td {
+                padding: 6px 4px;
+                word-break: break-word;
+                overflow-wrap: break-word;
+            }
+            
+            /* 移动端账户管理标签栏优化 */
+            #accountLoggedInSection > div:first-child {
+                justify-content: space-between;
+            }
+            
+            .account-logout-btn {
+                margin-left: auto !important;
+            }
+            
+            /* 移动端登录表单优化 */
+            .login-form {
+                padding: 30px 16px;
+            }
+            
+            .login-form h1 {
+                font-size: 24px;
+            }
+            
+            .login-form input[type="password"],
+            .login-form .btn {
+                max-width: 100%;
+            }
+            
+            /* 移动端卡片和容器优化 */
+            .summary-card {
+                padding: 12px;
+            }
+            
+            .summary-value {
+                font-size: 28px !important;
+            }
+            
+            .summary-title {
+                font-size: 13px;
+            }
+            
+            /* 移动端按钮组优化 */
+            .btn-sm {
+                font-size: 12px;
+                padding: 5px 10px;
+            }
+            
+            /* 移动端响应式网格 */
+            .responsive-grid {
+                grid-template-columns: 1fr !important;
+            }
+            
+            /* 移动端成本分析优化 */
+            #accountCostContent h4,
+            #accountUsageContent h4,
+            #accountRatesContent h5 {
+                font-size: 15px;
+                word-break: break-word;
+            }
+            
+            /* 移动端表格容器 */
+            div[style*="overflow-x:auto"] {
+                -webkit-overflow-scrolling: touch;
+            }
+        }
+        
+        /* 确保桌面端不受影响 */
+        @media (min-width: 769px) {
+            .table th,
+            .table td {
+                word-break: normal;
+                overflow-wrap: normal;
+            }
         }
 
         .cred-status {
@@ -1499,6 +1674,21 @@
         .config-info li {
             margin: 3px 0;
         }
+        
+        /* 暗黑模式下的使用说明样式 */
+        [data-theme="dark"] .config-info {
+            background-color: rgba(33, 150, 243, 0.1);
+            border-color: rgba(33, 150, 243, 0.3);
+            color: #90caf9;
+        }
+        
+        [data-theme="dark"] .config-info ul {
+            color: var(--text-secondary);
+        }
+        
+        [data-theme="dark"] .config-info strong {
+            color: var(--text-color) !important;
+        }
 
         .env-locked {
             position: relative;
@@ -1733,7 +1923,7 @@
             height: 24px;
             background: #f1f3f5;
             border-radius: 12px;
-            overflow: hidden;
+            overflow: visible;
             position: relative;
             margin-bottom: 8px;
         }
@@ -1747,6 +1937,18 @@
             color: white;
             font-size: 12px;
             font-weight: bold;
+            border-radius: 12px;
+        }
+        
+        .rate-limit-progress-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 12px;
+            font-weight: bold;
+            color: var(--text-secondary);
+            pointer-events: none;
         }
         
         .progress-green {
@@ -1962,7 +2164,7 @@
 
 <body>
     <!-- 暗黑模式切换按钮 -->
-    <button class="theme-toggle" onclick="toggleTheme()" title="切换暗黑模式">
+    <button class="theme-toggle" title="拖动移动 | 点击切换暗黑模式">
         <span class="icon" id="themeIcon">🌙</span>
         <span id="themeText">暗黑</span>
     </button>
@@ -1974,8 +2176,7 @@
             <h1>AMB2API 管理面板</h1>
             <p>请输入访问密码：</p>
             <input type="password" id="loginPassword" placeholder="输入密码" onkeypress="handlePasswordEnter(event)" />
-            <br>
-            <button class="btn btn-sm" onclick="login()">登录</button>
+            <button class="btn" onclick="login()">登录</button>
             <div id="loginStatus" style="margin-top:8px"></div>
         </div>
 
@@ -2643,7 +2844,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                                 <label for="playgroundTemperature" style="color: var(--text-secondary); font-size: 14px;">Temperature ⓘ</label>
                                 <input type="number" id="playgroundTemperatureValue" class="config-input" step="0.1" min="0" max="2" value="0.5" style="width: 80px; padding: 6px; text-align: center; border-radius: 8px;" onchange="updateTemperatureSlider(this.value)" />
                             </div>
-                            <input type="range" id="playgroundTemperature" min="0" max="2" step="0.1" value="0.5" style="width: 100%; height: 6px; border-radius: 3px; background: linear-gradient(to right, #4285f4 0%, #4285f4 25%, #e0e0e0 25%, #e0e0e0 100%); outline: none; -webkit-appearance: none;" oninput="updateTemperatureValue(this.value)" />
+                            <input type="range" id="playgroundTemperature" min="0" max="2" step="0.1" value="0.5" style="width: 100%; height: 6px; border-radius: 3px; background: linear-gradient(to right, #4285f4 0%, #4285f4 25%, #e0e0e0 25%, #e0e0e0 100%); outline: none; -webkit-appearance: none; appearance: none;" oninput="updateTemperatureValue(this.value)" />
                         </div>
 
                         <!-- Max Tokens 滑块 -->
@@ -2652,7 +2853,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                                 <label for="playgroundMaxTokens" style="color: var(--text-secondary); font-size: 14px;">Max Tokens ⓘ</label>
                                 <input type="number" id="playgroundMaxTokensValue" class="config-input" min="1" max="128000" value="4096" style="width: 100px; padding: 6px; text-align: center; border-radius: 8px;" onchange="updateMaxTokensSlider(this.value)" />
                             </div>
-                            <input type="range" id="playgroundMaxTokens" min="1" max="128000" step="1" value="4096" style="width: 100%; height: 6px; border-radius: 3px; background: linear-gradient(to right, #4285f4 0%, #4285f4 3%, #e0e0e0 3%, #e0e0e0 100%); outline: none; -webkit-appearance: none;" oninput="updateMaxTokensValue(this.value)" />
+                            <input type="range" id="playgroundMaxTokens" min="1" max="128000" step="1" value="4096" style="width: 100%; height: 6px; border-radius: 3px; background: linear-gradient(to right, #4285f4 0%, #4285f4 3%, #e0e0e0 3%, #e0e0e0 100%); outline: none; -webkit-appearance: none; appearance: none;" oninput="updateMaxTokensValue(this.value)" />
                         </div>
 
                         <!-- Stream 开关 -->
@@ -2770,12 +2971,12 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 <!-- 已登录区域 -->
                 <div id="accountLoggedInSection" class="hidden">
                     <!-- 子标签页导航 -->
-                    <div style="display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;">
+                    <div style="display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;">
                         <button class="btn btn-sm" id="accountSubTabOverview" onclick="switchAccountSubTab('overview')" style="background: #4285f4;">概览</button>
                         <button class="btn btn-sm" id="accountSubTabUsage" onclick="switchAccountSubTab('usage')" style="background: #6c757d;">使用量</button>
                         <button class="btn btn-sm" id="accountSubTabCost" onclick="switchAccountSubTab('cost')" style="background: #6c757d;">成本</button>
                         <button class="btn btn-sm" id="accountSubTabRates" onclick="switchAccountSubTab('rates')" style="background: #6c757d;">费率</button>
-                        <button class="btn btn-sm" onclick="accountLogout()" style="background: #dc3545; margin-left: auto;">登出</button>
+                        <button class="btn btn-sm account-logout-btn" onclick="accountLogout()" style="background: #dc3545;">登出</button>
                     </div>
 
                     <!-- 概览子页面 -->
@@ -2937,6 +3138,179 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             document.documentElement.setAttribute('data-theme', savedTheme);
             // 延迟更新按钮，确保 DOM 已加载
             setTimeout(() => updateThemeButton(savedTheme), 0);
+        })();
+
+        // ==================== 暗黑模式按钮拖动和吸附 ====================
+        (function initThemeToggleDrag() {
+            const themeToggle = document.querySelector('.theme-toggle');
+            if (!themeToggle) return;
+
+            let isDragging = false;
+            let startX, startY;
+            let initialX, initialY;
+            let clickStartTime;
+            const CLICK_THRESHOLD = 200; // 200ms内的操作视为点击
+            const MOVE_THRESHOLD = 5; // 移动5px以上才视为拖动
+
+            // 从 localStorage 加载位置
+            const savedPosition = localStorage.getItem('themeTogglePosition');
+            if (savedPosition) {
+                try {
+                    const { top, right, bottom, left } = JSON.parse(savedPosition);
+                    if (top !== null) themeToggle.style.top = top + 'px';
+                    if (right !== null) themeToggle.style.right = right + 'px';
+                    if (bottom !== null) themeToggle.style.bottom = bottom + 'px';
+                    if (left !== null) themeToggle.style.left = left + 'px';
+                } catch (e) {
+                    console.error('Failed to load theme toggle position:', e);
+                }
+            }
+
+            function startDrag(e) {
+                clickStartTime = Date.now();
+                const touch = e.type.includes('touch') ? e.touches[0] : e;
+                startX = touch.clientX;
+                startY = touch.clientY;
+
+                const rect = themeToggle.getBoundingClientRect();
+                initialX = rect.left;
+                initialY = rect.top;
+
+                document.addEventListener('mousemove', onDrag);
+                document.addEventListener('mouseup', stopDrag);
+                document.addEventListener('touchmove', onDrag, { passive: false });
+                document.addEventListener('touchend', stopDrag);
+            }
+
+            function onDrag(e) {
+                const touch = e.type.includes('touch') ? e.touches[0] : e;
+                const deltaX = touch.clientX - startX;
+                const deltaY = touch.clientY - startY;
+
+                // 判断是否超过移动阈值
+                if (!isDragging && (Math.abs(deltaX) > MOVE_THRESHOLD || Math.abs(deltaY) > MOVE_THRESHOLD)) {
+                    isDragging = true;
+                    themeToggle.classList.add('dragging');
+                }
+
+                if (isDragging) {
+                    e.preventDefault();
+                    const newX = initialX + deltaX;
+                    const newY = initialY + deltaY;
+
+                    // 清除自动定位
+                    themeToggle.style.top = newY + 'px';
+                    themeToggle.style.left = newX + 'px';
+                    themeToggle.style.right = 'auto';
+                    themeToggle.style.bottom = 'auto';
+                }
+            }
+
+            function stopDrag(e) {
+                document.removeEventListener('mousemove', onDrag);
+                document.removeEventListener('mouseup', stopDrag);
+                document.removeEventListener('touchmove', onDrag);
+                document.removeEventListener('touchend', stopDrag);
+
+                if (isDragging) {
+                    themeToggle.classList.remove('dragging');
+                    snapToEdge();
+                } else {
+                    // 如果没有拖动且时间很短，视为点击
+                    const clickDuration = Date.now() - clickStartTime;
+                    if (clickDuration < CLICK_THRESHOLD) {
+                        toggleTheme();
+                    }
+                }
+                
+                // 重置拖动状态
+                isDragging = false;
+            }
+
+            function snapToEdge() {
+                const rect = themeToggle.getBoundingClientRect();
+                const windowWidth = window.innerWidth;
+                const windowHeight = window.innerHeight;
+                const buttonWidth = rect.width;
+                const buttonHeight = rect.height;
+
+                const centerX = rect.left + buttonWidth / 2;
+                const centerY = rect.top + buttonHeight / 2;
+
+                // 计算到四个边的距离
+                const distToLeft = centerX;
+                const distToRight = windowWidth - centerX;
+                const distToTop = centerY;
+                const distToBottom = windowHeight - centerY;
+
+                // 找到最近的边
+                const minDist = Math.min(distToLeft, distToRight, distToTop, distToBottom);
+
+                let finalTop = null, finalRight = null, finalBottom = null, finalLeft = null;
+
+                // 吸附到最近的边，保持垂直或水平位置
+                if (minDist === distToLeft) {
+                    // 吸附到左边
+                    finalLeft = 20;
+                    finalTop = Math.max(20, Math.min(rect.top, windowHeight - buttonHeight - 20));
+                } else if (minDist === distToRight) {
+                    // 吸附到右边
+                    finalRight = 20;
+                    finalTop = Math.max(20, Math.min(rect.top, windowHeight - buttonHeight - 20));
+                } else if (minDist === distToTop) {
+                    // 吸附到顶部
+                    finalTop = 20;
+                    finalLeft = Math.max(20, Math.min(rect.left, windowWidth - buttonWidth - 20));
+                } else {
+                    // 吸附到底部
+                    finalBottom = 20;
+                    finalLeft = Math.max(20, Math.min(rect.left, windowWidth - buttonWidth - 20));
+                }
+
+                // 应用吸附位置
+                themeToggle.style.transition = 'all 0.3s ease';
+                if (finalTop !== null) {
+                    themeToggle.style.top = finalTop + 'px';
+                    themeToggle.style.bottom = 'auto';
+                } else {
+                    themeToggle.style.bottom = finalBottom + 'px';
+                    themeToggle.style.top = 'auto';
+                }
+
+                if (finalLeft !== null) {
+                    themeToggle.style.left = finalLeft + 'px';
+                    themeToggle.style.right = 'auto';
+                } else {
+                    themeToggle.style.right = finalRight + 'px';
+                    themeToggle.style.left = 'auto';
+                }
+
+                // 保存位置到 localStorage
+                setTimeout(() => {
+                    themeToggle.style.transition = '';
+                    localStorage.setItem('themeTogglePosition', JSON.stringify({
+                        top: finalTop,
+                        right: finalRight,
+                        bottom: finalBottom,
+                        left: finalLeft
+                    }));
+                }, 300);
+            }
+
+            themeToggle.addEventListener('mousedown', startDrag);
+            themeToggle.addEventListener('touchstart', startDrag);
+            
+            // 为移动端添加额外的点击处理（作为备用）
+            themeToggle.addEventListener('click', (e) => {
+                // 如果是触摸设备且没有拖动，确保切换主题
+                if ('ontouchstart' in window) {
+                    const clickDuration = Date.now() - clickStartTime;
+                    if (!isDragging && clickDuration < CLICK_THRESHOLD) {
+                        e.preventDefault();
+                        toggleTheme();
+                    }
+                }
+            }, { passive: false });
         })();
 
         // 分页和筛选相关变量
@@ -3453,8 +3827,9 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                             <div class="rate-limit-progress">
                                 <div class="rate-limit-progress-bar ${progressClass}" 
                                      style="width: ${usagePercent}%">
-                                    ${usagePercent.toFixed(1)}%
+                                    ${usagePercent >= 10 ? usagePercent.toFixed(1) + '%' : ''}
                                 </div>
+                                ${usagePercent < 10 ? `<div class="rate-limit-progress-text">${usagePercent.toFixed(1)}%</div>` : ''}
                             </div>
                             
                             <div class="rate-limit-reset">⏱️ ${resetText}</div>
@@ -5503,7 +5878,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     </div>
                 </div>
                 <div style="margin-top:12px">
-                    <div style="font-size:13px; font-weight:600; color:#555; margin-bottom:8px">各模型调用次数</div>
+                    <div style="font-size:13px; font-weight:600; color:var(--text-secondary); margin-bottom:8px">各模型调用次数</div>
                     <div style="display:flex; gap:6px; flex-wrap:wrap; min-height:24px">
                         ${Object.keys(stats.model_counts||{}).length===0 ? 
                             '<span style="color:#999; font-size:12px">暂无数据</span>' : 
@@ -6546,7 +6921,8 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 const meta = (modelMetaFromConfig[m] || (queriedModels.meta||{})[m] || {});
                 const ctx = formatTokensShort(meta.context_length);
                 chip.className = 'badge model-chip';
-                chip.style = `display:inline-flex; align-items:center; gap:6px; background:${colors.bg}; color:${colors.text}; padding:4px 10px; border-radius:12px; margin:2px; font-size:12px; border-left:4px solid ${colors.border}; transition: all 0.2s ease;`;
+                // 使用与使用统计相同的样式
+                chip.style = `display:inline-flex; align-items:center; gap:4px; background:${colors.bg}; color:${colors.text}; padding:4px 10px; border-radius:12px; margin:2px; font-size:12px; border-left:4px solid ${colors.border}; transition: all 0.2s ease;`;
                 chip.innerHTML = `<span>${m}</span><span class="model-ctx" style="font-size:11px; color:${colors.text}; opacity:0.7;">${ctx}</span>`;
                 wrap.appendChild(chip);
             });
@@ -6593,7 +6969,9 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     const mt = (queriedModels.meta||{})[m] || {};
                     const ctx = formatTokensShort(mt.context_length);
                     const mx = mt.max_tokens ? (mt.max_tokens>=1000? Math.round(mt.max_tokens/1000)+'k' : mt.max_tokens) : '-';
-                    html += `<label style="display:inline-flex; align-items:center; gap:6px; margin:4px 8px 4px 0; padding:4px 8px; border-left:4px solid ${colors.border}; background:${colors.bg}; border-radius:8px"><input type="checkbox" class="model-check" value="${m}" ${checked}/> <span style="color:${colors.text}">${m}</span><span style="color:#666; font-size:12px">(ctx:${ctx}, max:${mx})</span></label>`;
+                    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+                    const metaColor = isDark ? 'rgba(255,255,255,0.5)' : '#666';
+                    html += `<label style="display:inline-flex; align-items:center; gap:6px; margin:4px 8px 4px 0; padding:4px 8px; border-left:4px solid ${colors.border}; background:${colors.bg}; border-radius:8px"><input type="checkbox" class="model-check" value="${m}" ${checked}/> <span style="color:${colors.text}">${m}</span><span style="color:${metaColor}; font-size:12px">(ctx:${ctx}, max:${mx})</span></label>`;
                 });
                 html += `</div>`;
             });
@@ -7160,13 +7538,10 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     html += '<div class="status info">暂无使用量数据，请稍后刷新重试</div>';
                 }
                 
-                // 显示调试信息（如果有）
+                // 显示调试信息（如果有）- 仅在控制台输出，不显示给用户
                 if (data.debug_info && Object.keys(data.debug_info).length > 0) {
                     console.log('Debug info:', data.debug_info);
-                    // 如果使用了fallback，显示提示
-                    if (data.debug_info.fallback_used) {
-                        html += '<div class="status info" style="margin-top: 12px; font-size: 12px;">数据来源: ' + (data.debug_info.fallback_source || '备用数据源') + '</div>';
-                    }
+                    // 调试信息仅用于开发，不在界面显示
                 }
                 
                 // 显示错误信息
@@ -7312,12 +7687,10 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     html += '<div class="status info">暂无成本数据</div>';
                 }
                 
-                // 显示调试信息（如果有）
+                // 显示调试信息（如果有）- 仅在控制台输出，不显示给用户
                 if (data.debug_info && Object.keys(data.debug_info).length > 0) {
                     console.log('Cost debug info:', data.debug_info);
-                    if (data.debug_info.fallback_used) {
-                        html += '<div class="status info" style="margin-top: 12px; font-size: 12px;">数据来源: 备用数据源</div>';
-                    }
+                    // 调试信息仅用于开发，不在界面显示
                 }
                 
                 if (data.error) {
@@ -7406,12 +7779,12 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     });
                     html += '<div style="padding: 16px; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color);">';
                     html += '<h5 style="color: var(--text-color);">LLM Gateway</h5>';
-                    html += '<div style="overflow-x:auto;">';
-                    html += '<table class="table" style="width: 100%; min-width: 460px;"><thead><tr><th>模型</th><th>输入</th><th>输出</th><th>单位</th></tr></thead><tbody>';
+                    html += '<div style="overflow-x:auto; -webkit-overflow-scrolling: touch;">';
+                    html += '<table class="table rates-table" style="width: 100%;"><thead><tr><th style="min-width: 120px;">模型</th><th style="min-width: 60px;">输入</th><th style="min-width: 60px;">输出</th><th style="min-width: 50px;">单位</th></tr></thead><tbody>';
                     rows.forEach(r => {
                         const inTxt = r.inDisplay || '-';
                         const outTxt = r.outDisplay || '-';
-                        html += `<tr><td style="word-break: break-word;">${r.model}</td><td>${inTxt}</td><td>${outTxt}</td><td>${r.unit||'-'}</td></tr>`;
+                        html += `<tr><td style="word-break: break-word; max-width: 200px;">${r.model}</td><td style="white-space: nowrap;">${inTxt}</td><td style="white-space: nowrap;">${outTxt}</td><td style="white-space: nowrap;">${r.unit||'-'}</td></tr>`;
                     });
                     html += '</tbody></table>';
                     html += '</div>';
