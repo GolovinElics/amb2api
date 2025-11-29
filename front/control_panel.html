@@ -410,6 +410,16 @@
             color: var(--text-color) !important;
         }
 
+        [data-theme="dark"] .usage-card-disabled {
+            opacity: 0.5;
+            background-color: rgba(30, 30, 30, 0.5) !important;
+            border-color: rgba(100, 100, 100, 0.3) !important;
+        }
+
+        [data-theme="dark"] .usage-card-disabled .usage-filename {
+            color: #888 !important;
+        }
+
         [data-theme="dark"] .usage-header {
             color: var(--text-color) !important;
         }
@@ -917,24 +927,239 @@
         .login-form {
             text-align: center;
             padding: 50px 0;
+            position: relative;
+            animation: loginFadeIn 0.8s ease-out;
         }
 
-        .login-form input[type="password"] {
+        @keyframes loginFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px) scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .login-form h1 {
+            font-size: 36px !important;
+            font-weight: 800 !important;
+            margin-bottom: 50px !important;
+            letter-spacing: -1px !important;
+            position: relative !important;
+            padding-bottom: 25px !important;
+            text-shadow: 0 2px 10px rgba(102, 126, 234, 0.3) !important;
+            background: linear-gradient(135deg, #667eea, #764ba2) !important;
+            -webkit-background-clip: text !important;
+            -webkit-text-fill-color: transparent !important;
+            background-clip: text !important;
+        }
+
+        .login-form h1::after {
+            content: '' !important;
+            position: absolute !important;
+            bottom: 0 !important;
+            left: 50% !important;
+            transform: translateX(-50%) !important;
+            width: 80px !important;
+            height: 5px !important;
+            background: linear-gradient(90deg, transparent, #667eea, #764ba2, transparent) !important;
+            border-radius: 3px !important;
+            animation: underlineGlow 2s ease-in-out infinite !important;
+        }
+
+        @keyframes underlineGlow {
+            0%, 100% { 
+                opacity: 0.6; 
+                width: 80px; 
+                box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
+            }
+            50% { 
+                opacity: 1; 
+                width: 120px; 
+                box-shadow: 0 0 20px rgba(102, 126, 234, 0.8);
+            }
+        }
+
+        .login-form p {
+            color: var(--text-secondary) !important;
+            margin-bottom: 35px !important;
+            font-size: 18px !important;
+            font-weight: 600 !important;
+            letter-spacing: 0.5px !important;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+        }
+
+        .login-form .form-group {
+            position: relative;
+            margin-bottom: 30px;
+            display: block;
             width: 100%;
             max-width: 400px;
-            padding: 12px;
-            border: 2px solid #ddd;
-            border-radius: 5px;
-            font-size: 16px;
-            margin-bottom: 20px;
-            box-sizing: border-box;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+
+        .login-form input[type="password"] {
+            width: 100% !important;
+            max-width: 400px !important;
+            padding: 18px 20px !important;
+            border: 3px solid var(--input-border) !important;
+            border-radius: 12px !important;
+            font-size: 18px !important;
+            font-weight: 600 !important;
+            letter-spacing: 2px !important;
+            margin-bottom: 30px !important;
+            box-sizing: border-box !important;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08) !important;
+            background: var(--input-bg) !important;
+            color: var(--text-color) !important;
+        }
+
+        .login-form input[type="password"]:focus {
+            letter-spacing: 3px !important;
+            border-width: 4px !important;
+            border-color: #667eea !important;
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3),
+                        0 0 0 6px rgba(102, 126, 234, 0.1) !important;
+            transform: translateY(-2px) !important;
+            outline: none !important;
+        }
+
+        .login-form input[type="password"]::placeholder {
+            letter-spacing: 0.5px !important;
+            font-weight: 400 !important;
+            opacity: 0.6 !important;
+        }
+
+        .login-form input[type="password"]:focus::placeholder {
+            opacity: 0.4 !important;
+        }
+
+        @keyframes gradientMove {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-10px); }
+            20%, 40%, 60%, 80% { transform: translateX(10px); }
+        }
+
+        .login-form input[type="password"].error {
+            border-color: #ea4335 !important;
+            animation: shake 0.5s ease-in-out !important;
+            box-shadow: 0 0 0 4px rgba(234, 67, 53, 0.15), 0 4px 12px rgba(234, 67, 53, 0.2) !important;
+        }
+
+        [data-theme="dark"] .login-form input[type="password"].error {
+            border-color: #ff6b6b !important;
+            box-shadow: 0 0 0 4px rgba(255, 107, 107, 0.2), 0 4px 12px rgba(255, 107, 107, 0.3) !important;
         }
         
         .login-form .btn {
-            width: 100%;
-            max-width: 400px;
-            padding: 12px;
-            font-size: 16px;
+            width: 100% !important;
+            max-width: 400px !important;
+            padding: 22px 50px !important;
+            font-size: 20px !important;
+            font-weight: 800 !important;
+            letter-spacing: 2px !important;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%) !important;
+            background-size: 200% 200% !important;
+            animation: gradientMove 3s ease infinite !important;
+            border-radius: 50px !important;
+            box-shadow: 0 10px 40px rgba(102, 126, 234, 0.5),
+                        0 0 0 0 rgba(102, 126, 234, 0.7),
+                        inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+            text-transform: uppercase !important;
+            border: 2px solid rgba(255, 255, 255, 0.2) !important;
+            position: relative !important;
+            overflow: hidden !important;
+        }
+
+        .login-form .btn::before {
+            content: '' !important;
+            position: absolute !important;
+            top: 50% !important;
+            left: 50% !important;
+            width: 0 !important;
+            height: 0 !important;
+            border-radius: 50% !important;
+            background: rgba(255, 255, 255, 0.5) !important;
+            transform: translate(-50%, -50%) !important;
+            transition: width 0.6s, height 0.6s !important;
+        }
+
+        .login-form .btn:hover::before {
+            width: 300px !important;
+            height: 300px !important;
+        }
+
+        .login-form .btn:hover {
+            transform: translateY(-8px) scale(1.05) !important;
+            box-shadow: 0 15px 50px rgba(102, 126, 234, 0.6),
+                        0 0 0 10px rgba(102, 126, 234, 0.15),
+                        inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+            border-color: rgba(255, 255, 255, 0.4) !important;
+        }
+
+        .login-form .btn:active {
+            transform: translateY(-2px) scale(0.98) !important;
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4) !important;
+        }
+
+        .login-form .btn:disabled {
+            background: linear-gradient(135deg, #ccc, #999) !important;
+            cursor: not-allowed !important;
+            transform: none !important;
+            box-shadow: none !important;
+            animation: none !important;
+        }
+
+        .login-form .btn.loading {
+            pointer-events: none !important;
+        }
+
+        .login-form .btn.loading::after {
+            content: '' !important;
+            position: absolute !important;
+            width: 20px !important;
+            height: 20px !important;
+            top: 50% !important;
+            left: 50% !important;
+            margin-left: -10px !important;
+            margin-top: -10px !important;
+            border: 3px solid rgba(255, 255, 255, 0.3) !important;
+            border-top-color: white !important;
+            border-radius: 50% !important;
+            animation: spin 0.8s linear infinite !important;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .login-form .btn.loading span {
+            opacity: 0 !important;
+        }
+
+        [data-theme="dark"] .login-form .btn {
+            background: linear-gradient(135deg, #5b9bd5 0%, #4facfe 50%, #667eea 100%) !important;
+            box-shadow: 0 10px 40px rgba(91, 155, 213, 0.5),
+                        0 0 0 0 rgba(91, 155, 213, 0.7),
+                        inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+        }
+
+        [data-theme="dark"] .login-form .btn:hover {
+            box-shadow: 0 15px 50px rgba(91, 155, 213, 0.6),
+                        0 0 0 10px rgba(91, 155, 213, 0.15),
+                        inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
         }
 
         .tabs {
@@ -1290,6 +1515,107 @@
                 padding: 6px 4px;
                 word-break: break-word;
                 overflow-wrap: break-word;
+            }
+            
+            /* 移动端配置表格优化 */
+            #allConfigTable {
+                display: block;
+                overflow-x: visible;
+                -webkit-overflow-scrolling: touch;
+            }
+            
+            #allConfigTable thead {
+                display: none; /* 移动端隐藏表头 */
+            }
+            
+            #allConfigTable tbody {
+                display: block;
+            }
+            
+            #allConfigTable tbody tr {
+                display: flex;
+                flex-direction: column;
+                margin-bottom: 12px;
+                padding: 12px;
+                border: 1px solid var(--border-color);
+                border-radius: 8px;
+                background: var(--card-bg);
+                box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            }
+            
+            #allConfigTable tbody td {
+                display: block;
+                padding: 6px 0;
+                border: none;
+                width: 100% !important;
+                min-width: 0 !important;
+            }
+            
+            #allConfigTable tbody td:first-child {
+                font-weight: 600;
+                color: var(--text-secondary);
+                font-size: 11px;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                margin-bottom: 4px;
+                padding-bottom: 2px;
+            }
+            
+            #allConfigTable tbody td:nth-child(2) {
+                font-weight: 500;
+                color: var(--text-color);
+                font-size: 13px;
+                margin-bottom: 6px;
+                word-break: break-word;
+                padding-bottom: 4px;
+                border-bottom: 1px solid var(--border-color);
+            }
+            
+            #allConfigTable tbody td:nth-child(3) {
+                color: var(--text-color);
+                font-size: 12px;
+                line-height: 1.5;
+                padding-top: 6px;
+                padding-bottom: 6px;
+                border-bottom: 1px solid var(--border-color);
+            }
+            
+            /* 移动端操作列优化 */
+            #allConfigTable tbody td.config-actions-cell {
+                padding-top: 8px;
+                padding-bottom: 4px;
+                border-top: none;
+                margin-top: 0;
+                text-align: center;
+            }
+            
+            .config-value-actions {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 6px;
+                justify-content: center;
+                align-items: center;
+                margin: 0;
+                width: 100%;
+            }
+            
+            .config-toggle-btn, .config-copy-btn {
+                font-size: 11px;
+                padding: 5px 12px;
+                flex: 0 0 auto;
+                min-width: 55px;
+                height: 28px;
+                line-height: 1;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                box-sizing: border-box;
+            }
+            
+            .config-value-preview,
+            .config-value-full {
+                display: block;
+                margin-bottom: 0;
             }
             
             /* 移动端账户管理标签栏优化 */
@@ -2141,6 +2467,16 @@
             position: relative;
         }
 
+        .usage-card-disabled {
+            opacity: 0.6;
+            background-color: #f5f5f5;
+            border-color: #d0d0d0;
+        }
+
+        .usage-card-disabled .usage-filename {
+            color: #999;
+        }
+
         .usage-header {
             display: flex;
             justify-content: space-between;
@@ -2248,6 +2584,64 @@
         .table tbody td { padding: 8px; border-bottom: 1px solid var(--border-color); color: var(--text-color); transition: color 0.3s ease; }
         .table tbody tr:nth-child(odd) { background: var(--table-stripe); }
         .table tbody tr:hover { background: var(--table-hover); }
+        
+        /* 配置值显示优化 */
+        .config-value-cell { 
+            position: relative; 
+            max-width: 100%; 
+            word-break: break-word; 
+            overflow-wrap: break-word;
+        }
+        .config-value-preview { 
+            display: inline-block; 
+            max-width: 100%; 
+            word-break: break-word; 
+            overflow-wrap: break-word;
+        }
+        .config-value-full { 
+            display: none; 
+            word-break: break-word; 
+            overflow-wrap: break-word;
+            white-space: pre-wrap;
+        }
+        .config-value-cell.expanded .config-value-preview { display: none; }
+        .config-value-cell.expanded .config-value-full { display: block; }
+        
+        /* 操作列样式 */
+        .config-actions-cell {
+            text-align: center;
+            vertical-align: middle;
+            white-space: nowrap;
+            width: 120px;
+        }
+        .config-value-actions { 
+            display: flex; 
+            gap: 6px; 
+            justify-content: center;
+            align-items: center;
+        }
+        .config-toggle-btn, .config-copy-btn {
+            font-size: 11px;
+            padding: 4px 10px;
+            border: 1px solid var(--border-color);
+            background: var(--input-bg);
+            color: var(--text-color);
+            border-radius: 4px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+            min-width: 50px;
+        }
+        .config-toggle-btn:hover, .config-copy-btn:hover {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+        .config-copy-btn.copied {
+            background: #28a745;
+            color: white;
+            border-color: #28a745;
+        }
         .ranking-container { background:var(--card-bg); border:1px solid var(--border-color); border-radius:8px; padding:12px; }
         .ranking-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; font-size:14px; }
         .ranking-list { display:flex; flex-direction:column; gap:8px; max-height:300px; overflow-y:auto; }
@@ -3036,9 +3430,13 @@
         <!-- 登录界面 -->
         <div id="loginSection" class="login-form">
             <h1>AMB2API 管理面板</h1>
-            <p>请输入访问密码：</p>
-            <input type="password" id="loginPassword" placeholder="输入密码" onkeypress="handlePasswordEnter(event)" />
-            <button class="btn" onclick="login()">登录</button>
+            <p>🔐 请输入访问密码以继续</p>
+            <div class="form-group">
+                <input type="password" id="loginPassword" placeholder="请输入访问密码" onkeypress="handlePasswordEnter(event)" autocomplete="current-password" />
+            </div>
+            <button class="btn" id="loginBtn" onclick="login()">
+                <span>立即登录</span>
+            </button>
             <div id="loginStatus" style="margin-top:8px"></div>
         </div>
 
@@ -3393,9 +3791,13 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                         <span class="stat-number" id="totalApiCalls">0</span>
                         <span class="stat-label">总调用数</span>
                     </div>
-                    <div class="stat-item disabled">
-                        <span class="stat-number" id="totalFiles">0</span>
+                    <div class="stat-item" style="border-left: 4px solid #28a745;">
+                        <span class="stat-number" id="activeKeys">0</span>
                         <span class="stat-label">活跃密钥数</span>
+                    </div>
+                    <div class="stat-item disabled">
+                        <span class="stat-number" id="disabledKeys">0</span>
+                        <span class="stat-label">禁用密钥数</span>
                     </div>
                 </div>
 
@@ -3831,14 +4233,52 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
 
                 <!-- 已登录区域 -->
                 <div id="accountLoggedInSection" class="hidden">
-                    <!-- 子标签页导航 -->
-                    <div class="account-sub-tabs">
-                        <button class="btn btn-sm" id="accountSubTabOverview" onclick="switchAccountSubTab('overview')" style="background: #4285f4;">概览</button>
-                        <button class="btn btn-sm" id="accountSubTabUsage" onclick="switchAccountSubTab('usage')" style="background: #6c757d;">使用量</button>
-                        <button class="btn btn-sm" id="accountSubTabCost" onclick="switchAccountSubTab('cost')" style="background: #6c757d;">成本</button>
-                        <button class="btn btn-sm" id="accountSubTabRates" onclick="switchAccountSubTab('rates')" style="background: #6c757d;">费率</button>
-                        <button class="btn btn-sm account-logout-btn" onclick="accountLogout()" style="background: #dc3545;">登出</button>
+                    <!-- 账户列表和选择器 -->
+                    <div class="config-group" style="margin-bottom: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                            <h4 style="margin: 0;">账户管理</h4>
+                            <button class="btn btn-sm" onclick="showAddAccountForm()" style="background: #28a745;">
+                                ➕ 添加账户
+                            </button>
+                        </div>
+                        
+                        <!-- 添加账户表单（默认隐藏） -->
+                        <div id="addAccountForm" class="hidden" style="margin-bottom: 20px; padding: 16px; background: var(--card-bg); border-radius: 8px; border: 2px solid var(--border-color);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                                <h5 style="margin: 0; color: var(--text-color);">添加新账户</h5>
+                                <button class="btn btn-sm" onclick="hideAddAccountForm()" style="background: #6c757d; padding: 4px 12px;">✕ 取消</button>
+                            </div>
+                            <div class="form-group">
+                                <label for="newAccountEmail">邮箱</label>
+                                <input type="text" id="newAccountEmail" class="config-input" placeholder="your@email.com" />
+                            </div>
+                            <div class="form-group">
+                                <label for="newAccountPassword">密码</label>
+                                <input type="password" id="newAccountPassword" class="config-input" placeholder="输入密码" onkeypress="if(event.key==='Enter')addNewAccount()" />
+                            </div>
+                            <button class="btn" onclick="addNewAccount()" style="background: #28a745;">添加账户</button>
+                        </div>
+                        
+                        <div id="accountListContainer">
+                            <div class="loading">加载账户列表...</div>
+                        </div>
+                        <div id="accountSelectorContainer" class="hidden" style="margin-top: 16px;">
+                            <label for="accountSelector" style="display: block; margin-bottom: 8px; font-weight: 600;">当前查看账户：</label>
+                            <select id="accountSelector" class="config-input" style="width: 100%; max-width: 400px;" onchange="switchAccount()">
+                                <option value="">请选择账户</option>
+                            </select>
+                        </div>
                     </div>
+
+                    <!-- 账户详情区域（只有选择了账户后才显示） -->
+                    <div id="accountDetailsSection" class="hidden">
+                        <!-- 子标签页导航 -->
+                        <div class="account-sub-tabs">
+                            <button class="btn btn-sm" id="accountSubTabOverview" onclick="switchAccountSubTab('overview')" style="background: #4285f4;">概览</button>
+                            <button class="btn btn-sm" id="accountSubTabUsage" onclick="switchAccountSubTab('usage')" style="background: #6c757d;">使用量</button>
+                            <button class="btn btn-sm" id="accountSubTabCost" onclick="switchAccountSubTab('cost')" style="background: #6c757d;">成本</button>
+                            <button class="btn btn-sm" id="accountSubTabRates" onclick="switchAccountSubTab('rates')" style="background: #6c757d;">费率</button>
+                        </div>
 
                     <!-- 概览子页面 -->
                     <div id="accountSubOverview">
@@ -3903,6 +4343,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                                 <div class="loading">加载中...</div>
                             </div>
                         </div>
+                    </div>
                     </div>
 
                 </div>
@@ -4237,10 +4678,29 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
         // 登录相关函数
         async function login() {
             const password = document.getElementById('loginPassword').value;
+            const loginBtn = document.getElementById('loginBtn');
+            const passwordInput = document.getElementById('loginPassword');
+            const formGroup = passwordInput.closest('.form-group');
+            
             if (!password) {
                 showStatus('请输入密码', 'error');
+                passwordInput.classList.add('error');
+                if (formGroup) formGroup.classList.add('error');
+                passwordInput.style.animation = 'shake 0.5s ease-in-out';
+                setTimeout(() => {
+                    passwordInput.style.animation = '';
+                    passwordInput.classList.remove('error');
+                    if (formGroup) formGroup.classList.remove('error');
+                }, 500);
                 return;
             }
+
+            // 添加按钮加载状态
+            if (loginBtn) {
+                loginBtn.classList.add('loading');
+                loginBtn.disabled = true;
+            }
+
             try {
                 const res = await fetch('/config/get', {
                     method: 'GET',
@@ -4251,17 +4711,62 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 });
                 if (res.ok) {
                     authToken = password;
+                    // 添加成功动画
+                    if (loginBtn) {
+                        loginBtn.style.background = 'linear-gradient(135deg, #34a853, #28a745)';
+                        const span = loginBtn.querySelector('span');
+                        if (span) span.textContent = '✓ 登录成功';
+                    }
+                    
+                    setTimeout(() => {
+                        document.getElementById('loginSection').style.opacity = '0';
+                        document.getElementById('loginSection').style.transform = 'scale(0.95)';
+                        document.getElementById('loginSection').style.transition = 'all 0.5s ease';
+                        
+                        setTimeout(() => {
                     document.getElementById('loginSection').classList.add('hidden');
                     document.getElementById('mainSection').classList.remove('hidden');
+                            document.getElementById('mainSection').style.opacity = '0';
+                            document.getElementById('mainSection').style.transform = 'translateY(20px)';
+                            document.getElementById('mainSection').style.transition = 'all 0.6s ease';
+                            
+                            setTimeout(() => {
+                                document.getElementById('mainSection').style.opacity = '1';
+                                document.getElementById('mainSection').style.transform = 'translateY(0)';
+                            }, 50);
+                        }, 500);
+                    }, 800);
+                    
                     showStatus('登录成功', 'success');
                     switchTab('config');
                     await loadConfig();
                     await refreshUsageStats();
                 } else {
                     showStatus('密码错误', 'error');
+                    // 添加错误动画
+                    passwordInput.classList.add('error');
+                    if (formGroup) formGroup.classList.add('error');
+                    passwordInput.style.animation = 'shake 0.5s ease-in-out';
+                    passwordInput.value = '';
+                    passwordInput.focus();
+                    setTimeout(() => {
+                        passwordInput.style.animation = '';
+                        passwordInput.classList.remove('error');
+                        if (formGroup) formGroup.classList.remove('error');
+                    }, 500);
                 }
             } catch (error) {
                 showStatus(`网络错误: ${error.message}`, 'error');
+            } finally {
+                // 恢复按钮状态
+                if (loginBtn) {
+                    loginBtn.classList.remove('loading');
+                    loginBtn.disabled = false;
+                    const span = loginBtn.querySelector('span');
+                    if (span && span.textContent !== '✓ 登录成功') {
+                        span.textContent = '立即登录';
+                    }
+                }
             }
         }
 
@@ -5981,17 +6486,144 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     auto_ban_enabled: '封禁', auto_ban_error_codes: '封禁',
                     credentials_dir: '存储'
                 };
-                const rows = Object.keys(cfg).sort().map(k=>{
+                
+                // 判断是否为长内容（超过100个字符）
+                const MAX_PREVIEW_LENGTH = 100;
+                const isLongContent = (str) => str.length > MAX_PREVIEW_LENGTH;
+                
+                // 转义HTML
+                const escapeHtml = (text) => {
+                    const div = document.createElement('div');
+                    div.textContent = text;
+                    return div.innerHTML;
+                };
+                
+                const rows = Object.keys(cfg).sort().map((k, idx) => {
                     const v = cfg[k];
-                    const vs = typeof v === 'object' ? JSON.stringify(v) : String(v);
+                    const vs = typeof v === 'object' ? JSON.stringify(v, null, 2) : String(v);
                     const cat = catMap[k] || '其他';
-                    return `<tr><td style="width:120px;color:#666">${cat}</td><td style="width:220px;color:#555">${k}</td><td style="color:#222;overflow-wrap:anywhere;word-break:break-word;">${vs}</td></tr>`;
+                    const escapedValue = escapeHtml(vs);
+                    const rowId = `config-row-${idx}`;
+                    
+                    let valueCell;
+                    let actionsCell;
+                    
+                    if (isLongContent(vs)) {
+                        // 长内容：显示预览
+                        const preview = escapedValue.substring(0, MAX_PREVIEW_LENGTH) + '...';
+                        valueCell = `
+                            <td class="config-value-cell" data-label="值">
+                                <span class="config-value-preview">${preview}</span>
+                                <span class="config-value-full">${escapedValue}</span>
+                            </td>
+                        `;
+                        // 操作列：展开/收起和复制按钮
+                        actionsCell = `
+                            <td class="config-actions-cell" data-label="操作">
+                                <div class="config-value-actions">
+                                    <button class="config-toggle-btn" onclick="toggleConfigValue('${rowId}')" data-expanded="false">展开</button>
+                                    <button class="config-copy-btn" onclick="copyConfigValue('${rowId}')">复制</button>
+                                </div>
+                            </td>
+                        `;
+                    } else {
+                        // 短内容：直接显示
+                        valueCell = `
+                            <td class="config-value-cell" data-label="值">
+                                <span class="config-value-preview">${escapedValue}</span>
+                            </td>
+                        `;
+                        // 操作列：只提供复制按钮
+                        actionsCell = `
+                            <td class="config-actions-cell" data-label="操作">
+                                <div class="config-value-actions">
+                                    <button class="config-copy-btn" onclick="copyConfigValue('${rowId}')">复制</button>
+                                </div>
+                            </td>
+                        `;
+                    }
+                    
+                    return `<tr id="${rowId}">
+                        <td data-label="分类" style="width:120px;color:#666">${cat}</td>
+                        <td data-label="键" style="width:220px;color:#555">${escapeHtml(k)}</td>
+                        ${valueCell}
+                        ${actionsCell}
+                    </tr>`;
                 }).join('');
-                if (tbl) tbl.innerHTML = `<thead><tr><th>分类</th><th>键</th><th>值</th></tr></thead><tbody>${rows}</tbody>`;
+                
+                if (tbl) {
+                    tbl.innerHTML = `
+                        <thead>
+                            <tr>
+                                <th style="width:120px">分类</th>
+                                <th style="width:220px">键</th>
+                                <th>值</th>
+                                <th style="width:120px;text-align:center">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    `;
+                }
                 showStatus('全部配置加载成功','success');
             }catch(e){
                 showStatus(`加载全部配置失败: ${e.message}`,'error');
             }
+        }
+        
+        // 切换配置值展开/收起
+        function toggleConfigValue(rowId) {
+            const row = document.getElementById(rowId);
+            if (!row) return;
+            
+            const cell = row.querySelector('.config-value-cell');
+            const btn = row.querySelector('.config-toggle-btn');
+            
+            if (cell && btn) {
+                const isExpanded = cell.classList.contains('expanded');
+                if (isExpanded) {
+                    cell.classList.remove('expanded');
+                    btn.textContent = '展开';
+                    btn.setAttribute('data-expanded', 'false');
+                } else {
+                    cell.classList.add('expanded');
+                    btn.textContent = '收起';
+                    btn.setAttribute('data-expanded', 'true');
+                }
+            }
+        }
+        
+        // 复制配置值
+        function copyConfigValue(rowId) {
+            const row = document.getElementById(rowId);
+            if (!row) return;
+            
+            const cell = row.querySelector('.config-value-cell');
+            if (!cell) return;
+            
+            // 获取完整值（优先从full，否则从preview）
+            const fullSpan = cell.querySelector('.config-value-full');
+            const previewSpan = cell.querySelector('.config-value-preview');
+            const valueToCopy = fullSpan ? fullSpan.textContent : (previewSpan ? previewSpan.textContent : '');
+            
+            if (!valueToCopy) return;
+            
+            // 复制到剪贴板
+            navigator.clipboard.writeText(valueToCopy).then(() => {
+                const btn = cell.querySelector('.config-copy-btn');
+                if (btn) {
+                    const originalText = btn.textContent;
+                    btn.textContent = '已复制';
+                    btn.classList.add('copied');
+                    setTimeout(() => {
+                        btn.textContent = originalText;
+                        btn.classList.remove('copied');
+                    }, 2000);
+                }
+                showStatus('配置值已复制到剪贴板', 'success');
+            }).catch(err => {
+                console.error('复制失败:', err);
+                showStatus('复制失败，请手动复制', 'error');
+            });
         }
 
         // 环境变量凭证管理相关函数
@@ -6471,7 +7103,6 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 checkbox.addEventListener('change', handleGetAllProjectsChange);
             }
 
-            showStatus('请输入密码登录', 'info');
         };
 
         // =====================================================================
@@ -6490,40 +7121,206 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 usageLoading.style.display = 'block';
                 usageList.innerHTML = '';
 
-                // 获取聚合数据（包含per-key model statistics）
-                const aggregatedResponse = await fetch('/usage/aggregated', {
+                // 同时获取聚合数据、凭证状态和密钥状态
+                const [aggregatedResponse, credsStatusResponse, keysStatsResponse] = await Promise.all([
+                    fetch('/usage/aggregated', {
                     method: 'GET',
                     headers: getAuthHeaders()
-                });
+                    }),
+                    fetch('/creds/status', {
+                        method: 'GET',
+                        headers: getAuthHeaders()
+                    }),
+                    fetch('/api/keys/stats', {
+                        method: 'GET',
+                        headers: getAuthHeaders()
+                    }).catch(() => ({ ok: false, json: () => Promise.resolve({}) }))
+                ]);
 
                 const aggregatedData = await aggregatedResponse.json();
+                const credsStatusData = await credsStatusResponse.json();
+                const keysStatsData = keysStatsResponse.ok ? await keysStatsResponse.json() : {};
 
                 if (aggregatedResponse.ok) {
                     // 从aggregatedData.log_summary.keys构建usageStatsData
                     usageStatsData = {};
                     const keys = (aggregatedData.log_summary && aggregatedData.log_summary.keys) || {};
                     
+                    // 获取凭证状态映射（将文件名映射到状态）
+                    const credsStatus = credsStatusData.creds || {};
+                    
+                    // 获取密钥状态映射（从/api/keys/stats获取）
+                    // 构建脱敏密钥到禁用状态的映射（支持多种键名格式）
+                    const keyDisabledMap = {};
+                    // 构建所有密钥的集合（用于判断某个keyName是否是密钥）
+                    const allKeysSet = new Set();
+                    
+                    // 先处理禁用的密钥（优先级更高，确保禁用的密钥被正确标记）
+                    if (keysStatsData.disabled && Array.isArray(keysStatsData.disabled)) {
+                        keysStatsData.disabled.forEach(key => {
+                            if (key.masked_key) {
+                                // 使用masked_key作为主键
+                                keyDisabledMap[key.masked_key] = true; // disabled列表中的密钥是禁用的
+                                allKeysSet.add(key.masked_key);
+                                // 同时支持其他可能的键名格式（如果有的话）
+                                if (key.display_key && key.display_key !== key.masked_key) {
+                                    keyDisabledMap[key.display_key] = true;
+                                    allKeysSet.add(key.display_key);
+                                }
+                            }
+                        });
+                    }
+                    // 再处理启用的密钥
+                    if (keysStatsData.enabled && Array.isArray(keysStatsData.enabled)) {
+                        keysStatsData.enabled.forEach(key => {
+                            if (key.masked_key) {
+                                // 只有在keyDisabledMap中不存在时才设置（避免覆盖已禁用的状态）
+                                if (!keyDisabledMap.hasOwnProperty(key.masked_key)) {
+                                    keyDisabledMap[key.masked_key] = false; // enabled列表中的密钥是启用的
+                                }
+                                allKeysSet.add(key.masked_key);
+                                // 同时支持其他可能的键名格式（如果有的话）
+                                if (key.display_key && key.display_key !== key.masked_key && !keyDisabledMap.hasOwnProperty(key.display_key)) {
+                                    keyDisabledMap[key.display_key] = false;
+                                    allKeysSet.add(key.display_key);
+                                }
+                            }
+                        });
+                    }
+                    
                     // 为每个key创建统计数据结构
                     for (const [keyName, keyData] of Object.entries(keys)) {
                         // 计算总调用次数（成功+失败）
                         const totalCalls = (keyData.ok || 0) + (keyData.fail || 0);
+                        
+                        // 查找对应的凭证状态
+                        // keyName可能是脱敏后的密钥（masked key）或 "creds/filename.json" 格式
+                        let disabled = false;
+                        let isKey = false; // 标记是否是密钥
+                        
+                        // 首先检查是否是密钥（通过脱敏密钥匹配）
+                        if (keyDisabledMap.hasOwnProperty(keyName)) {
+                            disabled = keyDisabledMap[keyName];
+                            isKey = true;
+                        } else {
+                            // 如果不在keyDisabledMap中，检查keyData中是否有masked_key字段
+                            // 如果有，尝试用masked_key匹配
+                            const maskedKeyFromData = keyData.masked_key || keyData.display_key;
+                            if (maskedKeyFromData) {
+                                if (keyDisabledMap.hasOwnProperty(maskedKeyFromData)) {
+                                    disabled = keyDisabledMap[maskedKeyFromData];
+                                    isKey = true;
+                                } else if (allKeysSet.has(maskedKeyFromData) || allKeysSet.has(keyName)) {
+                                    // 如果maskedKeyFromData或keyName在所有密钥集合中，说明它是密钥
+                                    // 但不在keyDisabledMap中，这可能是因为状态数据不完整
+                                    // 这种情况下，我们暂时不设置disabled，等第二次处理时再更新
+                                    isKey = true;
+                                }
+                            }
+                            
+                            // 如果确定不是密钥，则查找凭证状态
+                            if (!isKey) {
+                                // 方法1: 直接匹配（keyName就是凭证文件名）
+                                if (credsStatus[keyName]) {
+                                    disabled = credsStatus[keyName].status?.disabled || false;
+                                } else {
+                                    // 方法2: 匹配去掉路径前缀的文件名
+                                    const keyNameWithoutPrefix = keyName.replace(/^creds\//, '');
+                                    if (credsStatus[keyNameWithoutPrefix]) {
+                                        disabled = credsStatus[keyNameWithoutPrefix].status?.disabled || false;
+                                    } else {
+                                        // 方法3: 遍历所有凭证，检查文件名是否包含keyName或keyName包含文件名
+                                        for (const [credFilename, credInfo] of Object.entries(credsStatus)) {
+                                            const credNameWithoutPrefix = credFilename.replace(/^creds\//, '');
+                                            if (keyName === credFilename || 
+                                                keyName === credNameWithoutPrefix ||
+                                                keyNameWithoutPrefix === credFilename ||
+                                                keyNameWithoutPrefix === credNameWithoutPrefix ||
+                                                keyName.includes(credFilename) ||
+                                                credFilename.includes(keyName) ||
+                                                keyName.includes(credNameWithoutPrefix) ||
+                                                credNameWithoutPrefix.includes(keyName)) {
+                                                disabled = credInfo.status?.disabled || false;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                         
                         usageStatsData[keyName] = {
                             display_name: keyName,
                             total_calls: totalCalls,
                             daily_limit_total: 1000, // 默认限制
                             model_counts: keyData.model_counts || {},
-                            next_reset_time: aggregatedData.next_reset_time || null
+                            next_reset_time: aggregatedData.next_reset_time || null,
+                            disabled: disabled
                         };
                     }
 
+                    // 确保所有配置的密钥都被统计（即使没有使用记录）
+                    // 从/keys/stats获取所有密钥，确保禁用的密钥也被包含
+                    if (keysStatsData.total_keys !== undefined) {
+                        // 先处理禁用的密钥（确保禁用的密钥被正确标记，优先级最高）
+                        if (keysStatsData.disabled && Array.isArray(keysStatsData.disabled)) {
+                            keysStatsData.disabled.forEach(keyStat => {
+                                if (keyStat.masked_key) {
+                                    // 如果这个密钥不在usageStatsData中，添加它
+                                    if (!usageStatsData.hasOwnProperty(keyStat.masked_key)) {
+                                        usageStatsData[keyStat.masked_key] = {
+                                            display_name: keyStat.masked_key,
+                                            total_calls: 0,
+                                            daily_limit_total: 1000,
+                                            model_counts: keyStat.model_counts || {},
+                                            next_reset_time: aggregatedData.next_reset_time || null,
+                                            disabled: true  // 来自disabled数组，直接设置为禁用
+                                        };
+                                    } else {
+                                        // 如果已存在，强制更新为禁用状态（确保状态正确）
+                                        usageStatsData[keyStat.masked_key].disabled = true;
+                                    }
+                                }
+                            });
+                        }
+                        
+                        // 再处理启用的密钥
+                        if (keysStatsData.enabled && Array.isArray(keysStatsData.enabled)) {
+                            keysStatsData.enabled.forEach(keyStat => {
+                                if (keyStat.masked_key) {
+                                    // 如果这个密钥不在usageStatsData中，添加它
+                                    if (!usageStatsData.hasOwnProperty(keyStat.masked_key)) {
+                                        usageStatsData[keyStat.masked_key] = {
+                                            display_name: keyStat.masked_key,
+                                            total_calls: 0,
+                                            daily_limit_total: 1000,
+                                            model_counts: keyStat.model_counts || {},
+                                            next_reset_time: aggregatedData.next_reset_time || null,
+                                            disabled: false  // 来自enabled数组，直接设置为启用
+                                        };
+                                    } else {
+                                        // 如果已存在，直接更新为启用状态
+                                        // 因为如果密钥在enabled数组中，说明它应该是启用的
+                                        // 我们已经先处理了disabled数组，所以这里可以安全地更新
+                                        usageStatsData[keyStat.masked_key].disabled = false;
+                                    }
+                                }
+                            });
+                        }
+                    }
+                    
+                    // 计算活跃和禁用的密钥数
+                    const activeKeys = Object.values(usageStatsData).filter(s => !s.disabled).length;
+                    const disabledKeys = Object.values(usageStatsData).filter(s => s.disabled).length;
+
                     document.getElementById('totalApiCalls').textContent = aggregatedData.total_all_model_calls || 0;
-                    document.getElementById('totalFiles').textContent = Object.keys(usageStatsData).length;
+                    document.getElementById('activeKeys').textContent = activeKeys;
+                    document.getElementById('disabledKeys').textContent = disabledKeys;
 
                     // 渲染使用统计列表
                     renderUsageList();
 
-                    showStatus(`已加载 ${Object.keys(usageStatsData).length} 个密钥的使用统计`, 'success');
+                    showStatus(`已加载 ${Object.keys(usageStatsData).length} 个密钥的使用统计（活跃: ${activeKeys}, 禁用: ${disabledKeys}）`, 'success');
                 } else {
                     showStatus('加载使用统计失败', 'error');
                 }
@@ -6747,9 +7544,18 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 displayName = `Key: ${hash.substring(0, 4)}...${hash.substring(hash.length - 4)}`;
             }
             
+            // 根据禁用状态添加样式
+            const disabledClass = stats.disabled ? 'usage-card-disabled' : '';
+            const disabledBadge = stats.disabled ? '<span class="status-badge" style="background-color: #6c757d; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-left: 8px;">已禁用</span>' : '';
+            
+            div.className = `usage-card ${disabledClass}`;
+            
             div.innerHTML = `
                 <div class="usage-header">
-                    <div class="usage-filename">${displayName}</div>
+                    <div class="usage-filename" style="display: flex; align-items: center;">
+                        ${displayName}
+                        ${disabledBadge}
+                    </div>
                 </div>
                 
                 <div class="usage-progress">
@@ -7930,6 +8736,8 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
         // ==================== 账户管理相关函数 ====================
         let accountSessionData = null;
         let currentAccountSubTab = 'overview';
+        let currentAccountEmail = null;  // 当前选中的账户邮箱
+        let accountsList = [];  // 账户列表
         const ACCOUNT_CACHE_TTL_MS = 5 * 60 * 1000;
         let accountAutoRefreshTimer = null;
         const accountCache = {
@@ -7962,25 +8770,222 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             await checkAccountSession();
         }
 
+        // 加载账户列表
+        async function loadAccountsList() {
+            try {
+                const res = await fetch('/api/account/accounts', { headers: getAuthHeaders() });
+                const data = await res.json();
+                if (res.ok && data.accounts) {
+                    accountsList = data.accounts;
+                    currentAccountEmail = data.current_account;
+                    renderAccountsList();
+                    if (currentAccountEmail) {
+                        // 如果有当前账户，显示账户详情
+                        document.getElementById('accountDetailsSection').classList.remove('hidden');
+                        switchAccountSubTab('overview');
+                    } else {
+                        // 如果没有当前账户，隐藏详情区域
+                        document.getElementById('accountDetailsSection').classList.add('hidden');
+                    }
+                }
+            } catch (e) {
+                console.error('Load accounts list failed:', e);
+            }
+        }
+
+        // 显示添加账户表单
+        function showAddAccountForm() {
+            const form = document.getElementById('addAccountForm');
+            if (form) {
+                form.classList.remove('hidden');
+                // 清空输入框
+                document.getElementById('newAccountEmail').value = '';
+                document.getElementById('newAccountPassword').value = '';
+                // 聚焦到邮箱输入框
+                setTimeout(() => document.getElementById('newAccountEmail').focus(), 100);
+            }
+        }
+
+        // 隐藏添加账户表单
+        function hideAddAccountForm() {
+            const form = document.getElementById('addAccountForm');
+            if (form) {
+                form.classList.add('hidden');
+            }
+        }
+
+        // 添加新账户
+        async function addNewAccount() {
+            const email = document.getElementById('newAccountEmail').value.trim();
+            const password = document.getElementById('newAccountPassword').value;
+            
+            if (!email || !password) {
+                showAccountStatus('请输入邮箱和密码', 'error');
+                return;
+            }
+            
+            // 检查是否已存在该账户
+            if (accountsList.some(acc => acc.email === email)) {
+                showAccountStatus('该账户已存在，请勿重复添加', 'error');
+                return;
+            }
+            
+            showAccountStatus('正在添加账户...', 'info');
+            try {
+                const res = await fetch('/api/account/login', {
+                    method: 'POST',
+                    headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    showAccountStatus('账户添加成功', 'success');
+                    // 清空表单
+                    document.getElementById('newAccountEmail').value = '';
+                    document.getElementById('newAccountPassword').value = '';
+                    // 隐藏表单
+                    hideAddAccountForm();
+                    // 重新加载账户列表
+                    await loadAccountsList();
+                    // 如果这是第一个账户，自动切换并显示详情
+                    if (accountsList.length === 1 && !currentAccountEmail) {
+                        await switchAccount(email);
+                    }
+                } else {
+                    showAccountStatus(data.detail || '添加账户失败', 'error');
+                }
+            } catch (e) {
+                showAccountStatus('添加账户失败: ' + e.message, 'error');
+            }
+        }
+
+        // 渲染账户列表
+        function renderAccountsList() {
+            const container = document.getElementById('accountListContainer');
+            const selector = document.getElementById('accountSelector');
+            const selectorContainer = document.getElementById('accountSelectorContainer');
+            
+            if (!container || !selector) return;
+            
+            if (accountsList.length === 0) {
+                container.innerHTML = '<p style="color: var(--text-secondary);">暂无已登录的账户，点击上方"添加账户"按钮添加第一个账户</p>';
+                selectorContainer.classList.add('hidden');
+                return;
+            }
+            
+            // 显示账户列表
+            let html = '<div style="display: grid; gap: 12px;">';
+            accountsList.forEach(account => {
+                const isCurrent = account.email === currentAccountEmail;
+                // 转义邮箱中的特殊字符，防止XSS
+                const safeEmail = account.email.replace(/'/g, "\\'").replace(/"/g, "&quot;");
+                html += `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--card-bg); border-radius: 8px; border: 2px solid ${isCurrent ? '#4285f4' : 'var(--border-color)'};">
+                        <div>
+                            <div style="font-weight: 600; color: var(--text-color);">${account.email}</div>
+                            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">
+                                类型: ${account.customer_type || 'PAYG'}
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            ${isCurrent ? '<span style="color: #4285f4; font-size: 12px; font-weight: 600;">当前</span>' : ''}
+                            <button class="btn btn-sm" onclick="switchAccount('${safeEmail}')" style="background: ${isCurrent ? '#6c757d' : '#4285f4'};">
+                                ${isCurrent ? '已选中' : '切换'}
+                            </button>
+                            <button class="btn btn-sm" onclick="accountLogout('${safeEmail}')" style="background: #dc3545;">登出</button>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            container.innerHTML = html;
+            
+            // 更新选择器
+            selector.innerHTML = '<option value="">请选择账户</option>';
+            accountsList.forEach(account => {
+                const option = document.createElement('option');
+                option.value = account.email;
+                option.textContent = account.email + (account.email === currentAccountEmail ? ' (当前)' : '');
+                if (account.email === currentAccountEmail) {
+                    option.selected = true;
+                }
+                selector.appendChild(option);
+            });
+            
+            selectorContainer.classList.remove('hidden');
+        }
+        
+        // 在账户列表为空时，也显示添加账户按钮的提示
+        function updateAddAccountButtonVisibility() {
+            // 按钮已经在账户列表区域顶部，始终可见
+        }
+
+        // 切换账户
+        async function switchAccount(email) {
+            if (!email) {
+                email = document.getElementById('accountSelector')?.value;
+            }
+            if (!email) {
+                showAccountStatus('请选择账户', 'error');
+                return;
+            }
+            
+            try {
+                const res = await fetch('/api/account/switch', {
+                    method: 'POST',
+                    headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: email })
+                });
+                
+                if (!res.ok) {
+                    const errorData = await res.json().catch(() => ({ detail: `HTTP ${res.status}: ${res.statusText}` }));
+                    showAccountStatus(errorData.detail || `切换账户失败: HTTP ${res.status}`, 'error');
+                    return;
+                }
+                
+                const data = await res.json();
+                if (data.success) {
+                    currentAccountEmail = email;
+                    showAccountStatus(`已切换到账户: ${email}`, 'success');
+                    // 重新加载账户列表
+                    await loadAccountsList();
+                    // 清空缓存，重新加载数据
+                    accountCache.info = { ts: 0, html: '' };
+                    accountCache.apiKeys = { ts: 0, html: '' };
+                    accountCache.billing = { ts: 0, html: '' };
+                    accountCache.usage = {};
+                    accountCache.cost = {};
+                    accountCache.rates = { ts: 0, html: '' };
+                    // 显示账户详情并切换到概览
+                    document.getElementById('accountDetailsSection').classList.remove('hidden');
+                    switchAccountSubTab('overview');
+                } else {
+                    showAccountStatus(data.detail || data.message || '切换账户失败', 'error');
+                }
+            } catch (e) {
+                console.error('Switch account error:', e);
+                showAccountStatus('切换账户失败: ' + (e.message || String(e)), 'error');
+            }
+        }
+
         // 检查账户登录状态
         async function checkAccountSession() {
             try {
-                const res = await fetch('/api/account/session', { headers: getAuthHeaders() });
-                const data = await res.json();
-                accountSessionData = data;
-                if (data.logged_in) {
+                // 先加载账户列表
+                await loadAccountsList();
+                
+                // 检查是否有已登录的账户
+                if (accountsList.length > 0) {
                     document.getElementById('accountLoginSection').classList.add('hidden');
                     document.getElementById('accountLoggedInSection').classList.remove('hidden');
-                    // 默认显示概览（立即显示，不等待预加载）
-                    switchAccountSubTab('overview');
-                    // 后台并发预加载其他子页数据（不阻塞当前页面）
-                    setTimeout(() => {
-                        Promise.all([
-                            loadAccountUsage(false),
-                            loadAccountCost(false),
-                            loadAccountRates(false)
-                        ]).catch(e => console.error('Failed to preload account data:', e));
-                    }, 500); // 延迟500ms再预加载，优先保证当前页面响应
+                    
+                    // 如果有当前账户，显示详情
+                    if (currentAccountEmail) {
+                        document.getElementById('accountDetailsSection').classList.remove('hidden');
+                        switchAccountSubTab('overview');
+                    } else {
+                        document.getElementById('accountDetailsSection').classList.add('hidden');
+                    }
                 } else {
                     document.getElementById('accountLoginSection').classList.remove('hidden');
                     document.getElementById('accountLoggedInSection').classList.add('hidden');
@@ -8009,7 +9014,15 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 if (res.ok && data.success) {
                     showAccountStatus('登录成功', 'success');
                     document.getElementById('accountPassword').value = '';
-                    await checkAccountSession();
+                    document.getElementById('accountEmail').value = '';
+                    // 重新加载账户列表
+                    await loadAccountsList();
+                    // 如果这是第一个账户，自动切换并显示详情
+                    if (accountsList.length === 1 && !currentAccountEmail) {
+                        await switchAccount(data.email);
+                    } else {
+                        await checkAccountSession();
+                    }
                 } else {
                     showAccountStatus(data.detail || '登录失败', 'error');
                 }
@@ -8019,12 +9032,42 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
         }
 
         // 账户登出
-        async function accountLogout() {
+        async function accountLogout(email) {
+            if (!email) {
+                email = currentAccountEmail;
+            }
+            if (!email) {
+                showAccountStatus('请指定要登出的账户', 'error');
+                return;
+            }
+            
             try {
-                await fetch('/api/account/logout', { method: 'POST', headers: getAuthHeaders() });
-                accountSessionData = null;
-                document.getElementById('accountLoginSection').classList.remove('hidden');
-                document.getElementById('accountLoggedInSection').classList.add('hidden');
+                const params = email ? `?account_email=${encodeURIComponent(email)}` : '';
+                await fetch('/api/account/logout' + params, { method: 'POST', headers: getAuthHeaders() });
+                
+                // 如果登出的是当前账户，清空当前账户
+                if (email === currentAccountEmail) {
+                    currentAccountEmail = null;
+                    accountSessionData = null;
+                    // 清空缓存
+                    accountCache.info = { ts: 0, html: '' };
+                    accountCache.apiKeys = { ts: 0, html: '' };
+                    accountCache.billing = { ts: 0, html: '' };
+                    accountCache.usage = {};
+                    accountCache.cost = {};
+                    accountCache.rates = { ts: 0, html: '' };
+                    document.getElementById('accountDetailsSection').classList.add('hidden');
+                }
+                
+                // 重新加载账户列表
+                await loadAccountsList();
+                
+                // 如果没有任何账户了，显示登录界面
+                if (accountsList.length === 0) {
+                    document.getElementById('accountLoginSection').classList.remove('hidden');
+                    document.getElementById('accountLoggedInSection').classList.add('hidden');
+                }
+                
                 showAccountStatus('已登出', 'success');
             } catch (e) {
                 showAccountStatus('登出失败: ' + e.message, 'error');
@@ -8041,6 +9084,12 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
 
         // 切换账户子标签页
         function switchAccountSubTab(tabName) {
+            // 检查是否选择了账户
+            if (!currentAccountEmail) {
+                showAccountStatus('请先选择要查看的账户', 'error');
+                return;
+            }
+            
             currentAccountSubTab = tabName;
             const tabs = ['overview', 'usage', 'cost', 'rates'];
             tabs.forEach(t => {
@@ -8117,6 +9166,11 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
 
         // 加载账户信息（快速响应，不包含 API keys）
         async function loadAccountInfo(force = false) {
+            if (!currentAccountEmail) {
+                const el = document.getElementById('accountInfoContent');
+                if (el) el.innerHTML = '<p style="color: var(--text-secondary);">请先选择账户</p>';
+                return;
+            }
             const el = document.getElementById('accountInfoContent');
             if (!el) return;
             if (!force && accountCache.info.html && isFresh(accountCache.info.ts)) {
@@ -8127,7 +9181,8 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             }
             el.innerHTML = '<div class="loading">加载中...</div>';
             try {
-                const res = await fetch('/api/account/info', { headers: getAuthHeaders() });
+                const params = currentAccountEmail ? `?account_email=${encodeURIComponent(currentAccountEmail)}` : '';
+                const res = await fetch('/api/account/info' + params, { headers: getAuthHeaders() });
                 if (!res.ok) {
                     if (res.status === 401) {
                         await checkAccountSession();
@@ -8166,6 +9221,11 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
         
         // 独立加载 API Keys（异步，不阻塞账户信息，带缓存，带超时）
         async function loadAccountApiKeys(force = false) {
+            if (!currentAccountEmail) {
+                const el = document.getElementById('apiKeysSection');
+                if (el) el.innerHTML = '<p style="color: var(--text-secondary);">请先选择账户</p>';
+                return;
+            }
             const el = document.getElementById('apiKeysSection');
             if (!el) return;
             
@@ -8180,7 +9240,10 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 15000);
                 
-                const res = await fetch('/api/account/api-keys' + (force ? '?force=1' : ''), { 
+                const params = new URLSearchParams();
+                if (force) params.append('force', '1');
+                if (currentAccountEmail) params.append('account_email', currentAccountEmail);
+                const res = await fetch('/api/account/api-keys' + (params.toString() ? '?' + params.toString() : ''), { 
                     headers: getAuthHeaders(),
                     signal: controller.signal
                 });
@@ -8231,6 +9294,11 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
 
         // 加载账单信息
         async function loadAccountBilling(force = false) {
+            if (!currentAccountEmail) {
+                const el = document.getElementById('accountBalanceContent');
+                if (el) el.innerHTML = '<p style="color: var(--text-secondary);">请先选择账户</p>';
+                return;
+            }
             const el = document.getElementById('accountBalanceContent');
             if (!el) return;
             if (!force && accountCache.billing.html && isFresh(accountCache.billing.ts)) {
@@ -8239,7 +9307,10 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             }
             el.innerHTML = '<div class="loading">加载中...</div>';
             try {
-                const res = await fetch('/api/account/billing' + (force ? '?force=1' : ''), { headers: getAuthHeaders() });
+                const params = new URLSearchParams();
+                if (force) params.append('force', '1');
+                if (currentAccountEmail) params.append('account_email', currentAccountEmail);
+                const res = await fetch('/api/account/billing' + (params.toString() ? '?' + params.toString() : ''), { headers: getAuthHeaders() });
                 if (!res.ok) throw new Error('加载失败');
                 const data = await res.json();
                 console.log('Billing data:', data);
@@ -8336,6 +9407,11 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
         }
 
         async function loadAccountUsage(force = false, silent = false) {
+            if (!currentAccountEmail) {
+                const el = document.getElementById('accountUsageContent');
+                if (el) el.innerHTML = '<p style="color: var(--text-secondary);">请先选择账户</p>';
+                return;
+            }
             const el = document.getElementById('accountUsageContent');
             if (!el) return;
             const key = 'summary';
@@ -8359,7 +9435,11 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             try {
                 // 强制刷新时添加force参数和时间戳防止缓存
                 const timestamp = Date.now();
-                const res = await fetch('/api/account/usage?force=1&_t=' + timestamp, { headers: getAuthHeaders() });
+                const params = new URLSearchParams();
+                params.append('force', '1');
+                params.append('_t', timestamp);
+                if (currentAccountEmail) params.append('account_email', currentAccountEmail);
+                const res = await fetch('/api/account/usage?' + params.toString(), { headers: getAuthHeaders() });
                 if (!res.ok) throw new Error('加载失败');
                 const data = await res.json();
                 console.log('Usage data (force=' + force + '):', data);
@@ -8489,6 +9569,11 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
 
         // 加载成本数据
         async function loadAccountCost(force = false, silent = false) {
+            if (!currentAccountEmail) {
+                const el = document.getElementById('accountCostContent');
+                if (el) el.innerHTML = '<p style="color: var(--text-secondary);">请先选择账户</p>';
+                return;
+            }
             const el = document.getElementById('accountCostContent');
             if (!el) return;
             const key = 'summary';
@@ -8512,7 +9597,11 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             try {
                 // 强制刷新时添加force参数和时间戳防止缓存
                 const timestamp = Date.now();
-                const res = await fetch('/api/account/cost?force=1&_t=' + timestamp, { headers: getAuthHeaders() });
+                const params = new URLSearchParams();
+                params.append('force', '1');
+                params.append('_t', timestamp);
+                if (currentAccountEmail) params.append('account_email', currentAccountEmail);
+                const res = await fetch('/api/account/cost?' + params.toString(), { headers: getAuthHeaders() });
                 if (!res.ok) throw new Error('加载失败');
                 const data = await res.json();
                 console.log('Cost data (force=' + force + '):', data);
@@ -8650,8 +9739,15 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
         }
         // 导出成本数据
         async function exportAccountCost(format) {
+            if (!currentAccountEmail) {
+                showAccountStatus('请先选择账户', 'error');
+                return;
+            }
             try {
-                const res = await fetch(`/api/account/export/cost?format=${format}`, { headers: getAuthHeaders() });
+                const params = new URLSearchParams();
+                params.append('format', format);
+                params.append('account_email', currentAccountEmail);
+                const res = await fetch(`/api/account/export/cost?${params.toString()}`, { headers: getAuthHeaders() });
                 if (!res.ok) throw new Error('导出失败');
                 const data = await res.json();
                 const content = format === 'csv' ? data.data : JSON.stringify(data.data, null, 2);
@@ -8670,6 +9766,11 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
 
         // 加载费率数据
         async function loadAccountRates(force = false) {
+            if (!currentAccountEmail) {
+                const el = document.getElementById('accountRatesContent');
+                if (el) el.innerHTML = '<p style="color: var(--text-secondary);">请先选择账户</p>';
+                return;
+            }
             const el = document.getElementById('accountRatesContent');
             if (!el) return;
             if (!force && accountCache.rates.html && isFresh(accountCache.rates.ts)) {
@@ -8679,7 +9780,11 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             el.innerHTML = '<div class="loading">加载中...</div>';
             const region = document.getElementById('accountRatesRegion')?.value || 'US';
             try {
-                const res = await fetch(`/api/account/rates?region=${region}` + (force ? '&force=1' : ''), { headers: getAuthHeaders() });
+                const params = new URLSearchParams();
+                params.append('region', region);
+                if (force) params.append('force', '1');
+                if (currentAccountEmail) params.append('account_email', currentAccountEmail);
+                const res = await fetch(`/api/account/rates?${params.toString()}`, { headers: getAuthHeaders() });
                 if (!res.ok) throw new Error('加载失败');
                 const data = await res.json();
                 let html = '<div style="display: grid; gap: 20px;">';

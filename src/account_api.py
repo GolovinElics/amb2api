@@ -26,6 +26,8 @@ ASSEMBLY_DASHBOARD_BASE = "https://www.assemblyai.com"
 
 # Session 存储键
 SESSION_STORAGE_KEY = "assembly_dashboard_session"
+ACCOUNTS_LIST_KEY = "assembly_accounts_list"  # 存储账户列表
+CURRENT_ACCOUNT_KEY = "assembly_current_account"  # 当前选中的账户
 SESSION_EXPIRY_HOURS = 24 * 7  # Session 有效期 7 天
 _cache_store: Dict[str, Dict[str, Any]] = {}
 _cache_ttl_seconds = 300
@@ -51,6 +53,11 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class SwitchAccountRequest(BaseModel):
+    """切换账户请求模型"""
+    email: str
+
+
 class SessionInfo(BaseModel):
     """Session 信息模型"""
     email: str
@@ -69,19 +76,37 @@ class AccountInfo(BaseModel):
     api_token: Optional[str] = None
 
 
-async def _get_session() -> Optional[Dict[str, Any]]:
-    """获取保存的 session 信息"""
+async def _get_session(account_email: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """获取保存的 session 信息
+    
+    Args:
+        account_email: 账户邮箱，如果为None则获取当前选中的账户
+    """
     try:
         adapter = await get_storage_adapter()
-        session_data = await adapter.get_config(SESSION_STORAGE_KEY)
+        
+        # 如果没有指定账户，获取当前选中的账户
+        if not account_email:
+            current_account = await adapter.get_config(CURRENT_ACCOUNT_KEY)
+            if current_account:
+                account_email = current_account.get("email")
+        
+        if not account_email:
+            return None
+        
+        # 使用邮箱作为key存储session
+        session_key = f"{SESSION_STORAGE_KEY}:{account_email}"
+        session_data = await adapter.get_config(session_key)
         if session_data:
             # 检查 session 是否过期
             expires_at = session_data.get("expires_at")
             if expires_at:
                 expiry_time = datetime.fromisoformat(expires_at)
                 if datetime.now() > expiry_time:
-                    log.info("Session expired, clearing...")
-                    await adapter.delete_config(SESSION_STORAGE_KEY)
+                    log.info(f"Session expired for {account_email}, clearing...")
+                    await adapter.delete_config(session_key)
+                    # 从账户列表中移除
+                    await _remove_account_from_list(account_email)
                     return None
             return session_data
     except Exception as e:
@@ -93,24 +118,120 @@ async def _save_session(session_data: Dict[str, Any]) -> bool:
     """保存 session 信息"""
     try:
         adapter = await get_storage_adapter()
+        email = session_data.get("email")
+        if not email:
+            log.error("Cannot save session: email is missing")
+            return False
+        
         # 设置过期时间
         session_data["expires_at"] = (
             datetime.now() + timedelta(hours=SESSION_EXPIRY_HOURS)
         ).isoformat()
-        await adapter.set_config(SESSION_STORAGE_KEY, session_data)
-        log.info(f"Session saved for {session_data.get('email', 'unknown')}")
+        
+        # 使用邮箱作为key存储session
+        session_key = f"{SESSION_STORAGE_KEY}:{email}"
+        await adapter.set_config(session_key, session_data)
+        
+        # 添加到账户列表
+        await _add_account_to_list(email, session_data.get("user_info", {}))
+        
+        # 如果是第一个账户，设置为当前账户
+        accounts_list = await _get_accounts_list()
+        if len(accounts_list) == 1:
+            await adapter.set_config(CURRENT_ACCOUNT_KEY, {"email": email})
+        
+        log.info(f"Session saved for {email}")
         return True
     except Exception as e:
         log.error(f"Failed to save session: {e}")
         return False
 
 
-async def _clear_session() -> bool:
-    """清除 session 信息"""
+async def _get_accounts_list() -> List[Dict[str, Any]]:
+    """获取账户列表"""
     try:
         adapter = await get_storage_adapter()
-        await adapter.delete_config(SESSION_STORAGE_KEY)
-        log.info("Session cleared")
+        accounts = await adapter.get_config(ACCOUNTS_LIST_KEY)
+        if accounts and isinstance(accounts, list):
+            # 过滤掉已过期的账户
+            valid_accounts = []
+            for account in accounts:
+                email = account.get("email")
+                if email:
+                    session = await _get_session(email)
+                    if session:
+                        valid_accounts.append(account)
+            # 更新列表
+            if len(valid_accounts) != len(accounts):
+                await adapter.set_config(ACCOUNTS_LIST_KEY, valid_accounts)
+            return valid_accounts
+        return []
+    except Exception as e:
+        log.error(f"Failed to get accounts list: {e}")
+        return []
+
+
+async def _add_account_to_list(email: str, user_info: Dict[str, Any]) -> None:
+    """添加账户到列表"""
+    try:
+        adapter = await get_storage_adapter()
+        accounts = await _get_accounts_list()
+        
+        # 检查是否已存在
+        existing = next((acc for acc in accounts if acc.get("email") == email), None)
+        if not existing:
+            accounts.append({
+                "email": email,
+                "user_id": user_info.get("id"),
+                "customer_type": user_info.get("customer_type", "PAYG"),
+                "created": user_info.get("created", datetime.now().isoformat()),
+            })
+            await adapter.set_config(ACCOUNTS_LIST_KEY, accounts)
+    except Exception as e:
+        log.error(f"Failed to add account to list: {e}")
+
+
+async def _remove_account_from_list(email: str) -> None:
+    """从列表中移除账户"""
+    try:
+        adapter = await get_storage_adapter()
+        accounts = await _get_accounts_list()
+        accounts = [acc for acc in accounts if acc.get("email") != email]
+        await adapter.set_config(ACCOUNTS_LIST_KEY, accounts)
+        
+        # 如果移除的是当前账户，切换到第一个账户
+        current = await adapter.get_config(CURRENT_ACCOUNT_KEY)
+        if current and current.get("email") == email:
+            if accounts:
+                await adapter.set_config(CURRENT_ACCOUNT_KEY, {"email": accounts[0].get("email")})
+            else:
+                await adapter.delete_config(CURRENT_ACCOUNT_KEY)
+    except Exception as e:
+        log.error(f"Failed to remove account from list: {e}")
+
+
+async def _clear_session(account_email: Optional[str] = None) -> bool:
+    """清除 session 信息
+    
+    Args:
+        account_email: 账户邮箱，如果为None则清除当前账户
+    """
+    try:
+        adapter = await get_storage_adapter()
+        
+        # 如果没有指定账户，获取当前选中的账户
+        if not account_email:
+            current_account = await adapter.get_config(CURRENT_ACCOUNT_KEY)
+            if current_account:
+                account_email = current_account.get("email")
+        
+        if account_email:
+            session_key = f"{SESSION_STORAGE_KEY}:{account_email}"
+            await adapter.delete_config(session_key)
+            await _remove_account_from_list(account_email)
+            log.info(f"Session cleared for {account_email}")
+        else:
+            log.warning("No account specified to clear session")
         return True
     except Exception as e:
         log.error(f"Failed to clear session: {e}")
@@ -122,6 +243,7 @@ async def _make_dashboard_request(
     path: str,
     data: Optional[Dict] = None,
     params: Optional[Dict] = None,
+    account_email: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """
     发送 Dashboard API 请求
@@ -131,13 +253,14 @@ async def _make_dashboard_request(
         path: API 路径
         data: POST 数据
         params: 查询参数
+        account_email: 账户邮箱，如果为None则使用当前账户
     
     Returns:
         响应数据或 None
     """
     import httpx
     
-    session = await _get_session()
+    session = await _get_session(account_email)
     if not session:
         raise HTTPException(status_code=401, detail="Not logged in. Please login first.")
     
@@ -425,16 +548,24 @@ async def login(request: LoginRequest) -> Dict[str, Any]:
 
 
 @router.post("/logout")
-async def logout() -> Dict[str, Any]:
-    """登出并清除 session"""
-    await _clear_session()
+async def logout(account_email: Optional[str] = None) -> Dict[str, Any]:
+    """登出并清除 session
+    
+    Args:
+        account_email: 账户邮箱，如果为None则登出当前账户
+    """
+    await _clear_session(account_email)
     return {"success": True, "message": "Logged out successfully"}
 
 
 @router.get("/session")
-async def get_session_info() -> SessionInfo:
-    """获取当前 session 状态"""
-    session = await _get_session()
+async def get_session_info(account_email: Optional[str] = None) -> SessionInfo:
+    """获取 session 状态
+    
+    Args:
+        account_email: 账户邮箱，如果为None则获取当前账户
+    """
+    session = await _get_session(account_email)
     if session:
         return SessionInfo(
             email=session.get("email", ""),
@@ -444,15 +575,63 @@ async def get_session_info() -> SessionInfo:
     return SessionInfo(email="", logged_in=False)
 
 
+@router.get("/accounts")
+async def get_accounts_list() -> Dict[str, Any]:
+    """获取所有已登录的账户列表"""
+    accounts = await _get_accounts_list()
+    current_account = None
+    try:
+        adapter = await get_storage_adapter()
+        current = await adapter.get_config(CURRENT_ACCOUNT_KEY)
+        if current:
+            current_account = current.get("email")
+    except Exception:
+        pass
+    
+    return {
+        "accounts": accounts,
+        "current_account": current_account,
+    }
+
+
+@router.post("/switch")
+async def switch_account(request: SwitchAccountRequest) -> Dict[str, Any]:
+    """切换当前查看的账户
+    
+    Args:
+        request: 切换账户请求，包含email字段
+    """
+    email = request.email
+    # 验证账户是否存在
+    session = await _get_session(email)
+    if not session:
+        raise HTTPException(status_code=404, detail=f"Account {email} not found or expired")
+    
+    try:
+        adapter = await get_storage_adapter()
+        await adapter.set_config(CURRENT_ACCOUNT_KEY, {"email": email})
+        return {
+            "success": True,
+            "message": f"Switched to account {email}",
+            "email": email,
+        }
+    except Exception as e:
+        log.error(f"Failed to switch account: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to switch account: {str(e)}")
+
+
 @router.get("/info")
-async def get_account_info() -> Dict[str, Any]:
+async def get_account_info(account_email: Optional[str] = None) -> Dict[str, Any]:
     """
     获取账户基本信息（快速响应）
+    
+    Args:
+        account_email: 账户邮箱，如果为None则获取当前账户
     
     返回账户 ID、邮箱、类型、创建时间、支付方式等基础信息。
     不包含 API key 信息，API key 通过 /api/account/api-keys 单独获取。
     """
-    session = await _get_session()
+    session = await _get_session(account_email)
     if not session:
         raise HTTPException(status_code=401, detail="Not logged in. Please login first.")
     
@@ -474,14 +653,18 @@ async def get_account_info() -> Dict[str, Any]:
 
 
 @router.get("/api-keys")
-async def get_account_api_keys(force: bool = False) -> Dict[str, Any]:
+async def get_account_api_keys(force: bool = False, account_email: Optional[str] = None) -> Dict[str, Any]:
     """
     获取账户的 API key 列表（独立端点）
+    
+    Args:
+        force: 是否强制刷新
+        account_email: 账户邮箱，如果为None则获取当前账户
     
     优先从 session 中获取 api_token（登录时已保存），
     如果需要完整的项目信息，则从 Dashboard API 获取。
     """
-    session = await _get_session()
+    session = await _get_session(account_email)
     if not session:
         raise HTTPException(status_code=401, detail="Not logged in. Please login first.")
     
@@ -520,6 +703,7 @@ async def get_account_api_keys(force: bool = False) -> Dict[str, Any]:
                 "GET",
                 "/dashboard/cost",
                 params={"_rsc": "125dm"},
+                account_email=account_email,
             )
             if rsc and "raw" in rsc:
                 projects = _parse_projects_from_rsc(rsc["raw"])
@@ -557,6 +741,7 @@ async def get_account_api_keys(force: bool = False) -> Dict[str, Any]:
                             "GET",
                             "/dashboard/cost",
                             params={"_rsc": "125dm"},
+                            account_email=account_email,
                         )
                         if r and "raw" in r:
                             projects = _parse_projects_from_rsc(r["raw"])
@@ -634,9 +819,13 @@ def _parse_projects_from_rsc(raw_text: str) -> List[Dict[str, Any]]:
 
 
 @router.get("/billing")
-async def get_billing_info(force: bool = False) -> Dict[str, Any]:
+async def get_billing_info(force: bool = False, account_email: Optional[str] = None) -> Dict[str, Any]:
     """
     获取账单信息
+    
+    Args:
+        force: 是否强制刷新
+        account_email: 账户邮箱，如果为None则获取当前账户
     
     返回余额、消费趋势等信息。
     使用 Metronome API 获取准确的账单数据。
@@ -648,7 +837,7 @@ async def get_billing_info(force: bool = False) -> Dict[str, Any]:
         "cost_breakdown": {...}  // 按服务分类的成本
     }
     """
-    session = await _get_session()
+    session = await _get_session(account_email)
     if not session:
         raise HTTPException(status_code=401, detail="Not logged in. Please login first.")
     
@@ -684,7 +873,8 @@ async def get_billing_info(force: bool = False) -> Dict[str, Any]:
             page = await _make_dashboard_request(
                 "GET",
                 "/dashboard/account/billing",
-                params=params
+                params=params,
+                account_email=account_email,
             )
             if page and "raw" in page:
                 raw_text = page["raw"].strip()
@@ -729,6 +919,7 @@ async def get_usage_data(
     regions: Optional[str] = None,
     services: Optional[str] = None,
     force: bool = False,
+    account_email: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     获取使用量数据
@@ -779,7 +970,8 @@ async def get_usage_data(
                     rsc_data = await _make_dashboard_request(
                         "GET",
                         path,
-                        params=rsc_params
+                        params=rsc_params,
+                        account_email=account_email,
                     )
 
                     if rsc_data and "raw" in rsc_data:
@@ -823,7 +1015,8 @@ async def get_usage_data(
                         fb_data = await _make_dashboard_request(
                             "GET",
                             fallback_path,
-                            params=rsc_params
+                            params=rsc_params,
+                            account_email=account_email,
                         )
                         if fb_data and "raw" in fb_data:
                             raw_text = fb_data["raw"]
@@ -863,6 +1056,7 @@ async def get_cost_data(
     regions: Optional[str] = None,
     services: Optional[str] = None,
     force: bool = False,
+    account_email: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     获取成本数据
@@ -906,7 +1100,8 @@ async def get_cost_data(
                 rsc_data = await _make_dashboard_request(
                     "GET",
                     "/dashboard/cost",
-                    params=rsc_params
+                    params=rsc_params,
+                    account_email=account_email,
                 )
                 if rsc_data and "raw" in rsc_data:
                     raw_text = rsc_data["raw"]
@@ -932,7 +1127,7 @@ async def get_cost_data(
                 # 尝试其他参数组合
                 for rsc_params in rsc_params_list:
                     try:
-                        fb_data = await _make_dashboard_request("GET", "/dashboard/cost", params=rsc_params)
+                        fb_data = await _make_dashboard_request("GET", "/dashboard/cost", params=rsc_params, account_email=account_email)
                         if fb_data and "raw" in fb_data:
                             parsed_fb = _parse_cost_rsc_data(fb_data)
                             if parsed_fb.get("by_model"):
@@ -954,7 +1149,7 @@ async def get_cost_data(
 
 
 @router.get("/rates")
-async def get_rates(region: str = "US", force: bool = False) -> Dict[str, Any]:
+async def get_rates(region: str = "US", force: bool = False, account_email: Optional[str] = None) -> Dict[str, Any]:
     cache_key = f"rates:{region}"
     cached = None if force else _cache_get(cache_key)
     if cached:
@@ -967,6 +1162,7 @@ async def get_rates(region: str = "US", force: bool = False) -> Dict[str, Any]:
             "GET",
             "/dashboard/account/billing",
             params={"view": region, "_rsc": "10s30"},
+            account_email=account_email,
         )
         parsed = _parse_rates_rsc_data(rsc)
         log.info(f"Parsed rates from billing API: {len(parsed.get('llm_gateway_input', []))} input, {len(parsed.get('llm_gateway_output', []))} output")
@@ -1854,6 +2050,7 @@ async def export_usage_data(
     format: str = "json",
     starting_on: Optional[str] = None,
     ending_before: Optional[str] = None,
+    account_email: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     导出使用量数据
@@ -1869,6 +2066,7 @@ async def export_usage_data(
         starting_on=starting_on,
         ending_before=ending_before,
         group_by="date",
+        account_email=account_email,
     )
     
     if format == "csv":
@@ -1891,6 +2089,7 @@ async def export_cost_data(
     starting_on: Optional[str] = None,
     ending_before: Optional[str] = None,
     window_size: str = "month",
+    account_email: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     导出成本数据
@@ -1902,7 +2101,7 @@ async def export_cost_data(
         window_size: 时间窗口
     """
     # 获取成本数据
-    cost_data = await get_cost_data(force=True)
+    cost_data = await get_cost_data(force=True, account_email=account_email)
     
     if format == "csv":
         csv_lines = ["service,total_cost"]
