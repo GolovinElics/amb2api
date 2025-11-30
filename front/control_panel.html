@@ -6597,7 +6597,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                         });
                         
                         if (duplicateCount > 0 && duplicateKeys.length > 0) {
-                            // 有重复密钥，显示警告提示，列出所有重复的密钥
+                            // 有重复密钥，使用弹窗提示，列出所有重复的密钥
                             const duplicateList = duplicateKeys.map(k => {
                                 if (k && typeof k === 'string' && k.length > 8) {
                                     return k.substring(0, 4) + '...' + k.substring(k.length - 4);
@@ -6605,18 +6605,18 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                                     return k.substring(0, 2) + '***';
                                 }
                                 return String(k || '');
-                            }).filter(k => k).join(', ');
+                            }).filter(k => k).join('\n  • ');
                             
                             if (addedCount === 0) {
-                                // 所有密钥都是重复的
-                                showStatus(`所有 ${duplicateCount} 个密钥都是重复的，未添加任何密钥。重复的密钥：${duplicateList}`, 'warning');
+                                // 所有密钥都是重复的，使用弹窗提示
+                                alert(`⚠️ 重复密钥提醒\n\n所有 ${duplicateCount} 个密钥都是重复的，未添加任何密钥。\n\n重复的密钥：\n  • ${duplicateList}`);
                             } else {
-                                // 部分密钥重复
-                                showStatus(`成功添加 ${addedCount} 个密钥，跳过 ${duplicateCount} 个重复密钥。重复的密钥：${duplicateList}`, 'warning');
+                                // 部分密钥重复，使用弹窗提示
+                                alert(`⚠️ 重复密钥提醒\n\n成功添加 ${addedCount} 个密钥，跳过 ${duplicateCount} 个重复密钥。\n\n重复的密钥：\n  • ${duplicateList}`);
                             }
                         } else if (duplicateCount > 0) {
                             // 有重复但列表为空（不应该发生，但作为后备）
-                            showStatus(`成功添加 ${addedCount} 个密钥，跳过 ${duplicateCount} 个重复密钥`, 'warning');
+                            alert(`⚠️ 重复密钥提醒\n\n成功添加 ${addedCount} 个密钥，跳过 ${duplicateCount} 个重复密钥`);
                         } else if (addedCount > 0) {
                             // 没有重复，显示成功提示
                             showStatus(`成功添加 ${addedCount} 个密钥`, 'success');
@@ -6666,8 +6666,12 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                         document.getElementById('loginPassword').value = '';
                         showStatus('密码已更新，请重新登录', 'info');
                     } else {
-                        showStatus('配置保存成功', 'success');
-                        setTimeout(() => loadConfig(), 500);
+                        // 如果没有显示密钥相关的提示，才显示通用成功提示
+                        if (newKeys.length === 0) {
+                            showStatus('配置保存成功', 'success');
+                        }
+                        // 静默加载配置，不覆盖之前的提示消息
+                        setTimeout(() => loadConfig(true), 500);
                     }
                 } else {
                     showStatus(`保存配置失败: ${data.detail || data.error || '未知错误'}`, 'error');

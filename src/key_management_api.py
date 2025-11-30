@@ -60,6 +60,8 @@ class KeyResponse(BaseModel):
     success_count: int = 0
     failure_count: int = 0
     rate_limit: Optional[Dict[str, Any]] = None
+    disable_reason: Optional[str] = None
+    disable_time: Optional[float] = None
 
 
 class KeyListResponse(BaseModel):
@@ -78,20 +80,29 @@ async def get_all_keys(
     sort_by: Optional[str] = Query("index", description="排序字段: index, status"),
     sort_order: Optional[str] = Query("asc", description="排序顺序: asc, desc")
 ):
-    """获取所有密钥信息"""
+    """获取所有密钥信息（使用统一统计）"""
     try:
+        from .unified_stats import get_unified_stats
+        
         key_manager = await get_key_manager()
         rate_limiter = await get_rate_limiter()
-        stats_tracker = await get_stats_tracker()
+        unified_stats = await get_unified_stats()
         
         all_keys = await key_manager.get_all_keys()
         rate_limits = await rate_limiter.get_all_rate_limits()
         
+        # 确保所有密钥都在统计中存在
+        await unified_stats.ensure_keys_exist([k.key for k in all_keys])
+        
+        # 获取统一统计数据
+        stats_data = await unified_stats.get_all_stats([k.key for k in all_keys])
+        
         # 构建响应
         keys_response = []
         for key_info in all_keys:
-            # 获取统计信息
-            key_stats = await stats_tracker.get_key_stats(key_info.index, key_info)
+            # 获取统计信息（从统一统计）
+            masked = key_info.masked_key
+            key_stats = stats_data.get("keys", {}).get(masked, {})
             
             # 获取速率限制信息
             rate_info = rate_limits.get(key_info.index)
@@ -111,9 +122,11 @@ async def get_all_keys(
                 masked_key=key_info.masked_key,
                 enabled=key_info.enabled,
                 status=key_info.status.value,
-                success_count=key_stats.success_count,
-                failure_count=key_stats.failure_count,
-                rate_limit=rate_limit_data
+                success_count=key_stats.get("ok", 0),
+                failure_count=key_stats.get("fail", 0),
+                rate_limit=rate_limit_data,
+                disable_reason=key_info.disable_reason,
+                disable_time=key_info.disable_time
             ))
         
         # 应用过滤
@@ -396,18 +409,73 @@ async def set_calls_per_rotation(request: SetCallsPerRotationRequest):
 
 @router.get("/stats")
 async def get_key_stats():
-    """获取密钥统计信息"""
+    """获取密钥统计信息（使用统一统计）"""
     try:
+        from .unified_stats import get_unified_stats, mask_key
+        
         key_manager = await get_key_manager()
         rate_limiter = await get_rate_limiter()
-        stats_tracker = await get_stats_tracker()
+        unified_stats = await get_unified_stats()
         
         all_keys = await key_manager.get_all_keys()
         rate_limits = await rate_limiter.get_all_rate_limits()
         
-        stats = await stats_tracker.get_all_stats(all_keys, rate_limits, group_by_status=True)
+        # 确保所有密钥都在统计中存在
+        await unified_stats.ensure_keys_exist([k.key for k in all_keys])
         
-        return stats
+        # 获取统一统计数据
+        stats_data = await unified_stats.get_all_stats([k.key for k in all_keys])
+        
+        # 构建响应（兼容旧格式）
+        enabled_stats = []
+        disabled_stats = []
+        total_success = 0
+        total_failure = 0
+        
+        for key_info in all_keys:
+            masked = key_info.masked_key
+            key_stats = stats_data.get("keys", {}).get(masked, {})
+            
+            # 获取速率限制信息
+            rate_info = rate_limits.get(key_info.index)
+            rate_limit_data = None
+            if rate_info:
+                rate_limit_data = {
+                    "limit": rate_info.limit,
+                    "remaining": rate_info.remaining,
+                    "used": rate_info.used,
+                    "reset_in_seconds": rate_info.reset_in_seconds,
+                    "status": rate_info.status.value
+                }
+            
+            stat_entry = {
+                "key_index": key_info.index,
+                "masked_key": masked,
+                "enabled": key_info.enabled,
+                "success_count": key_stats.get("ok", 0),
+                "failure_count": key_stats.get("fail", 0),
+                "model_counts": key_stats.get("model_counts", {}),
+                "rate_limit_info": rate_limit_data,
+            }
+            
+            total_success += key_stats.get("ok", 0)
+            total_failure += key_stats.get("fail", 0)
+            
+            if key_info.enabled:
+                enabled_stats.append(stat_entry)
+            else:
+                disabled_stats.append(stat_entry)
+        
+        return {
+            "total_keys": len(all_keys),
+            "active_keys": len(enabled_stats),
+            "disabled_keys": len(disabled_stats),
+            "total_success": total_success,
+            "total_failure": total_failure,
+            "total_calls": total_success + total_failure,
+            "enabled": enabled_stats,
+            "disabled": disabled_stats,
+        }
     except Exception as e:
         log.error(f"Failed to get key stats: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -421,19 +489,29 @@ async def cleanup_key_stats():
     删除不再存在的密钥的统计数据，保持数据一致性
     """
     try:
+        from .unified_stats import get_unified_stats
+        
         key_manager = await get_key_manager()
-        stats_tracker = await get_stats_tracker()
+        unified_stats = await get_unified_stats()
         
         # 获取当前所有密钥
         all_keys = await key_manager.get_all_keys()
-        active_indices = [key.index for key in all_keys]
+        valid_keys = [key.key for key in all_keys]
         
-        # 清理非活跃密钥的统计数据
-        await stats_tracker.cleanup_inactive_keys(active_indices)
+        # 清理统一统计中的无效密钥
+        deleted_count = await unified_stats.cleanup_invalid_keys(valid_keys)
+        
+        # 清理旧的统计系统（兼容性）
+        try:
+            stats_tracker = await get_stats_tracker()
+            active_indices = [key.index for key in all_keys]
+            await stats_tracker.cleanup_inactive_keys(active_indices)
+        except Exception as e:
+            log.warning(f"Failed to cleanup old stats: {e}")
         
         return {
             "success": True,
-            "message": f"Cleaned up stats, {len(active_indices)} active keys remaining"
+            "message": f"Cleaned up {deleted_count} invalid key stats, {len(valid_keys)} active keys remaining"
         }
     except Exception as e:
         log.error(f"Failed to cleanup key stats: {e}")

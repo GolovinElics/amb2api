@@ -8,7 +8,7 @@ from fastapi import Response
 from log import log
 from .models import ChatCompletionRequest
 from .httpx_client import http_client
-from .usage_stats import record_successful_call
+# 统计功能已迁移到 unified_stats 模块
 from .storage_adapter import get_storage_adapter
 from .rate_limiter import get_rate_limiter
 from .key_selector import get_key_selector
@@ -629,15 +629,23 @@ async def send_assembly_request(
                 except Exception as e:
                     log.debug(f"RES Details - Body: [Unable to decode: {e}]")
                 
-                # 记录成功的调用统计
+                # 记录调用统计（使用统一统计模块）
                 if 200 <= resp.status_code < 400:
                     try:
-                        import hashlib
-                        key_id = f"key:{hashlib.sha256(api_key.encode('utf-8')).hexdigest()[:16]}"
-                        await record_successful_call(key_id, openai_request.model, _mask_key(api_key))
+                        from .unified_stats import get_unified_stats
+                        unified_stats = await get_unified_stats()
+                        await unified_stats.record_call(api_key, openai_request.model, success=True)
                         log.debug(f"Successfully recorded usage stats for key {_mask_key(api_key)}, model {openai_request.model}")
                     except Exception as e:
                         log.error(f"Failed to record usage statistics: {e}", exc_info=True)
+                else:
+                    # 记录失败的调用
+                    try:
+                        from .unified_stats import get_unified_stats
+                        unified_stats = await get_unified_stats()
+                        await unified_stats.record_call(api_key, openai_request.model, success=False)
+                    except Exception as e:
+                        log.warning(f"Failed to record failure statistics: {e}")
                 return resp
         except Exception as e:
             if attempt < max_retries:

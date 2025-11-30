@@ -162,12 +162,13 @@ class UsageStats:
             log.error(f"Failed to load usage statistics: {e}")
             self._stats_cache = {}
     
-    async def _save_stats(self):
+    async def _save_stats(self, force: bool = False):
         """Save statistics to unified storage."""
         current_time = time.time()
         
         # 使用脏标记和时间间隔控制，减少不必要的写入
-        if not self._cache_dirty or (current_time - self._last_save_time < self._save_interval):
+        # force=True 时强制保存
+        if not force and (not self._cache_dirty or (current_time - self._last_save_time < self._save_interval)):
             return
             
         try:
@@ -348,8 +349,33 @@ class UsageStats:
                 }
             else:
                 # Return all statistics
+                # 获取当前有效密钥列表，过滤失效密钥
+                valid_key_ids = set()
+                try:
+                    from .storage_adapter import get_storage_adapter
+                    import hashlib
+                    adapter = await get_storage_adapter()
+                    cfg_keys = await adapter.get_config("assembly_api_keys", [])
+                    if isinstance(cfg_keys, str):
+                        cfg_keys = [k.strip() for k in cfg_keys.replace("\n", ",").split(",") if k.strip()]
+                    
+                    # 为每个有效密钥生成对应的统计文件名（key:hash格式）
+                    for key in cfg_keys:
+                        if key:
+                            key_id = f"key:{hashlib.sha256(key.encode('utf-8')).hexdigest()[:16]}"
+                            valid_key_ids.add(key_id)
+                except Exception as e:
+                    log.warning(f"Failed to get valid keys for filtering stats: {e}")
+                    valid_key_ids = None
+                
                 all_stats = {}
                 for filename, stats in self._stats_cache.items():
+                    # 如果是密钥统计（key:xxx格式），只返回有效密钥
+                    if filename.startswith("key:"):
+                        if valid_key_ids is not None and filename not in valid_key_ids:
+                            # 跳过失效密钥的统计数据
+                            continue
+                    
                     # Check for daily reset for each file
                     self._check_and_reset_daily_quota(stats)
                     all_stats[filename] = {
@@ -371,13 +397,43 @@ class UsageStats:
         
         all_stats = await self.get_usage_stats()
         
+        # 获取当前有效密钥列表，只统计有效密钥的调用
+        valid_key_ids = set()
+        try:
+            from .storage_adapter import get_storage_adapter
+            import hashlib
+            adapter = await get_storage_adapter()
+            cfg_keys = await adapter.get_config("assembly_api_keys", [])
+            if isinstance(cfg_keys, str):
+                cfg_keys = [k.strip() for k in cfg_keys.replace("\n", ",").split(",") if k.strip()]
+            
+            # 为每个有效密钥生成对应的统计文件名（key:hash格式）
+            for key in cfg_keys:
+                if key:
+                    key_id = f"key:{hashlib.sha256(key.encode('utf-8')).hexdigest()[:16]}"
+                    valid_key_ids.add(key_id)
+        except Exception as e:
+            log.warning(f"Failed to get valid keys for filtering stats: {e}")
+            # 如果获取失败，使用所有统计数据（向后兼容）
+            valid_key_ids = None
+        
         total_gemini_2_5_pro = 0
         total_all_models = 0
-        total_files = len(all_stats)
+        total_files = 0
         
-        for stats in all_stats.values():
-            total_gemini_2_5_pro += stats["gemini_2_5_pro_calls"]
-            total_all_models += stats["total_calls"]
+        for filename, stats in all_stats.items():
+            # 如果是密钥统计（key:xxx格式），只统计有效密钥
+            if filename.startswith("key:"):
+                if valid_key_ids is not None and filename not in valid_key_ids:
+                    # 跳过失效密钥的统计数据
+                    continue
+            # 对于凭证文件（creds/xxx格式），始终统计
+            # 只统计有实际调用数的数据（total_calls > 0）
+            total_calls = stats.get("total_calls", 0)
+            if total_calls > 0:
+                total_gemini_2_5_pro += stats.get("gemini_2_5_pro_calls", 0)
+                total_all_models += total_calls
+                total_files += 1
         
         return {
             "total_files": total_files,
@@ -444,6 +500,45 @@ class UsageStats:
                 log.info("Reset usage statistics for all credential files")
         
         await self._save_stats()
+    
+    async def delete_stats(self, filename: str) -> bool:
+        """Delete usage statistics for a specific file."""
+        if not self._initialized:
+            await self.initialize()
+        
+        async with self._lock:
+            try:
+                normalized_filename = self._normalize_filename(filename)
+                
+                # 从缓存中删除
+                if normalized_filename in self._stats_cache:
+                    del self._stats_cache[normalized_filename]
+                    self._cache_dirty = True
+                    log.debug(f"Removed {normalized_filename} from stats cache")
+                
+                # 从存储适配器中重置统计数据为0
+                if self._storage_adapter:
+                    try:
+                        # 重置该文件的统计数据为默认值（total_calls = 0）
+                        default_stats = {
+                            "gemini_2_5_pro_calls": 0,
+                            "total_calls": 0,
+                            "daily_limit_gemini_2_5_pro": 100,
+                            "daily_limit_total": 1000,
+                            "next_reset_time": _get_next_utc_7am().isoformat()
+                        }
+                        await self._storage_adapter.update_usage_stats(normalized_filename, default_stats)
+                        log.debug(f"Reset stats in storage for {normalized_filename}")
+                    except Exception as e:
+                        log.warning(f"Failed to reset stats in storage for {normalized_filename}: {e}")
+                
+                # 强制保存，确保缓存和存储同步
+                await self._save_stats(force=True)
+                log.info(f"Deleted usage statistics for {normalized_filename}")
+                return True
+            except Exception as e:
+                log.error(f"Failed to delete usage statistics for {filename}: {e}")
+                return False
 
 # Global instance
 _usage_stats_instance: Optional[UsageStats] = None

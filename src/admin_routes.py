@@ -19,7 +19,7 @@ from config import (
     get_server_host,
 )
 from .storage_adapter import get_storage_adapter
-from .usage_stats import get_usage_stats, get_aggregated_stats, get_usage_stats_instance
+# 统计功能已迁移到 unified_stats 模块
 from .assembly_client import fetch_assembly_models, get_rate_limit_info
 
 
@@ -200,146 +200,116 @@ async def save_config(payload: Dict[str, Any], token: str = Depends(authenticate
 
 @router.get("/usage/stats")
 async def usage_stats(token: str = Depends(authenticate)):
-    stats = await get_usage_stats()
-    # 过滤掉无效的key（如 "assemblyai"）
-    filtered_stats = {}
-    for key, value in stats.items():
-        # 只保留以 "key:" 开头的有效统计
-        if key.startswith("key:") or key.startswith("creds/"):
-            filtered_stats[key] = value
-    return JSONResponse(content=filtered_stats)
+    """获取使用统计（使用统一统计）"""
+    from .unified_stats import get_unified_stats
+    
+    # 获取配置的密钥列表
+    adapter = await get_storage_adapter()
+    cfg_keys = await adapter.get_config("assembly_api_keys", [])
+    if isinstance(cfg_keys, str):
+        cfg_keys = [x.strip() for x in cfg_keys.replace("\n", ",").split(",") if x.strip()]
+    
+    # 获取统一统计数据
+    unified_stats = await get_unified_stats()
+    await unified_stats.ensure_keys_exist(cfg_keys)
+    stats_data = await unified_stats.get_all_stats(valid_keys=cfg_keys)
+    
+    # 转换为旧格式
+    result = {}
+    for masked_key, key_data in stats_data.get("keys", {}).items():
+        result[masked_key] = {
+            "total_calls": key_data.get("total", 0),
+            "gemini_2_5_pro_calls": 0,
+            "daily_limit_total": 1000,
+            "daily_limit_gemini_2_5_pro": 100,
+            "model_counts": key_data.get("model_counts", {}),
+            "display_name": masked_key,
+        }
+    
+    return JSONResponse(content=result)
 
 
 @router.get("/usage/aggregated")
 async def usage_aggregated(model: str = None, key: str = None, only: str = None, limit: int = 0, token: str = Depends(authenticate)):
-    agg = await get_aggregated_stats()
-    log_file = log.get_log_file()
-    models = {}
-    keys = {}
-    ok_total = 0
-    fail_total = 0
-    if os.path.exists(log_file):
-        pattern = re.compile(r"RES model=([^\s]+)(?: key=([^\s]+))? status=([A-Z]+(?:\([^\)]*\))?)")
-        with open(log_file, "r", encoding="utf-8") as f:
-            lines = f.readlines()
-            if limit and limit > 0:
-                lines = lines[-limit:]
-        for ln in lines:
-            m = pattern.search(ln)
-            if not m:
-                continue
-            mod = m.group(1)
-            k = m.group(2) or ""
-            st = m.group(3)
-            if model and mod != model:
-                continue
-            if key and k != key:
-                continue
-            ok = st.startswith("OK")
-            if ok:
-                ok_total += 1
-            else:
-                fail_total += 1
-            if mod not in models:
-                models[mod] = {"ok": 0, "fail": 0}
-            if ok:
-                models[mod]["ok"] += 1
-            else:
-                models[mod]["fail"] += 1
-            # 只统计有 key 的记录，忽略空 key
-            if k and k.strip():
-                if k not in keys:
-                    keys[k] = {"ok": 0, "fail": 0, "models": {}, "model_counts": {}}
-                if ok:
-                    keys[k]["ok"] += 1
-                else:
-                    keys[k]["fail"] += 1
-                if mod not in keys[k]["models"]:
-                    keys[k]["models"][mod] = {"ok": 0, "fail": 0}
-                if ok:
-                    keys[k]["models"][mod]["ok"] += 1
-                else:
-                    keys[k]["models"][mod]["fail"] += 1
-                # Add to model_counts (total calls per model for this key)
-                if mod not in keys[k]["model_counts"]:
-                    keys[k]["model_counts"][mod] = 0
-                keys[k]["model_counts"][mod] += 1
-    # 过滤失效 key：不在当前配置中的 key 视为失效
-    # 同时确保配置中的所有密钥都显示（即使没有使用记录）
-    try:
-        adapter = await get_storage_adapter()
-        cfg_keys = await adapter.get_config("assembly_api_keys", [])
-        if isinstance(cfg_keys, str):
-            cfg_keys = [x.strip() for x in cfg_keys.replace("\n", ",").split(",") if x.strip()]
-        
-        # 创建脱敏密钥到完整密钥的映射
-        def mask_key(key: str) -> str:
-            """脱敏密钥，与 assembly_client.py 中的 _mask_key 保持一致"""
-            if not key:
-                return ""
-            k = str(key)
-            if len(k) <= 8:
-                return k[:2] + "***"
-            return k[:4] + "..." + k[-4:]
-        
-        masked_to_full = {mask_key(k): k for k in cfg_keys}
-        cfg_set = set(cfg_keys or [])
-        
-        # 构造过滤后的 keys，将脱敏密钥映射回完整密钥
-        filtered = {}
-        for masked_key, kv in keys.items():
-            # 尝试找到对应的完整密钥
-            full_key = masked_to_full.get(masked_key)
-            if full_key:
-                # 使用完整密钥作为键，但保留脱敏密钥用于显示
-                kv["masked_key"] = masked_key
-                kv["display_key"] = masked_key
-                filtered[full_key] = kv
-            elif masked_key in cfg_set:
-                # 如果日志中的密钥本身就在配置中（不太可能，但保险起见）
-                filtered[masked_key] = kv
-        
-        # 添加配置中的密钥（即使没有使用记录）
-        for cfg_key in cfg_set:
-            if cfg_key not in filtered:
-                filtered[cfg_key] = {
-                    "ok": 0,
+    """
+    获取聚合统计数据
+    
+    使用统一统计模块，确保总调用数与详情统计保持一致
+    """
+    from .unified_stats import get_unified_stats, mask_key
+    
+    # 获取配置的密钥列表
+    adapter = await get_storage_adapter()
+    cfg_keys = await adapter.get_config("assembly_api_keys", [])
+    if isinstance(cfg_keys, str):
+        cfg_keys = [x.strip() for x in cfg_keys.replace("\n", ",").split(",") if x.strip()]
+    
+    # 获取统一统计数据
+    unified_stats = await get_unified_stats()
+    
+    # 确保所有配置的密钥都在统计中存在
+    await unified_stats.ensure_keys_exist(cfg_keys)
+    
+    # 获取统计数据（只包含有效密钥）
+    stats_data = await unified_stats.get_all_stats(valid_keys=cfg_keys)
+    
+    # 构建响应
+    models = stats_data.get("models", {})
+    keys = stats_data.get("keys", {})
+    total = stats_data.get("total", {})
+    
+    ok_total = total.get("success", 0)
+    fail_total = total.get("failure", 0)
+    
+    # 应用过滤
+    if model:
+        # 按模型过滤
+        filtered_keys = {}
+        for masked_key, key_data in keys.items():
+            model_counts = key_data.get("model_counts", {})
+            if model in model_counts:
+                filtered_keys[masked_key] = {
+                    "ok": model_counts[model],
                     "fail": 0,
-                    "models": {},
-                    "model_counts": {},
-                    "masked_key": mask_key(cfg_key),
-                    "display_key": mask_key(cfg_key)
+                    "models": {model: {"ok": model_counts[model], "fail": 0}},
+                    "model_counts": {model: model_counts[model]},
+                    "masked_key": masked_key,
+                    "display_key": masked_key,
                 }
-        keys = filtered
-        
-        # 将 keys 字典的键从完整密钥改为脱敏密钥（用于前端显示）
-        display_keys = {}
-        for full_key, key_data in keys.items():
-            masked = key_data.get("masked_key") or key_data.get("display_key") or mask_key(full_key)
-            display_keys[masked] = key_data
-        keys = display_keys
-        
-        # 重新计算模型统计，只包含当前有效密钥使用的模型
-        filtered_models = {}
-        for key_data in keys.values():
-            for model_name, model_stats in key_data.get("models", {}).items():
-                if model_name not in filtered_models:
-                    filtered_models[model_name] = {"ok": 0, "fail": 0}
-                filtered_models[model_name]["ok"] += model_stats.get("ok", 0)
-                filtered_models[model_name]["fail"] += model_stats.get("fail", 0)
-        models = filtered_models
-        
-        # 重新计算总数
+        keys = filtered_keys
+        models = {model: models.get(model, {"ok": 0, "fail": 0})} if model in models else {}
         ok_total = sum(d.get("ok", 0) for d in keys.values())
         fail_total = sum(d.get("fail", 0) for d in keys.values())
-    except Exception as e:
-        log.warning(f"Failed to filter keys: {e}")
+    
+    if key:
+        # 按密钥过滤
+        if key in keys:
+            keys = {key: keys[key]}
+        else:
+            keys = {}
+        # 重新计算模型统计
+        models = {}
+        for key_data in keys.values():
+            for model_name, model_stats in key_data.get("models", {}).items():
+                if model_name not in models:
+                    models[model_name] = {"ok": 0, "fail": 0}
+                models[model_name]["ok"] += model_stats.get("ok", 0)
+                models[model_name]["fail"] += model_stats.get("fail", 0)
+        ok_total = sum(d.get("ok", 0) for d in keys.values())
+        fail_total = sum(d.get("fail", 0) for d in keys.values())
+    
+    # 为每个 key 添加 masked_key 和 display_key 字段
+    for masked_key, key_data in keys.items():
+        key_data["masked_key"] = masked_key
+        key_data["display_key"] = masked_key
+    
+    # 应用 only 过滤
     if only == "success":
         for d in models.values():
             d["fail"] = 0
         for d in keys.values():
             d["fail"] = 0
-            for md in d["models"].values():
+            for md in d.get("models", {}).values():
                 md["fail"] = 0
         fail_total = 0
     elif only == "fail":
@@ -347,10 +317,25 @@ async def usage_aggregated(model: str = None, key: str = None, only: str = None,
             d["ok"] = 0
         for d in keys.values():
             d["ok"] = 0
-            for md in d["models"].values():
+            for md in d.get("models", {}).values():
                 md["ok"] = 0
         ok_total = 0
-    agg["log_summary"] = {"models": models, "keys": keys, "total": {"ok": ok_total, "fail": fail_total}}
+    
+    # 构建聚合响应
+    agg = {
+        "total_files": len(keys),
+        "total_gemini_2_5_pro_calls": 0,  # 兼容旧字段
+        "total_all_model_calls": ok_total + fail_total,
+        "avg_gemini_2_5_pro_per_file": 0,
+        "avg_total_per_file": (ok_total + fail_total) / max(len(keys), 1),
+        "next_reset_time": None,
+        "log_summary": {
+            "models": models,
+            "keys": keys,
+            "total": {"ok": ok_total, "fail": fail_total}
+        }
+    }
+    
     return JSONResponse(content=agg)
 
 
@@ -396,19 +381,25 @@ async def models_save(payload: Dict[str, Any], token: str = Depends(authenticate
 
 @router.post("/usage/update-limits")
 async def usage_update_limits(payload: Dict[str, Any], token: str = Depends(authenticate)):
-    filename = payload.get("filename")
-    gemini_limit = payload.get("gemini_2_5_pro_limit")
-    total_limit = payload.get("total_limit")
-    stats = await get_usage_stats_instance()
-    await stats.update_daily_limits(filename, gemini_limit, total_limit)
-    return JSONResponse(content={"message": "限制已更新"})
+    """更新使用限制（此功能已简化，统一统计不再支持限制）"""
+    # 统一统计模块不再支持每日限制功能
+    # 保留接口以兼容前端
+    return JSONResponse(content={"message": "限制已更新（注：统一统计不再支持限制功能）"})
 
 
 @router.post("/usage/reset")
 async def usage_reset(payload: Dict[str, Any], token: str = Depends(authenticate)):
-    filename = payload.get("filename")
-    stats = await get_usage_stats_instance()
-    await stats.reset_stats(filename)
+    """重置使用统计"""
+    from .unified_stats import get_unified_stats
+    
+    filename = payload.get("filename")  # 这里 filename 实际上是 masked_key
+    unified_stats = await get_unified_stats()
+    
+    if filename:
+        await unified_stats.reset_stats(masked_key=filename)
+    else:
+        await unified_stats.reset_stats()
+    
     return JSONResponse(content={"message": "使用统计已重置"})
 
 @router.get("/storage/info")
@@ -420,62 +411,64 @@ async def storage_info(token: str = Depends(authenticate)):
 
 @router.get("/usage/summary")
 async def usage_summary(model: str = None, key: str = None, only: str = None, limit: int = 0, token: str = Depends(authenticate)):
-    log_file = log.get_log_file()
-    if not os.path.exists(log_file):
-        return JSONResponse(content={"models": {}, "keys": {}, "total": {"ok": 0, "fail": 0}})
-    pattern = re.compile(r"RES model=([^\s]+)(?: key=([^\s]+))? status=([A-Z]+(?:\([^\)]*\))?)")
-    models = {}
-    keys = {}
-    ok_total = 0
-    fail_total = 0
-    lines = []
-    with open(log_file, "r", encoding="utf-8") as f:
-        if limit and limit > 0:
-            lines = f.readlines()[-limit:]
+    """获取使用摘要（使用统一统计）"""
+    from .unified_stats import get_unified_stats
+    
+    # 获取配置的密钥列表
+    adapter = await get_storage_adapter()
+    cfg_keys = await adapter.get_config("assembly_api_keys", [])
+    if isinstance(cfg_keys, str):
+        cfg_keys = [x.strip() for x in cfg_keys.replace("\n", ",").split(",") if x.strip()]
+    
+    # 获取统一统计数据
+    unified_stats = await get_unified_stats()
+    await unified_stats.ensure_keys_exist(cfg_keys)
+    stats_data = await unified_stats.get_all_stats(valid_keys=cfg_keys)
+    
+    models = stats_data.get("models", {})
+    keys = stats_data.get("keys", {})
+    total = stats_data.get("total", {})
+    
+    ok_total = total.get("success", 0)
+    fail_total = total.get("failure", 0)
+    
+    # 应用过滤
+    if model:
+        filtered_keys = {}
+        for masked_key, key_data in keys.items():
+            model_counts = key_data.get("model_counts", {})
+            if model in model_counts:
+                filtered_keys[masked_key] = {
+                    "ok": model_counts[model],
+                    "fail": 0,
+                    "models": {model: {"ok": model_counts[model], "fail": 0}},
+                }
+        keys = filtered_keys
+        models = {model: models.get(model, {"ok": 0, "fail": 0})} if model in models else {}
+        ok_total = sum(d.get("ok", 0) for d in keys.values())
+        fail_total = sum(d.get("fail", 0) for d in keys.values())
+    
+    if key:
+        if key in keys:
+            keys = {key: keys[key]}
         else:
-            lines = f.readlines()
-    for ln in lines:
-        m = pattern.search(ln)
-        if not m:
-            continue
-        mod = m.group(1)
-        k = m.group(2) or ""
-        st = m.group(3)
-        if model and mod != model:
-            continue
-        if key and k != key:
-            continue
-        ok = st.startswith("OK")
-        if ok:
-            ok_total += 1
-        else:
-            fail_total += 1
-        if mod not in models:
-            models[mod] = {"ok": 0, "fail": 0}
-        if ok:
-            models[mod]["ok"] += 1
-        else:
-            models[mod]["fail"] += 1
-        # 只统计有 key 的记录，忽略空 key
-        if k and k.strip():
-            if k not in keys:
-                keys[k] = {"ok": 0, "fail": 0, "models": {}}
-            if ok:
-                keys[k]["ok"] += 1
-            else:
-                keys[k]["fail"] += 1
-            if mod not in keys[k]["models"]:
-                keys[k]["models"][mod] = {"ok": 0, "fail": 0}
-            if ok:
-                keys[k]["models"][mod]["ok"] += 1
-            else:
-                keys[k]["models"][mod]["fail"] += 1
+            keys = {}
+        models = {}
+        for key_data in keys.values():
+            for model_name, model_stats in key_data.get("models", {}).items():
+                if model_name not in models:
+                    models[model_name] = {"ok": 0, "fail": 0}
+                models[model_name]["ok"] += model_stats.get("ok", 0)
+                models[model_name]["fail"] += model_stats.get("fail", 0)
+        ok_total = sum(d.get("ok", 0) for d in keys.values())
+        fail_total = sum(d.get("fail", 0) for d in keys.values())
+    
     if only == "success":
         for d in models.values():
             d["fail"] = 0
         for d in keys.values():
             d["fail"] = 0
-            for md in d["models"].values():
+            for md in d.get("models", {}).values():
                 md["fail"] = 0
         fail_total = 0
     elif only == "fail":
@@ -483,9 +476,10 @@ async def usage_summary(model: str = None, key: str = None, only: str = None, li
             d["ok"] = 0
         for d in keys.values():
             d["ok"] = 0
-            for md in d["models"].values():
+            for md in d.get("models", {}).values():
                 md["ok"] = 0
         ok_total = 0
+    
     return JSONResponse(content={"models": models, "keys": keys, "total": {"ok": ok_total, "fail": fail_total}})
 
 
@@ -606,43 +600,30 @@ async def invalid_keys(token: str = Depends(authenticate)):
     失效判断逻辑：
     失效密钥：统计中的密钥，在配置密钥中不存在，所以是失效的历史的密钥
     """
-    log_file = log.get_log_file()
-    found: Dict[str, Dict[str, int]] = {}
-    if os.path.exists(log_file):
-        pattern = re.compile(r"RES model=([^\s]+)(?: key=([^\s]+))? status=([A-Z]+(?:\([^\)]*\))?)")
-        with open(log_file, "r", encoding="utf-8") as f:
-            for ln in f:
-                m = pattern.search(ln)
-                if not m:
-                    continue
-                k = m.group(2) or ""
-                if not k:
-                    continue
-                if k not in found:
-                    found[k] = {"ok": 0, "fail": 0}
-                if (m.group(3) or "").startswith("OK"):
-                    found[k]["ok"] += 1
-                else:
-                    found[k]["fail"] += 1
+    from .unified_stats import get_unified_stats, mask_key
     
     adapter = await get_storage_adapter()
     cfg_keys = await adapter.get_config("assembly_api_keys", [])
     if isinstance(cfg_keys, str):
         cfg_keys = [x.strip() for x in cfg_keys.replace("\n", ",").split(",") if x.strip()]
-    cfg_set = set(cfg_keys or [])
+    
+    # 构建有效密钥的脱敏集合
+    valid_masked_keys = {mask_key(k) for k in cfg_keys}
+    
+    # 获取统一统计中的所有密钥
+    unified_stats = await get_unified_stats()
+    all_stats = await unified_stats.get_all_stats()
     
     invalid = []
     
     # 失效密钥：统计中存在但配置中不存在的密钥（历史密钥）
-    for stat_key in found.keys():
-        if stat_key not in cfg_set:
-            # 这个密钥在统计中存在，但不在配置中，是失效的历史密钥
-            kv = found[stat_key]
-            ok_count = kv.get("ok", 0)
-            fail_count = kv.get("fail", 0)
+    for masked_key, key_data in all_stats.get("keys", {}).items():
+        if masked_key not in valid_masked_keys:
+            ok_count = key_data.get("ok", 0)
+            fail_count = key_data.get("fail", 0)
             
             invalid.append({
-                "key": stat_key,
+                "key": masked_key,
                 "ok": ok_count,
                 "fail": fail_count,
                 "is_configured": False,
@@ -660,13 +641,23 @@ async def delete_invalid_keys(token: str = Depends(authenticate)):
     批量删除失效密钥数据
     
     操作内容：
-    1. 从日志文件中删除失效密钥的所有记录
-    2. 清理失效密钥的统计数据
-    3. 将失效密钥加入忽略列表（防止再次出现）
+    1. 从统一统计中删除失效密钥的统计数据
+    2. 从日志文件中删除失效密钥的所有记录
     """
+    from .unified_stats import get_unified_stats
+    
     adapter = await get_storage_adapter()
     
-    # 1. 识别失效密钥
+    # 1. 获取当前有效密钥列表
+    cfg_keys = await adapter.get_config("assembly_api_keys", [])
+    if isinstance(cfg_keys, str):
+        cfg_keys = [x.strip() for x in cfg_keys.replace("\n", ",").split(",") if x.strip()]
+    
+    # 2. 清理统一统计中的无效密钥
+    unified_stats = await get_unified_stats()
+    stats_deleted = await unified_stats.cleanup_invalid_keys(cfg_keys)
+    
+    # 3. 识别失效密钥（用于清理日志）
     inv = await invalid_keys(token)
     data = inv.body if hasattr(inv, "body") else inv
     invalid_list = []
@@ -681,13 +672,10 @@ async def delete_invalid_keys(token: str = Depends(authenticate)):
         log.warning(f"Failed to parse invalid keys: {e}")
         invalid_list = []
     
-    if not invalid_list:
-        return JSONResponse(content={"success": True, "ignored_count": 0, "invalid_deleted": 0, "log_lines_removed": 0})
-    
-    # 2. 从日志文件中删除失效密钥的记录
+    # 4. 从日志文件中删除失效密钥的记录
     log_file = log.get_log_file()
     lines_removed = 0
-    if os.path.exists(log_file):
+    if os.path.exists(log_file) and invalid_list:
         try:
             with open(log_file, "r", encoding="utf-8") as f:
                 lines = f.readlines()
@@ -712,11 +700,7 @@ async def delete_invalid_keys(token: str = Depends(authenticate)):
         except Exception as e:
             log.error(f"Failed to clean log file: {e}")
     
-    # 3. 不再保存 invalid_keys_ignored，直接删除
-    # 清空忽略列表，因为我们已经删除了无效密钥
-    await adapter.delete_config("invalid_keys_ignored")
-    
-    # 4. 清理 StatsTracker 非活跃索引统计
+    # 5. 清理旧的统计系统数据（兼容性）
     try:
         from .key_manager import get_key_manager
         from .stats_tracker import get_stats_tracker
@@ -726,11 +710,11 @@ async def delete_invalid_keys(token: str = Depends(authenticate)):
         active_indices = [key.index for key in all_keys]
         await stats_tracker.cleanup_inactive_keys(active_indices)
     except Exception as e:
-        log.warning(f"Failed to cleanup stats: {e}")
+        log.warning(f"Failed to cleanup old stats: {e}")
     
     return JSONResponse(content={
         "success": True,
-        "ignored_count": 0,  # 不再使用忽略列表，直接删除
         "invalid_deleted": len(invalid_list),
-        "log_lines_removed": lines_removed
+        "log_lines_removed": lines_removed,
+        "stats_deleted": stats_deleted
     })

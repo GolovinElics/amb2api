@@ -281,7 +281,7 @@ class KeyManager:
             # 记录禁用信息
             if index not in self._key_states:
                 self._key_states[index] = {}
-            self._key_states[index]["disable_reason"] = "manual"
+            self._key_states[index]["disable_reason"] = "手动禁用"
             self._key_states[index]["disable_time"] = time.time()
         
         await self._save_config()
@@ -323,7 +323,7 @@ class KeyManager:
                         self._cache.disabled_indices.append(index)
                     if index not in self._key_states:
                         self._key_states[index] = {}
-                    self._key_states[index]["disable_reason"] = "manual"
+                    self._key_states[index]["disable_reason"] = "手动禁用"
                     self._key_states[index]["disable_time"] = time.time()
                 success_count += 1
         
@@ -347,6 +347,9 @@ class KeyManager:
         if not self._cache or index < 0 or index >= len(self._cache.keys):
             return False
         
+        # 保存要删除的密钥（用于清理统计）
+        deleted_key = self._cache.keys[index]
+        
         # 删除密钥
         self._cache.keys.pop(index)
         
@@ -365,7 +368,15 @@ class KeyManager:
         
         await self._save_config()
         
-        # 清理该密钥的统计数据
+        # 清理该密钥的统计数据（使用统一统计）
+        try:
+            from .unified_stats import get_unified_stats
+            unified_stats = await get_unified_stats()
+            await unified_stats.delete_stats_for_key(deleted_key)
+        except Exception as e:
+            log.warning(f"Failed to cleanup unified stats for deleted key: {e}")
+        
+        # 清理旧的统计系统数据（兼容性）
         try:
             from .stats_tracker import get_stats_tracker
             stats_tracker = await get_stats_tracker()
@@ -373,7 +384,7 @@ class KeyManager:
             active_indices = list(range(len(self._cache.keys)))
             await stats_tracker.cleanup_inactive_keys(active_indices)
         except Exception as e:
-            log.warning(f"Failed to cleanup stats for deleted key: {e}")
+            log.warning(f"Failed to cleanup old stats for deleted key: {e}")
         
         log.info(f"Deleted key at index {index}")
         return True
@@ -442,12 +453,42 @@ class KeyManager:
         if index not in self._key_states:
             self._key_states[index] = {}
         
+        # 检查是否需要自动禁用（当密钥状态变为exhausted或invalid时）
+        exhausted = state_updates.get("exhausted", False)
+        error = state_updates.get("error")
+        # 检查是否是失效状态：有错误信息，或者exhausted为True
+        is_invalid = (error is not None and str(error).strip()) or (exhausted is True)
+        
+        # 如果密钥变为失效状态且当前是启用的，自动禁用并记录时间
+        if is_invalid and self._cache and index not in self._cache.disabled_indices:
+            # 自动禁用密钥
+            if index in self._cache.enabled_indices:
+                self._cache.enabled_indices.remove(index)
+            if index not in self._cache.disabled_indices:
+                self._cache.disabled_indices.append(index)
+            
+            # 记录禁用信息（如果还没有记录）
+            if "disable_reason" not in self._key_states[index] or not self._key_states[index].get("disable_reason"):
+                if error and str(error).strip():
+                    self._key_states[index]["disable_reason"] = str(error).strip()
+                elif exhausted:
+                    self._key_states[index]["disable_reason"] = "速率限制用尽"
+                else:
+                    self._key_states[index]["disable_reason"] = "自动禁用"
+            if "disable_time" not in self._key_states[index] or not self._key_states[index].get("disable_time"):
+                self._key_states[index]["disable_time"] = time.time()
+            
+            log.info(f"Key {index} auto-disabled due to: {self._key_states[index].get('disable_reason')}")
+        
         self._key_states[index].update(state_updates)
         
         # 异步保存，不阻塞
         try:
             adapter = await get_storage_adapter()
             await adapter.set_config("key_states", {str(k): v for k, v in self._key_states.items()})
+            # 如果禁用了密钥，也需要保存配置
+            if is_invalid and self._cache:
+                await self._save_config()
         except Exception as e:
             log.error(f"Failed to save key state: {e}")
         
