@@ -59,7 +59,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="AMB2API",
     description="AssemblyAI LLM Gateway proxy with OpenAI compatibility",
-    version="0.3.3",
+    version="0.3.4",
     lifespan=lifespan
 )
 

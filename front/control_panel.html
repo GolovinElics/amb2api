@@ -1586,14 +1586,14 @@
                 padding-bottom: 4px;
                 border-top: none;
                 margin-top: 0;
-                text-align: center;
+                text-align: left;
             }
             
             .config-value-actions {
                 display: flex;
                 flex-wrap: wrap;
                 gap: 6px;
-                justify-content: center;
+                justify-content: flex-start;
                 align-items: center;
                 margin: 0;
                 width: 100%;
@@ -1602,14 +1602,14 @@
             .config-toggle-btn, .config-copy-btn {
                 font-size: 11px;
                 padding: 5px 12px;
-                flex: 0 0 auto;
-                min-width: 55px;
+                width: 55px;
                 height: 28px;
                 line-height: 1;
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
                 box-sizing: border-box;
+                margin: 0;
             }
             
             .config-value-preview,
@@ -2609,20 +2609,22 @@
         
         /* 操作列样式 */
         .config-actions-cell {
-            text-align: center;
+            text-align: left;
             vertical-align: middle;
             white-space: nowrap;
             width: 120px;
+            padding: 8px !important;
         }
         .config-value-actions { 
             display: flex; 
             gap: 6px; 
-            justify-content: center;
+            justify-content: flex-start;
             align-items: center;
+            width: 100%;
         }
         .config-toggle-btn, .config-copy-btn {
             font-size: 11px;
-            padding: 4px 10px;
+            padding: 5px 12px;
             border: 1px solid var(--border-color);
             background: var(--input-bg);
             color: var(--text-color);
@@ -2630,12 +2632,26 @@
             cursor: pointer;
             white-space: nowrap;
             transition: all 0.2s;
-            min-width: 50px;
+            width: 55px;
+            height: 28px;
+            line-height: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-sizing: border-box;
+            margin: 0;
         }
         .config-toggle-btn:hover, .config-copy-btn:hover {
-            background: var(--primary-color);
+            background: #007bff;
             color: white;
-            border-color: var(--primary-color);
+            border-color: #007bff;
+        }
+        
+        [data-theme="dark"] .config-toggle-btn:hover,
+        [data-theme="dark"] .config-copy-btn:hover {
+            background: #0056b3;
+            color: white;
+            border-color: #0056b3;
         }
         .config-copy-btn.copied {
             background: #28a745;
@@ -3747,6 +3763,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                             <button class="pagination-btn" id="keyNextPage" onclick="changeKeyPage(1)">&gt;</button>
                             <span class="key-pagination-label">每页条数:</span>
                             <select id="keyPageSize" class="filter-select" onchange="loadKeyManagementModal()">
+                                <option value="5" selected>5</option>
                                 <option value="10">10</option>
                                 <option value="20">20</option>
                                 <option value="50">50</option>
@@ -3865,9 +3882,9 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                             <h4>密钥配置</h4>
                             <div class="form-group">
                                 <label for="assemblyApiKeys">密钥</label>
-                                <textarea id="assemblyApiKeys" class="config-input" placeholder="请输入密钥，一行一个" style="min-height: 100px; border: 2px solid #4285f4; border-radius: 8px;"></textarea>
+                                <textarea id="assemblyApiKeys" class="config-input" placeholder="请输入要新增的密钥，一行一个（查看现有密钥请点击右侧"查看密钥"按钮）" style="min-height: 100px; border: 2px solid #4285f4; border-radius: 8px;"></textarea>
                                 <div style="display: flex; align-items: center; gap: 15px; margin-top: 8px; flex-wrap: wrap;">
-                                    <small class="config-note" style="color: #4285f4; margin: 0;">追加模式：新密钥将添加到现有密钥列表的末尾</small>
+                                    <small class="config-note" style="color: #4285f4; margin: 0;">此输入框仅用于新增密钥，不会显示现有密钥</small>
                                     <button class="btn btn-sm" onclick="showKeyManagementModal()" style="background: transparent; color: #4285f4; border: 1px solid #4285f4; padding: 4px 12px;">查看密钥</button>
                                     <label style="display: flex; align-items: center; gap: 5px; margin: 0;">
                                         <input type="checkbox" id="keyAggregationEnabled" class="config-checkbox" checked /> 密钥聚合模式
@@ -4815,7 +4832,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
         // ==================== 密钥管理相关函数（弹窗版） ====================
         let keyManagementData = { keys: [], total: 0, active: 0, disabled: 0 };
         let keyCurrentPage = 1;
-        let keyPageSize = 10;
+        let keyPageSize = 5;
 
         // 显示密钥管理弹窗
         function showKeyManagementModal() {
@@ -4835,7 +4852,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             
             try {
                 const statusFilter = document.getElementById('modalKeyStatusFilter')?.value || 'all';
-                keyPageSize = parseInt(document.getElementById('keyPageSize')?.value || '10');
+                keyPageSize = parseInt(document.getElementById('keyPageSize')?.value || '5');
                 
                 // 获取密钥列表
                 let url = '/api/keys?';
@@ -4973,7 +4990,10 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     <td style="color: var(--text-muted); font-size: 12px;">${disableReason}</td>
                     <td style="color: var(--text-muted); font-size: 12px;">${disableTime}</td>
                     <td style="text-align: right;">
-                        <button onclick="toggleKeyStatusModal(${key.index}, ${!key.enabled})" style="background: transparent; color: ${actionColor}; border: 1px solid ${actionColor}; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;">${actionText}</button>
+                        <div style="display: flex; gap: 6px; justify-content: flex-end;">
+                            <button onclick="toggleKeyStatusModal(${key.index}, ${!key.enabled})" style="background: transparent; color: ${actionColor}; border: 1px solid ${actionColor}; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;">${actionText}</button>
+                            <button onclick="deleteKeyModal(${key.index})" style="background: transparent; color: #dc3545; border: 1px solid #dc3545; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;">删除</button>
+                        </div>
                     </td>
                 </tr>`;
             });
@@ -5085,9 +5105,84 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             }
         }
 
+        // 删除单个密钥
+        async function deleteKeyModal(index) {
+            const key = keyManagementData.keys.find(k => k.index === index);
+            const keyDisplay = key ? (key.masked_key || key.key || `密钥 #${index}`) : `密钥 #${index}`;
+            
+            if (!confirm(`确定要删除密钥吗？\n\n${keyDisplay}\n\n删除后无法恢复，请谨慎操作！`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/keys/${index}`, {
+                    method: 'DELETE',
+                    headers: getAuthHeaders()
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    showStatus(data.message || `密钥 #${index} 已删除`, 'success');
+                    // 重新加载密钥列表
+                    await loadKeyManagementModal();
+                } else {
+                    const error = await response.json();
+                    showStatus(`删除失败: ${error.detail || '未知错误'}`, 'error');
+                }
+            } catch (error) {
+                showStatus(`删除失败: ${error.message}`, 'error');
+            }
+        }
+
         // 删除自动禁用的密钥
         async function deleteAutoDisabledKeys() {
-            alert('此功能暂未实现');
+            // 获取所有自动禁用的密钥（失效的密钥）
+            const autoDisabledKeys = keyManagementData.keys.filter(k => 
+                !k.enabled && (k.status === 'invalid' || k.status === 'exhausted' || k.error || k.exhausted)
+            );
+            
+            if (autoDisabledKeys.length === 0) {
+                showStatus('没有自动禁用的密钥', 'info');
+                return;
+            }
+            
+            if (!confirm(`确定要删除 ${autoDisabledKeys.length} 个自动禁用的密钥吗？\n\n删除后无法恢复，请谨慎操作！`)) {
+                return;
+            }
+            
+            try {
+                // 从后往前删除，避免索引变化
+                const sortedKeys = [...autoDisabledKeys].sort((a, b) => b.index - a.index);
+                let successCount = 0;
+                let failCount = 0;
+                
+                for (const key of sortedKeys) {
+                    try {
+                        const response = await fetch(`/api/keys/${key.index}`, {
+                            method: 'DELETE',
+                            headers: getAuthHeaders()
+                        });
+                        
+                        if (response.ok) {
+                            successCount++;
+                        } else {
+                            failCount++;
+                        }
+                    } catch (error) {
+                        failCount++;
+                    }
+                }
+                
+                if (successCount > 0) {
+                    showStatus(`成功删除 ${successCount} 个密钥${failCount > 0 ? `，失败 ${failCount} 个` : ''}`, 'success');
+                    // 重新加载密钥列表
+                    await loadKeyManagementModal();
+                } else {
+                    showStatus(`删除失败: 所有 ${autoDisabledKeys.length} 个密钥删除都失败了`, 'error');
+                }
+            } catch (error) {
+                showStatus(`删除失败: ${error.message}`, 'error');
+            }
         }
 
         // 清理过期密钥的统计数据
@@ -5819,13 +5914,15 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
         }
 
         // 凭证文件管理相关函数
-        async function refreshCredsStatus() {
+        async function refreshCredsStatus(silent = false) {
             const credsLoading = document.getElementById('credsLoading');
             const credsList = document.getElementById('credsList');
 
             try {
-                credsLoading.style.display = 'block';
-                credsList.innerHTML = '';
+                if (!silent) {
+                    credsLoading.style.display = 'block';
+                    credsList.innerHTML = '';
+                }
 
                 console.log('Fetching creds status...');
 
@@ -5852,15 +5949,23 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     currentPage = 1;
                     applyFilters();
 
-                    showStatus(`已加载 ${Object.keys(credsData).length} 个凭证文件`, 'success');
+                    if (!silent) {
+                        showStatus(`已加载 ${Object.keys(credsData).length} 个凭证文件`, 'success');
+                    }
                 } else {
-                    showStatus(`加载失败: ${data.detail || data.error || '未知错误'}`, 'error');
+                    if (!silent) {
+                        showStatus(`加载失败: ${data.detail || data.error || '未知错误'}`, 'error');
+                    }
                 }
             } catch (error) {
                 console.error('refreshCredsStatus error:', error);
-                showStatus(`网络错误: ${error.message}`, 'error');
+                if (!silent) {
+                    showStatus(`网络错误: ${error.message}`, 'error');
+                }
             } finally {
-                credsLoading.style.display = 'none';
+                if (!silent) {
+                    credsLoading.style.display = 'none';
+                }
             }
         }
 
@@ -6292,28 +6397,55 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
         let currentConfig = {};
         let envLockedFields = new Set();
 
-        async function loadConfig() {
+        async function loadConfig(silent = false) {
             const configLoading = document.getElementById('configLoading');
             const configForm = document.getElementById('configForm');
             try {
-                configLoading.style.display = 'block';
-                configForm.classList.add('hidden');
+                if (!silent) {
+                    configLoading.style.display = 'block';
+                    configForm.classList.add('hidden');
+                }
                 const response = await fetch('/config/get', { method: 'GET', headers: getAuthHeaders() });
                 const data = await response.json();
                 if (response.ok) {
                     currentConfig = data.config || {};
                     envLockedFields = new Set(data.env_locked || []);
                     populateConfigForm();
-                    configForm.classList.remove('hidden');
+                    
+                    // 加载聚合模式
+                    try {
+                        const keyConfigResponse = await fetch('/api/keys/config', { headers: getAuthHeaders() });
+                        if (keyConfigResponse.ok) {
+                            const keyConfigData = await keyConfigResponse.json();
+                            const aggregationModeEl = document.getElementById('keyAggregationMode');
+                            if (aggregationModeEl && keyConfigData.aggregation_mode) {
+                                aggregationModeEl.value = keyConfigData.aggregation_mode;
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Failed to load key aggregation mode:', e);
+                    }
+                    
+                    if (!silent) {
+                        configForm.classList.remove('hidden');
+                    }
                     refreshAllConfig();
-                    showStatus('配置加载成功', 'success');
+                    if (!silent) {
+                        showStatus('配置加载成功', 'success');
+                    }
                 } else {
-                    showStatus(`加载配置失败: ${data.detail || data.error || '未知错误'}`, 'error');
+                    if (!silent) {
+                        showStatus(`加载配置失败: ${data.detail || data.error || '未知错误'}`, 'error');
+                    }
                 }
             } catch (error) {
-                showStatus(`网络错误: ${error.message}`, 'error');
+                if (!silent) {
+                    showStatus(`网络错误: ${error.message}`, 'error');
+                }
             } finally {
-                configLoading.style.display = 'none';
+                if (!silent) {
+                    configLoading.style.display = 'none';
+                }
             }
         }
 
@@ -6330,10 +6462,8 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             if (apiPwdEl) apiPwdEl.value = currentConfig.api_password || '';
             if (panelPwdEl) panelPwdEl.value = currentConfig.panel_password || '';
             if (aaiKeysEl) {
-                const list = currentConfig.assembly_api_keys || [];
-                const single = currentConfig.assembly_api_key || '';
-                const lines = Array.isArray(list) && list.length > 0 ? list : (single ? [single] : []);
-                aaiKeysEl.value = lines.join('\n');
+                // 密钥配置页面只用于新增，不显示现有密钥，查看密钥请使用"查看密钥"按钮
+                aaiKeysEl.value = '';
             }
             if (useAssemblyEl) useAssemblyEl.checked = !!currentConfig.use_assembly;
             if (overrideEl) overrideEl.checked = !!currentConfig.override_env;
@@ -6412,7 +6542,6 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
 
         async function saveConfig() {
             const payload = {
-                assembly_api_keys: document.getElementById('assemblyApiKeys').value.split(/\n|,/).map(s=>s.trim()).filter(s=>s.length>0),
                 use_assembly: document.getElementById('useAssembly').checked,
                 override_env: document.getElementById('overrideEnv').checked,
                 api_password: document.getElementById('configApiPassword').value.trim(),
@@ -6428,10 +6557,103 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             };
             const generalPwd = document.getElementById('configPassword').value.trim();
             if (generalPwd) payload.password = generalPwd;
+            
+            // 处理密钥配置：根据更新模式使用不同的接口
+            const newKeys = document.getElementById('assemblyApiKeys').value.split(/\n|,/).map(s=>s.trim()).filter(s=>s.length>0);
+            const keyUpdateMode = document.getElementById('keyUpdateMode')?.value || 'append';
+            
             try {
+                // 如果有新密钥，使用密钥管理API
+                if (newKeys.length > 0) {
+                    const keysResponse = await fetch('/api/keys', {
+                        method: 'POST',
+                        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            keys: newKeys,
+                            mode: keyUpdateMode
+                        })
+                    });
+                    
+                    // 先读取响应数据（只能读取一次）
+                    const keysData = await keysResponse.json();
+                    
+                    if (!keysResponse.ok) {
+                        throw new Error(keysData.detail || '保存密钥失败');
+                    }
+                    
+                    // 检查是否有重复密钥并提示（只在追加模式下检查）
+                    if (keyUpdateMode === 'append') {
+                        const duplicateKeys = Array.isArray(keysData.duplicate_keys) ? keysData.duplicate_keys : [];
+                        const duplicateCount = duplicateKeys.length > 0 ? duplicateKeys.length : (keysData.duplicate_count || 0);
+                        const addedCount = keysData.added_count !== undefined ? keysData.added_count : (newKeys.length - duplicateCount);
+                        
+                        // 调试信息（可在控制台查看）
+                        console.log('密钥添加结果:', {
+                            mode: keyUpdateMode,
+                            total: newKeys.length,
+                            added: addedCount,
+                            duplicate: duplicateCount,
+                            duplicateKeys: duplicateKeys
+                        });
+                        
+                        if (duplicateCount > 0 && duplicateKeys.length > 0) {
+                            // 有重复密钥，显示警告提示，列出所有重复的密钥
+                            const duplicateList = duplicateKeys.map(k => {
+                                if (k && typeof k === 'string' && k.length > 8) {
+                                    return k.substring(0, 4) + '...' + k.substring(k.length - 4);
+                                } else if (k && typeof k === 'string' && k.length > 0) {
+                                    return k.substring(0, 2) + '***';
+                                }
+                                return String(k || '');
+                            }).filter(k => k).join(', ');
+                            
+                            if (addedCount === 0) {
+                                // 所有密钥都是重复的
+                                showStatus(`所有 ${duplicateCount} 个密钥都是重复的，未添加任何密钥。重复的密钥：${duplicateList}`, 'warning');
+                            } else {
+                                // 部分密钥重复
+                                showStatus(`成功添加 ${addedCount} 个密钥，跳过 ${duplicateCount} 个重复密钥。重复的密钥：${duplicateList}`, 'warning');
+                            }
+                        } else if (duplicateCount > 0) {
+                            // 有重复但列表为空（不应该发生，但作为后备）
+                            showStatus(`成功添加 ${addedCount} 个密钥，跳过 ${duplicateCount} 个重复密钥`, 'warning');
+                        } else if (addedCount > 0) {
+                            // 没有重复，显示成功提示
+                            showStatus(`成功添加 ${addedCount} 个密钥`, 'success');
+                        } else {
+                            // 没有添加任何密钥
+                            showStatus(`未添加任何密钥`, 'warning');
+                        }
+                    } else {
+                        // 覆盖模式，显示成功提示
+                        const addedCount = keysData.added_count || newKeys.length;
+                        showStatus(`成功覆盖 ${addedCount} 个密钥`, 'success');
+                    }
+                }
+                
+                // 保存聚合模式
+                const aggregationMode = document.getElementById('keyAggregationMode')?.value;
+                if (aggregationMode) {
+                    const modeResponse = await fetch('/api/keys/config/aggregation-mode', {
+                        method: 'PUT',
+                        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ mode: aggregationMode })
+                    });
+                    if (!modeResponse.ok) {
+                        const modeData = await modeResponse.json();
+                        log.warning(`保存聚合模式失败: ${modeData.detail || '未知错误'}`);
+                    }
+                }
+                
+                // 保存其他配置
                 const response = await fetch('/config/save', { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(payload) });
                 const data = await response.json();
                 if (response.ok) {
+                    // 清空密钥输入框（因为已经保存）
+                    if (newKeys.length > 0) {
+                        document.getElementById('assemblyApiKeys').value = '';
+                    }
+                    
                     const passwordChanged = (
                         (payload.panel_password && payload.panel_password !== (currentConfig.panel_password||'')) ||
                         (payload.api_password && payload.api_password !== (currentConfig.api_password||'')) ||
@@ -6558,7 +6780,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                                 <th style="width:120px">分类</th>
                                 <th style="width:220px">键</th>
                                 <th>值</th>
-                                <th style="width:120px;text-align:center">操作</th>
+                                <th style="width:120px">操作</th>
                             </tr>
                         </thead>
                         <tbody>${rows}</tbody>
@@ -6609,7 +6831,9 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             
             // 复制到剪贴板
             navigator.clipboard.writeText(valueToCopy).then(() => {
-                const btn = cell.querySelector('.config-copy-btn');
+                // 从操作列中查找按钮
+                const actionsCell = row.querySelector('.config-actions-cell');
+                const btn = actionsCell ? actionsCell.querySelector('.config-copy-btn') : null;
                 if (btn) {
                     const originalText = btn.textContent;
                     btn.textContent = '已复制';
@@ -7113,16 +7337,18 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
         let currentEditingFile = '';
 
         // 刷新使用统计
-        async function refreshUsageStats() {
+        async function refreshUsageStats(silent = false) {
             const usageLoading = document.getElementById('usageLoading');
             const usageList = document.getElementById('usageList');
 
             try {
-                usageLoading.style.display = 'block';
-                usageList.innerHTML = '';
+                if (!silent) {
+                    usageLoading.style.display = 'block';
+                    usageList.innerHTML = '';
+                }
 
-                // 同时获取聚合数据、凭证状态和密钥状态
-                const [aggregatedResponse, credsStatusResponse, keysStatsResponse] = await Promise.all([
+                // 同时获取聚合数据、凭证状态、密钥状态和配置信息
+                const [aggregatedResponse, credsStatusResponse, keysStatsResponse, configResponse] = await Promise.all([
                     fetch('/usage/aggregated', {
                     method: 'GET',
                     headers: getAuthHeaders()
@@ -7134,12 +7360,26 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     fetch('/api/keys/stats', {
                         method: 'GET',
                         headers: getAuthHeaders()
-                    }).catch(() => ({ ok: false, json: () => Promise.resolve({}) }))
+                    }).catch(() => ({ ok: false, json: () => Promise.resolve({}) })),
+                    fetch('/config/get', {
+                        method: 'GET',
+                        headers: getAuthHeaders()
+                    }).catch(() => ({ ok: false, json: () => Promise.resolve({ config: {} }) }))
                 ]);
 
                 const aggregatedData = await aggregatedResponse.json();
                 const credsStatusData = await credsStatusResponse.json();
                 const keysStatsData = keysStatsResponse.ok ? await keysStatsResponse.json() : {};
+                const configData = configResponse.ok ? await configResponse.json() : { config: {} };
+                
+                // 获取配置中的密钥列表（用于判断失效密钥）
+                const configuredKeys = (configData.config?.assembly_api_keys || []).map(k => {
+                    // 脱敏密钥用于匹配
+                    if (k && k.length > 8) {
+                        return k.substring(0, 4) + '...' + k.substring(k.length - 4);
+                    }
+                    return k;
+                });
 
                 if (aggregatedResponse.ok) {
                     // 从aggregatedData.log_summary.keys构建usageStatsData
@@ -7197,6 +7437,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                         // keyName可能是脱敏后的密钥（masked key）或 "creds/filename.json" 格式
                         let disabled = false;
                         let isKey = false; // 标记是否是密钥
+                        let isInvalid = false; // 标记是否是失效密钥（统计中存在但配置中不存在）
                         
                         // 首先检查是否是密钥（通过脱敏密钥匹配）
                         if (keyDisabledMap.hasOwnProperty(keyName)) {
@@ -7205,7 +7446,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                         } else {
                             // 如果不在keyDisabledMap中，检查keyData中是否有masked_key字段
                             // 如果有，尝试用masked_key匹配
-                            const maskedKeyFromData = keyData.masked_key || keyData.display_key;
+                            const maskedKeyFromData = keyData.masked_key || keyData.display_key || keyName;
                             if (maskedKeyFromData) {
                                 if (keyDisabledMap.hasOwnProperty(maskedKeyFromData)) {
                                     disabled = keyDisabledMap[maskedKeyFromData];
@@ -7215,6 +7456,20 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                                     // 但不在keyDisabledMap中，这可能是因为状态数据不完整
                                     // 这种情况下，我们暂时不设置disabled，等第二次处理时再更新
                                     isKey = true;
+                                } else {
+                                    // 检查是否是失效密钥：在统计中存在但不在配置中
+                                    // 如果keyName或maskedKeyFromData不在configuredKeys中，说明是失效密钥
+                                    const isInConfigured = configuredKeys.some(ck => 
+                                        ck === keyName || ck === maskedKeyFromData || 
+                                        keyName.includes(ck) || maskedKeyFromData.includes(ck) ||
+                                        ck.includes(keyName) || ck.includes(maskedKeyFromData)
+                                    );
+                                    if (!isInConfigured && (keyName.length > 10 || maskedKeyFromData.length > 10)) {
+                                        // 看起来像密钥格式（长度较长），但不在配置中，是失效密钥
+                                        isKey = true;
+                                        isInvalid = true;
+                                        disabled = false; // 失效密钥不算禁用
+                                    }
                                 }
                             }
                             
@@ -7255,7 +7510,9 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                             daily_limit_total: 1000, // 默认限制
                             model_counts: keyData.model_counts || {},
                             next_reset_time: aggregatedData.next_reset_time || null,
-                            disabled: disabled
+                            disabled: disabled,
+                            isInvalid: isInvalid, // 标记是否是失效密钥
+                            isKey: isKey // 标记是否是密钥
                         };
                     }
 
@@ -7309,9 +7566,12 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                         }
                     }
                     
-                    // 计算活跃和禁用的密钥数
-                    const activeKeys = Object.values(usageStatsData).filter(s => !s.disabled).length;
-                    const disabledKeys = Object.values(usageStatsData).filter(s => s.disabled).length;
+                    // 计算活跃、禁用和失效的密钥数
+                    // 禁用密钥：在多密钥管理中被禁用或自动禁用的密钥（在配置中但被禁用）
+                    // 失效密钥：统计中存在但配置中不存在的历史密钥
+                    const activeKeys = Object.values(usageStatsData).filter(s => !s.disabled && !s.isInvalid).length;
+                    const disabledKeys = Object.values(usageStatsData).filter(s => s.disabled && s.isKey && !s.isInvalid).length;
+                    const invalidKeys = Object.values(usageStatsData).filter(s => s.isInvalid).length;
 
                     document.getElementById('totalApiCalls').textContent = aggregatedData.total_all_model_calls || 0;
                     document.getElementById('activeKeys').textContent = activeKeys;
@@ -7320,14 +7580,22 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     // 渲染使用统计列表
                     renderUsageList();
 
-                    showStatus(`已加载 ${Object.keys(usageStatsData).length} 个密钥的使用统计（活跃: ${activeKeys}, 禁用: ${disabledKeys}）`, 'success');
+                    if (!silent) {
+                        showStatus(`已加载 ${Object.keys(usageStatsData).length} 个密钥的使用统计（活跃: ${activeKeys}, 禁用: ${disabledKeys}）`, 'success');
+                    }
                 } else {
-                    showStatus('加载使用统计失败', 'error');
+                    if (!silent) {
+                        showStatus('加载使用统计失败', 'error');
+                    }
                 }
             } catch (error) {
-                showStatus(`网络错误: ${error.message}`, 'error');
+                if (!silent) {
+                    showStatus(`网络错误: ${error.message}`, 'error');
+                }
             } finally {
-                usageLoading.style.display = 'none';
+                if (!silent) {
+                    usageLoading.style.display = 'none';
+                }
             }
         }
 
@@ -8946,9 +9214,6 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 const data = await res.json();
                 if (data.success) {
                     currentAccountEmail = email;
-                    showAccountStatus(`已切换到账户: ${email}`, 'success');
-                    // 重新加载账户列表
-                    await loadAccountsList();
                     // 清空缓存，重新加载数据
                     accountCache.info = { ts: 0, html: '' };
                     accountCache.apiKeys = { ts: 0, html: '' };
@@ -8956,9 +9221,71 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     accountCache.usage = {};
                     accountCache.cost = {};
                     accountCache.rates = { ts: 0, html: '' };
-                    // 显示账户详情并切换到概览
+                    // 显示账户详情并切换到概览（但不触发数据加载，由下面的并发加载统一处理）
                     document.getElementById('accountDetailsSection').classList.remove('hidden');
-                    switchAccountSubTab('overview');
+                    
+                    // 先设置子标签页状态，但不触发加载
+                    currentAccountSubTab = 'overview';
+                    const tabs = ['overview', 'usage', 'cost', 'rates'];
+                    tabs.forEach(t => {
+                        const el = document.getElementById('accountSub' + t.charAt(0).toUpperCase() + t.slice(1));
+                        const btn = document.getElementById('accountSubTab' + t.charAt(0).toUpperCase() + t.slice(1));
+                        if (el) el.classList.toggle('hidden', t !== 'overview');
+                        if (btn) btn.style.background = (t === 'overview') ? '#4285f4' : '#6c757d';
+                    });
+                    
+                    // 并发加载所有子标签页的数据（强制刷新，静默模式）
+                    try {
+                        await Promise.all([
+                            // 重新加载账户列表（不显示提示）
+                            loadAccountsList(),
+                            // 概览数据（包含账户信息和余额）
+                            loadAccountInfo(true),
+                            loadAccountBilling(true),
+                            loadAccountApiKeys(true),
+                            // 使用量数据
+                            loadAccountUsage(true, true), // force=true, silent=true（后台加载）
+                            // 成本数据
+                            loadAccountCost(true, true), // force=true, silent=true（后台加载）
+                            // 费率数据
+                            loadAccountRates(true) // force=true
+                        ]);
+                        // 所有数据加载完成，完全静默处理，不显示任何提示
+                        // 启动自动刷新
+                        startAccountAutoRefresh();
+                    } catch (e) {
+                        console.warn('并发加载账户数据时出错:', e);
+                        // 静默处理错误，不显示提示
+                        // 即使出错也启动自动刷新
+                        startAccountAutoRefresh();
+                    }
+                    
+                    // 刷新四个管理页面（完全静默模式，不显示任何提示）
+                    try {
+                        // 1. 凭证管理（文件管理）
+                        if (typeof refreshCredsStatus === 'function') {
+                            refreshCredsStatus(true); // silent=true
+                        }
+                        // 2. 配置管理
+                        if (typeof loadConfig === 'function') {
+                            loadConfig(true); // silent=true
+                        }
+                        // 3. 使用统计
+                        if (typeof refreshUsageStats === 'function') {
+                            refreshUsageStats(true); // silent=true
+                        }
+                        // 4. 速率限制
+                        if (typeof loadRateLimits === 'function') {
+                            loadRateLimits(); // 静默调用
+                        }
+                        // 5. 多密钥管理（如果弹窗已打开，则刷新）
+                        const keyModal = document.getElementById('keyManagementModal');
+                        if (keyModal && keyModal.style.display === 'block' && typeof loadKeyManagementModal === 'function') {
+                            loadKeyManagementModal();
+                        }
+                    } catch (e) {
+                        console.warn('刷新管理页面时出错:', e);
+                    }
                 } else {
                     showAccountStatus(data.detail || data.message || '切换账户失败', 'error');
                 }

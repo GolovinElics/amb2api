@@ -162,12 +162,26 @@ async def add_keys(request: AddKeysRequest):
         if request.mode not in ["append", "override"]:
             raise HTTPException(status_code=400, detail="Invalid mode. Use 'append' or 'override'")
         
-        success = await key_manager.add_keys(request.keys, request.mode)
+        success, duplicate_keys = await key_manager.add_keys(request.keys, request.mode)
         
         if not success:
             raise HTTPException(status_code=500, detail="Failed to add keys")
         
-        return {"success": True, "message": f"Added {len(request.keys)} keys in {request.mode} mode"}
+        added_count = len(request.keys) - len(duplicate_keys)
+        message = f"Added {added_count} keys in {request.mode} mode"
+        if duplicate_keys:
+            if added_count == 0:
+                message = f"All {len(request.keys)} keys are duplicates, nothing to add"
+            else:
+                message += f", skipped {len(duplicate_keys)} duplicate keys"
+        
+        return {
+            "success": True,
+            "message": message,
+            "added_count": added_count,
+            "duplicate_keys": duplicate_keys,
+            "duplicate_count": len(duplicate_keys)
+        }
     except HTTPException:
         raise
     except Exception as e:

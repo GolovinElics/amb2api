@@ -184,6 +184,17 @@ async def save_config(payload: Dict[str, Any], token: str = Depends(authenticate
         if not ok:
             log.error(f"Failed to set config: {k}")
             raise HTTPException(status_code=500, detail=f"保存失败: {k}")
+    
+    # 如果更新了密钥配置，需要重新加载KeyManager
+    if "assembly_api_keys" in updates or "disabled_key_indices" in updates or "key_aggregation_mode" in updates or "calls_per_rotation" in updates:
+        try:
+            from .key_manager import get_key_manager
+            key_manager = await get_key_manager()
+            await key_manager.reload_config()
+            log.info("KeyManager reloaded after config update")
+        except Exception as e:
+            log.warning(f"Failed to reload KeyManager after config update: {e}")
+    
     return JSONResponse(content={"saved": list(updates.keys())})
 
 
@@ -593,8 +604,7 @@ async def invalid_keys(token: str = Depends(authenticate)):
     列出失效 key
     
     失效判断逻辑：
-    1. 配置中的密钥，但在日志中只有失败记录（fail > 0 且 ok == 0）
-    2. 不在配置中但在日志中出现的密钥（已删除的密钥）
+    失效密钥：统计中的密钥，在配置密钥中不存在，所以是失效的历史的密钥
     """
     log_file = log.get_log_file()
     found: Dict[str, Dict[str, int]] = {}
@@ -620,47 +630,26 @@ async def invalid_keys(token: str = Depends(authenticate)):
     if isinstance(cfg_keys, str):
         cfg_keys = [x.strip() for x in cfg_keys.replace("\n", ",").split(",") if x.strip()]
     cfg_set = set(cfg_keys or [])
-    # 只检查当前配置中的密钥
     
     invalid = []
     
-    # 1. 检查配置中的密钥是否失效（有失败记录但没有成功记录）
-    # 注意：只有当失败次数较多（>=3次）且没有成功记录时，才判断为失效
-    # 这样可以避免偶尔的失败导致密钥被误判为失效
-    for cfg_key in cfg_set:
-        if cfg_key in found:
-            kv = found[cfg_key]
+    # 失效密钥：统计中存在但配置中不存在的密钥（历史密钥）
+    for stat_key in found.keys():
+        if stat_key not in cfg_set:
+            # 这个密钥在统计中存在，但不在配置中，是失效的历史密钥
+            kv = found[stat_key]
             ok_count = kv.get("ok", 0)
             fail_count = kv.get("fail", 0)
             
-            # 失效条件：失败次数 >= 3 且没有成功记录
-            # 或者：失败次数 > 成功次数的10倍（说明成功率极低）
-            is_invalid = False
-            reason = ""
-            
-            if fail_count >= 3 and ok_count == 0:
-                is_invalid = True
-                reason = f"只有失败记录（{fail_count}次），无成功记录"
-            elif ok_count > 0 and fail_count > ok_count * 10:
-                is_invalid = True
-                reason = f"成功率极低（成功{ok_count}次，失败{fail_count}次）"
-            
-            # 调试日志
-            log.debug(f"Checking key {cfg_key[:8]}...{cfg_key[-4:]}: ok={ok_count}, fail={fail_count}, is_invalid={is_invalid}")
-            
-            if is_invalid:
-                invalid.append({
-                    "key": cfg_key,
-                    "ok": ok_count,
-                    "fail": fail_count,
-                    "is_configured": True,
-                    "ignored": False,
-                    "status": "invalid/configured",
-                    "reason": reason
-                })
-    
-    # 2. 不再检查已删除的密钥，因为它们已经被删除了
-    # 只返回当前配置中的无效密钥
+            invalid.append({
+                "key": stat_key,
+                "ok": ok_count,
+                "fail": fail_count,
+                "is_configured": False,
+                "ignored": False,
+                "status": "invalid/historical",
+                "reason": f"历史密钥，已从配置中移除（成功{ok_count}次，失败{fail_count}次）"
+            })
     
     return JSONResponse(content={"invalid_keys": invalid, "ignored": []})
 
@@ -741,7 +730,7 @@ async def delete_invalid_keys(token: str = Depends(authenticate)):
     
     return JSONResponse(content={
         "success": True,
-        "ignored_count": len(new_ignore),
+        "ignored_count": 0,  # 不再使用忽略列表，直接删除
         "invalid_deleted": len(invalid_list),
         "log_lines_removed": lines_removed
     })

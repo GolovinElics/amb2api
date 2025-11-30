@@ -25,6 +25,11 @@ class KeyManager:
         await self._load_config()
         self._initialized = True
     
+    async def reload_config(self):
+        """强制重新加载配置（用于配置更新后同步）"""
+        await self._load_config()
+        log.info("KeyManager config reloaded")
+    
     async def _load_config(self):
         """从存储加载配置"""
         try:
@@ -145,7 +150,7 @@ class KeyManager:
         all_keys = await self.get_all_keys()
         return [k for k in all_keys if k.enabled]
     
-    async def add_keys(self, keys: List[str], mode: str = "append") -> bool:
+    async def add_keys(self, keys: List[str], mode: str = "append") -> tuple[bool, List[str]]:
         """
         添加密钥
         
@@ -154,7 +159,7 @@ class KeyManager:
             mode: "append" 追加到末尾，"override" 覆盖现有
         
         Returns:
-            是否成功
+            (是否成功, 重复密钥列表)
         """
         if not self._initialized:
             await self.initialize()
@@ -165,26 +170,80 @@ class KeyManager:
         # 过滤空密钥
         new_keys = [k.strip() for k in keys if k.strip()]
         if not new_keys:
-            return False
+            return False, []
         
         if mode == "override":
-            # 覆盖模式：替换所有密钥
+            # 覆盖模式：替换所有密钥，但保持基于密钥本身的禁用状态
+            # 保存旧密钥的禁用状态（基于密钥值，而不是索引）
+            old_keys = self._cache.keys if self._cache else []
+            old_disabled_indices = self._cache.disabled_indices if self._cache else []
+            old_key_states = self._key_states.copy() if self._key_states else {}
+            
+            # 构建旧密钥到禁用状态的映射（基于密钥值）
+            old_key_disabled_map = {}
+            old_key_state_map = {}
+            for i, old_key in enumerate(old_keys):
+                if i in old_disabled_indices:
+                    old_key_disabled_map[old_key] = True
+                if i in old_key_states:
+                    old_key_state_map[old_key] = old_key_states[i]
+            
+            # 设置新密钥列表
             self._cache.keys = new_keys
-            self._cache.enabled_indices = list(range(len(new_keys)))
+            self._cache.enabled_indices = []
             self._cache.disabled_indices = []
-            self._key_states = {}  # 清空状态
-            log.info(f"Replaced all keys with {len(new_keys)} new keys")
+            new_key_states = {}
+            
+            # 为新密钥列表设置启用/禁用状态（基于密钥值匹配）
+            for i, new_key in enumerate(new_keys):
+                if new_key in old_key_disabled_map:
+                    # 如果新密钥在旧列表中被禁用，保持禁用状态
+                    self._cache.disabled_indices.append(i)
+                    # 迁移密钥状态
+                    if new_key in old_key_state_map:
+                        new_key_states[i] = old_key_state_map[new_key]
+                else:
+                    # 新密钥或旧密钥中未禁用的，默认启用
+                    self._cache.enabled_indices.append(i)
+                    # 如果新密钥在旧列表中存在，迁移其状态
+                    if new_key in old_key_state_map:
+                        new_key_states[i] = old_key_state_map[new_key]
+            
+            self._key_states = new_key_states
+            log.info(f"Replaced all keys with {len(new_keys)} new keys, preserved disabled status for {len(self._cache.disabled_indices)} keys")
+            await self._save_config()
+            return True, []  # 覆盖模式没有重复密钥的概念
         else:
-            # 追加模式：添加到末尾
+            # 追加模式：添加到末尾，但需要检查重复
+            existing_keys_set = set(self._cache.keys)
+            duplicate_keys = []
+            unique_new_keys = []
+            
+            for key in new_keys:
+                if key in existing_keys_set:
+                    duplicate_keys.append(key)
+                else:
+                    unique_new_keys.append(key)
+            
+            if not unique_new_keys:
+                # 所有密钥都是重复的
+                log.warning(f"All {len(new_keys)} keys are duplicates, nothing to add")
+                return True, duplicate_keys  # 返回成功但包含重复密钥列表，让调用者知道情况
+            
+            # 只添加不重复的密钥
             start_index = len(self._cache.keys)
-            self._cache.keys.extend(new_keys)
+            self._cache.keys.extend(unique_new_keys)
             # 新添加的密钥默认启用
             new_indices = list(range(start_index, len(self._cache.keys)))
             self._cache.enabled_indices.extend(new_indices)
-            log.info(f"Appended {len(new_keys)} keys, total: {len(self._cache.keys)}")
-        
-        await self._save_config()
-        return True
+            
+            if duplicate_keys:
+                log.info(f"Appended {len(unique_new_keys)} unique keys, skipped {len(duplicate_keys)} duplicates, total: {len(self._cache.keys)}")
+            else:
+                log.info(f"Appended {len(unique_new_keys)} keys, total: {len(self._cache.keys)}")
+            
+            await self._save_config()
+            return True, duplicate_keys
     
     async def update_key_status(self, index: int, enabled: bool) -> bool:
         """
@@ -429,7 +488,7 @@ class KeyManager:
             return False
         
         # 添加密钥
-        success = await self.add_keys(keys, mode)
+        success, _ = await self.add_keys(keys, mode)
         if not success:
             return False
         
