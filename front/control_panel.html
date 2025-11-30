@@ -2798,7 +2798,7 @@
             padding-right: 8px;
             font-size: 11px;
             color: var(--text-secondary);
-            height: 180px;
+            height: 160px;
             min-width: 40px;
         }
         .ranking-chart-wrapper {
@@ -2809,7 +2809,7 @@
             top: 0;
             left: 0;
             right: 0;
-            height: 180px;
+            height: 160px;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
@@ -2823,7 +2823,7 @@
             display: flex;
             align-items: flex-end;
             gap: 6px;
-            height: 180px;
+            height: 160px;
             padding-bottom: 0;
         }
         .ranking-bar-group {
@@ -4390,7 +4390,10 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 </div>
 
                 <div class="config-group">
-                    <h4>日志统计（按模型/按密钥）</h4>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                        <h4 style="margin:0;">日志统计（按模型/按密钥）</h4>
+                        <button class="btn btn-sm" style="background:#dc3545;" onclick="resetAllStats()">重置所有统计</button>
+                    </div>
                     <div class="form-group" style="display:flex; gap:10px; flex-wrap:wrap">
                         <select id="modelFilter" class="config-input" style="max-width:260px" onchange="refreshLogSummary()"></select>
                         <select id="keyFilter" class="config-input" style="max-width:260px" onchange="refreshLogSummary()"></select>
@@ -6313,7 +6316,6 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
 
         function connectWebSocket() {
             if (logWebSocket && logWebSocket.readyState === WebSocket.OPEN) {
-                showStatus('WebSocket已经连接', 'info');
                 return;
             }
 
@@ -8274,6 +8276,54 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             }
         }
 
+        // 重置所有统计
+        async function resetAllStats() {
+            if (!confirm('确定要重置所有统计数据吗？\n\n这将清除所有密钥的调用统计，包括：\n- 成功/失败次数\n- 模型调用次数\n- 排行榜数据\n\n此操作不可恢复！')) {
+                return;
+            }
+            try {
+                const res = await fetch('/usage/reset', {
+                    method: 'POST',
+                    headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showStatus('所有统计数据已重置', 'success');
+                    await refreshLogSummary();
+                    await refreshUsageStats();
+                } else {
+                    showStatus('重置失败: ' + (data.detail || '未知错误'), 'error');
+                }
+            } catch (e) {
+                showStatus('重置统计失败: ' + e.message, 'error');
+            }
+        }
+
+        // 重置指定密钥的统计
+        async function resetKeyStats(maskedKey) {
+            if (!confirm(`确定要清除密钥 ${maskedKey} 的统计数据吗？\n\n这将清除该密钥的所有调用统计。`)) {
+                return;
+            }
+            try {
+                const res = await fetch('/usage/reset', {
+                    method: 'POST',
+                    headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ filename: maskedKey })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showStatus(`密钥 ${maskedKey} 的统计已清除`, 'success');
+                    await refreshLogSummary();
+                    await refreshUsageStats();
+                } else {
+                    showStatus('清除失败: ' + (data.detail || '未知错误'), 'error');
+                }
+            } catch (e) {
+                showStatus('清除统计失败: ' + e.message, 'error');
+            }
+        }
+
         async function refreshLogSummary() {
             const model = document.getElementById('modelFilter').value || '';
             const key = (document.getElementById('keyFilter').value || '').trim();
@@ -8349,7 +8399,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 mHtml += `<tr><td>${m}</td><td>${v.ok||0}</td><td>${v.fail||0}</td></tr>`;
             });
             mHtml += '</tbody></table>';
-            let kHtml = '<table class="table"><thead><tr><th>密钥</th><th>成功</th><th>失败</th><th>模型分布</th></tr></thead><tbody>';
+            let kHtml = '<table class="table"><thead><tr><th>密钥</th><th>成功</th><th>失败</th><th>模型分布</th><th style="width:60px;">操作</th></tr></thead><tbody>';
             Object.entries(keys).forEach(([kk,v])=>{
                 const md = v.models||{};
                 // 按调用次数排序
@@ -8360,7 +8410,11 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     const cat = getModelCategory(item.model);
                     return `<span class="model-tag model-tag-${cat}" style="font-size:11px; padding:2px 6px; margin:1px;">${item.model}: ${item.ok}/${item.fail}</span>`;
                 }).join('');
-                kHtml += `<tr><td>${kk}</td><td>${v.ok||0}</td><td>${v.fail||0}</td><td style="display:flex; flex-wrap:wrap; gap:2px;">${mdHtml || '-'}</td></tr>`;
+                const totalCalls = (v.ok||0) + (v.fail||0);
+                const clearBtn = totalCalls > 0 ? 
+                    `<button class="btn btn-sm" style="background:#6c757d; padding:2px 8px; font-size:11px;" onclick="resetKeyStats('${kk}')" title="清除此密钥的统计">清除</button>` : 
+                    '-';
+                kHtml += `<tr><td>${kk}</td><td>${v.ok||0}</td><td>${v.fail||0}</td><td style="display:flex; flex-wrap:wrap; gap:2px;">${mdHtml || '-'}</td><td>${clearBtn}</td></tr>`;
             });
             kHtml += '</tbody></table>';
             mDiv.innerHTML = mHtml;
@@ -8418,12 +8472,25 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             const pageMax = Math.max(1, ...pageEntries.map(e=> e.count));
             const maxBarHeight = 160;
             
-            // 计算Y轴刻度
+            // 计算Y轴刻度 - 确保刻度最大值等于或略大于实际最大值
             const yTicks = [];
-            const step = Math.ceil(pageMax / 4);
-            for (let i = 4; i >= 0; i--) {
-                yTicks.push(Math.round(step * i));
+            let yMax, step;
+            if (pageMax <= 5) {
+                // 小数值时，直接用整数刻度
+                yMax = pageMax;
+                for (let i = pageMax; i >= 0; i--) {
+                    yTicks.push(i);
+                }
+            } else {
+                // 大数值时，分成4-5个刻度
+                step = Math.ceil(pageMax / 4);
+                yMax = step * 4;
+                for (let i = 4; i >= 0; i--) {
+                    yTicks.push(step * i);
+                }
             }
+            // 用于计算柱子高度的最大值应该与Y轴最大值一致
+            const chartMax = yMax;
             
             let html = `<div class="ranking-header">
                 <div class="ranking-title">模型调用次数排行</div>
@@ -8440,19 +8507,19 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             html += `</div>`;
             
             // 图表区域
+            // 动态生成网格线
+            let gridLinesHtml = '';
+            for (let i = 0; i < yTicks.length; i++) {
+                gridLinesHtml += '<div class="ranking-grid-line"></div>';
+            }
+            
             html += `<div class="ranking-chart-area">
                 <div class="ranking-chart-wrapper">
-                    <div class="ranking-grid-lines">
-                        <div class="ranking-grid-line"></div>
-                        <div class="ranking-grid-line"></div>
-                        <div class="ranking-grid-line"></div>
-                        <div class="ranking-grid-line"></div>
-                        <div class="ranking-grid-line"></div>
-                    </div>
+                    <div class="ranking-grid-lines">${gridLinesHtml}</div>
                     <div class="ranking-chart">`;
             
             pageEntries.forEach((e, idx) => {
-                const barHeight = Math.max(2, Math.round((e.count / pageMax) * maxBarHeight));
+                const barHeight = Math.max(2, Math.round((e.count / chartMax) * maxBarHeight));
                 const color = RANKING_COLORS[(startIdx + idx) % RANKING_COLORS.length];
                 html += `<div class="ranking-bar-group">
                     <div class="ranking-bar-col" style="height:${barHeight}px; background:${color};" title="${e.name}: ${e.count}"></div>

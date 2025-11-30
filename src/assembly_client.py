@@ -685,11 +685,25 @@ async def send_assembly_request(
                         log.warning(f"Failed to record failure statistics: {e}")
                 return resp
         except Exception as e:
+            error_msg = str(e) if str(e) else repr(e)
+            error_type = type(e).__name__
+            
+            # 记录失败统计（连接错误等异常也要记录）
+            try:
+                from .unified_stats import get_unified_stats
+                unified_stats = await get_unified_stats()
+                # 尝试获取当前使用的密钥
+                current_key = keys[idx] if 'idx' in dir() and idx < len(keys) else (keys[0] if keys else "unknown")
+                await unified_stats.record_call(current_key, openai_request.model, success=False)
+                log.debug(f"Recorded connection failure for key {_mask_key(current_key)}, model {openai_request.model}")
+            except Exception as stats_err:
+                log.warning(f"Failed to record connection failure statistics: {stats_err}")
+            
             if attempt < max_retries:
-                log.warning(f"[RETRY] AssemblyAI request failed, retrying ({attempt + 1}/{max_retries}): {e}")
+                log.warning(f"[RETRY] AssemblyAI request failed ({error_type}), retrying ({attempt + 1}/{max_retries}): {error_msg}")
                 await asyncio.sleep(retry_interval)
                 continue
             else:
-                log.error(f"AssemblyAI request failed: {e}")
+                log.error(f"AssemblyAI request failed ({error_type}): {error_msg}", exc_info=True)
                 from fastapi.responses import JSONResponse
-                return JSONResponse(content={"error": {"message": f"Request failed: {str(e)}", "type": "api_error"}}, status_code=500)
+                return JSONResponse(content={"error": {"message": f"Request failed ({error_type}): {error_msg}", "type": "api_error"}}, status_code=500)

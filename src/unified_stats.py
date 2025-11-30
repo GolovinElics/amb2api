@@ -147,9 +147,19 @@ class UnifiedStats:
         else:
             stats["failure_count"] = stats.get("failure_count", 0) + 1
         
-        # 更新模型计数
+        # 更新模型计数（区分成功和失败）
         model_counts = stats.get("model_counts", {})
-        model_counts[model] = model_counts.get(model, 0) + 1
+        if model not in model_counts:
+            model_counts[model] = {"ok": 0, "fail": 0}
+        # 兼容旧格式（如果是数字则转换为新格式）
+        if isinstance(model_counts.get(model), int):
+            old_count = model_counts[model]
+            model_counts[model] = {"ok": old_count, "fail": 0}
+        
+        if success:
+            model_counts[model]["ok"] = model_counts[model].get("ok", 0) + 1
+        else:
+            model_counts[model]["fail"] = model_counts[model].get("fail", 0) + 1
         stats["model_counts"] = model_counts
         
         # 更新最后调用时间
@@ -214,20 +224,30 @@ class UnifiedStats:
             failure = stats.get("failure_count", 0)
             total = success + failure
             
+            # 处理 model_counts（兼容新旧格式）
+            model_counts_raw = stats.get("model_counts", {})
+            model_counts_display = {}  # 用于显示的格式
+            models_detail = {}  # 详细的成功/失败信息
+            
+            for model, count_data in model_counts_raw.items():
+                if isinstance(count_data, int):
+                    # 旧格式：只有总数
+                    model_counts_display[model] = count_data
+                    models_detail[model] = {"ok": count_data, "fail": 0}
+                elif isinstance(count_data, dict):
+                    # 新格式：区分成功失败
+                    ok = count_data.get("ok", 0)
+                    fail = count_data.get("fail", 0)
+                    model_counts_display[model] = ok + fail
+                    models_detail[model] = {"ok": ok, "fail": fail}
+            
             result["keys"][masked_key] = {
                 "ok": success,
                 "fail": failure,
                 "total": total,
-                "model_counts": stats.get("model_counts", {}),
-                "models": {},  # 兼容旧格式
+                "model_counts": model_counts_display,
+                "models": models_detail,
             }
-            
-            # 构建 models 字段（兼容旧格式）
-            for model, count in stats.get("model_counts", {}).items():
-                result["keys"][masked_key]["models"][model] = {
-                    "ok": count if success > 0 else 0,
-                    "fail": 0,
-                }
             
             # 累加总数
             result["total"]["success"] += success
@@ -235,10 +255,11 @@ class UnifiedStats:
             result["total"]["total_calls"] += total
             
             # 累加模型统计
-            for model, count in stats.get("model_counts", {}).items():
+            for model, detail in models_detail.items():
                 if model not in result["models"]:
                     result["models"][model] = {"ok": 0, "fail": 0}
-                result["models"][model]["ok"] += count
+                result["models"][model]["ok"] += detail["ok"]
+                result["models"][model]["fail"] += detail["fail"]
         
         return result
     
