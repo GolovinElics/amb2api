@@ -18,6 +18,8 @@ from config import (
     get_retry_429_enabled,
     get_retry_429_max_retries,
     get_retry_429_interval,
+    get_auto_ban_enabled,
+    get_auto_ban_error_codes,
 )
 
 
@@ -190,6 +192,15 @@ async def _next_key_index_async(n: int) -> int:
     except Exception as e:
         log.warning(f"Failed to get rate limiter, key selector or key manager, falling back to sync selection: {e}")
         return _next_key_index(n)
+    
+    # 同步 KeyManager 的 calls_per_rotation 配置到 KeySelector
+    try:
+        calls_per_rotation = await key_manager.get_calls_per_rotation()
+        if key_selector.calls_per_rotation != calls_per_rotation:
+            key_selector.calls_per_rotation = calls_per_rotation
+            log.debug(f"Synced calls_per_rotation to KeySelector: {calls_per_rotation}")
+    except Exception as e:
+        log.warning(f"Failed to sync calls_per_rotation: {e}")
     
     # 同步失败记录到 KeySelector
     for idx, fail_time in _failed_keys.items():
@@ -566,6 +577,32 @@ async def send_assembly_request(
                 # 检查是否需要重试（429 或 400 速率限制错误）
                 should_retry = False
                 retry_reason = ""
+                
+                # 检查自动封禁配置
+                auto_ban_enabled = await get_auto_ban_enabled()
+                auto_ban_codes = await get_auto_ban_error_codes() if auto_ban_enabled else []
+                
+                # 如果启用了自动封禁且响应码在封禁列表中，自动禁用该密钥
+                if auto_ban_enabled and resp.status_code in auto_ban_codes:
+                    log.warning(f"[AUTO_BAN] Key {_mask_key(api_key)} (idx={idx}) triggered auto-ban due to error code {resp.status_code}")
+                    try:
+                        from .key_manager import get_key_manager
+                        key_manager = await get_key_manager()
+                        await key_manager.update_key_state(idx, {
+                            "exhausted": True,
+                            "error": f"Auto-banned: HTTP {resp.status_code}",
+                            "disable_reason": f"自动封禁: HTTP {resp.status_code}",
+                        })
+                        log.info(f"[AUTO_BAN] Key {idx} has been automatically disabled")
+                    except Exception as ban_err:
+                        log.error(f"[AUTO_BAN] Failed to auto-ban key {idx}: {ban_err}")
+                    _mark_key_failed(idx)
+                    # 继续重试使用其他密钥
+                    if retry_enabled and attempt < max_retries:
+                        should_retry = True
+                        retry_reason = f"Auto-ban triggered (HTTP {resp.status_code})"
+                        await asyncio.sleep(retry_interval)
+                        continue
                 
                 if resp.status_code == 429:
                     should_retry = True

@@ -486,7 +486,7 @@
             border-color: var(--border-color) !important;
         }
 
-        [data-theme="dark"] #playgroundMessages .form-group {
+        [data-theme="dark"] #playgroundMessages .playground-message-row {
             background-color: var(--card-bg) !important;
         }
 
@@ -2244,6 +2244,101 @@
             cursor: pointer;
         }
 
+        /* 实时日志按钮组样式 */
+        .log-btn-group {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .log-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            font-size: 13px;
+            font-weight: 500;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: white;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+        }
+
+        .log-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .log-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        .log-btn-connect {
+            background: linear-gradient(135deg, #17a2b8, #138496);
+        }
+
+        .log-btn-connect:hover {
+            background: linear-gradient(135deg, #138496, #117a8b);
+        }
+
+        .log-btn-disconnect {
+            background: linear-gradient(135deg, #dc3545, #c82333);
+        }
+
+        .log-btn-disconnect:hover {
+            background: linear-gradient(135deg, #c82333, #bd2130);
+        }
+
+        .log-btn-download {
+            background: linear-gradient(135deg, #28a745, #218838);
+        }
+
+        .log-btn-download:hover {
+            background: linear-gradient(135deg, #218838, #1e7e34);
+        }
+
+        .log-btn-clear {
+            background: linear-gradient(135deg, #6c757d, #5a6268);
+        }
+
+        .log-btn-clear:hover {
+            background: linear-gradient(135deg, #5a6268, #545b62);
+        }
+
+        .log-btn .btn-icon {
+            font-size: 14px;
+        }
+
+        /* 暗黑模式下日志按钮样式 */
+        [data-theme="dark"] .log-btn {
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+
+        [data-theme="dark"] .log-btn:hover {
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
+        }
+
+        /* 移动端日志按钮优化 */
+        @media (max-width: 480px) {
+            .log-btn-group {
+                gap: 6px;
+            }
+
+            .log-btn {
+                padding: 6px 10px;
+                font-size: 12px;
+                gap: 4px;
+            }
+
+            .log-btn .btn-icon {
+                font-size: 12px;
+            }
+        }
+
         /* 批量操作样式 */
         .batch-controls {
             background-color: #f8f9fa;
@@ -2593,16 +2688,23 @@
             overflow-wrap: break-word;
         }
         .config-value-preview { 
-            display: inline-block; 
+            display: block; 
             max-width: 100%; 
-            word-break: break-word; 
+            word-break: break-all; 
             overflow-wrap: break-word;
+            line-height: 1.4;
         }
         .config-value-full { 
             display: none; 
-            word-break: break-word; 
+            word-break: break-all; 
             overflow-wrap: break-word;
             white-space: pre-wrap;
+            line-height: 1.5;
+            background: var(--code-bg);
+            padding: 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
         }
         .config-value-cell.expanded .config-value-preview { display: none; }
         .config-value-cell.expanded .config-value-full { display: block; }
@@ -2658,13 +2760,155 @@
             color: white;
             border-color: #28a745;
         }
-        .ranking-container { background:var(--card-bg); border:1px solid var(--border-color); border-radius:8px; padding:12px; }
-        .ranking-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; font-size:14px; }
-        .ranking-list { display:flex; flex-direction:column; gap:8px; max-height:300px; overflow-y:auto; }
-        .ranking-item { display:grid; grid-template-columns: 180px 1fr 50px; align-items:center; gap:12px; }
-        .ranking-label { font-size:12px; color:var(--text-color); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-        .ranking-bar { height:18px; background:var(--input-bg); border-radius:9px; position:relative; overflow:hidden; min-width:20px; }
-        .ranking-bar-success { position:absolute; left:0; top:0; height:100%; background:#4caf50; border-radius:9px 0 0 9px; }
+        /* 模型调用次数排行 - 柱状图样式 */
+        .ranking-container { 
+            background: var(--card-bg); 
+            border: 1px solid var(--border-color); 
+            border-radius: 12px; 
+            padding: 20px; 
+        }
+        .ranking-header { 
+            display: flex; 
+            align-items: flex-start; 
+            justify-content: space-between; 
+            margin-bottom: 4px;
+        }
+        .ranking-title {
+            font-size: 15px; 
+            font-weight: 600;
+            color: var(--text-color);
+        }
+        .ranking-total {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+        .ranking-body {
+            display: flex;
+            gap: 12px;
+        }
+        .ranking-chart-area {
+            flex: 1;
+            min-width: 0;
+        }
+        .ranking-y-axis {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: flex-end;
+            padding-right: 8px;
+            font-size: 11px;
+            color: var(--text-secondary);
+            height: 180px;
+            min-width: 40px;
+        }
+        .ranking-chart-wrapper {
+            position: relative;
+        }
+        .ranking-grid-lines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 180px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            pointer-events: none;
+        }
+        .ranking-grid-line {
+            border-top: 1px dashed var(--border-color);
+            width: 100%;
+        }
+        .ranking-chart {
+            display: flex;
+            align-items: flex-end;
+            gap: 6px;
+            height: 180px;
+            padding-bottom: 0;
+        }
+        .ranking-bar-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+            min-width: 24px;
+            max-width: 60px;
+        }
+        .ranking-bar-col {
+            width: 100%;
+            border-radius: 3px 3px 0 0;
+            min-height: 2px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .ranking-bar-col:hover {
+            opacity: 0.85;
+        }
+        .ranking-x-labels {
+            display: flex;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        .ranking-x-label {
+            flex: 1;
+            min-width: 24px;
+            max-width: 60px;
+            font-size: 10px;
+            color: var(--text-secondary);
+            text-align: center;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .ranking-pager {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 4px;
+            margin-left: 8px;
+        }
+        .ranking-pager-btn {
+            background: transparent;
+            border: none;
+            font-size: 12px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 4px 8px;
+            line-height: 1;
+        }
+        .ranking-pager-btn:hover:not(:disabled) {
+            color: var(--text-color);
+        }
+        .ranking-pager-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+        .ranking-pager-info {
+            font-size: 11px;
+            color: var(--text-secondary);
+            text-align: center;
+        }
+        .ranking-legend-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 16px;
+            margin-top: 16px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border-color);
+        }
+        .ranking-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+        .ranking-legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
         .ranking-bar-fail { position:absolute; top:0; height:100%; background:#dc3545; border-radius:0 9px 9px 0; }
         .ranking-count { text-align:right; font-size:12px; color:var(--text-secondary); font-weight:600; }
         .legend { display:flex; gap:12px; font-size:12px; color:#666; margin-bottom:8px; }
@@ -2871,15 +3115,21 @@
             width: 100%;
             height: 100%;
             background-color: var(--modal-overlay);
+            overflow-y: auto;
         }
 
         .modal-content {
             background-color: var(--container-bg);
-            margin: 5% auto;
+            position: relative;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
             padding: 20px;
             border-radius: 12px;
             width: 400px;
             max-width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
             box-shadow: 0 10px 40px var(--shadow-color);
             transition: background-color 0.3s ease;
         }
@@ -2995,10 +3245,15 @@
         .key-modal-content {
             width: 900px;
             max-width: 95%;
-            max-height: 90vh;
+            max-height: 85vh;
             overflow: hidden;
             display: flex;
             flex-direction: column;
+            /* 覆盖基础modal-content的定位，确保视口居中 */
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
         }
         
         .key-modal-header {
@@ -3218,6 +3473,10 @@
                 margin: 0 !important;
                 border-radius: 0 !important;
                 padding: 12px !important;
+                /* 手机模式下重置定位为全屏 */
+                top: 0 !important;
+                left: 0 !important;
+                transform: none !important;
             }
             
             /* 头部优化 */
@@ -3429,6 +3688,312 @@
             .key-table td:last-child button {
                 padding: 3px 5px !important;
                 font-size: 9px !important;
+            }
+        }
+
+        /* ========== Playground 会话参数与工具定义并排布局 ========== */
+        .playground-params-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+            align-items: start; /* 让每个卡片独立控制高度 */
+        }
+
+        .playground-param-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            overflow: hidden;
+            transition: box-shadow 0.2s ease, border-color 0.2s ease, height 0.2s ease;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .playground-param-card:hover {
+            border-color: var(--primary-color);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        /* 折叠状态：只显示header */
+        .playground-param-card.collapsed {
+            height: auto !important;
+        }
+
+        .playground-param-card.collapsed .playground-param-content {
+            display: none !important;
+            height: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+        }
+
+        .playground-param-card.collapsed .playground-param-header {
+            border-bottom: none;
+        }
+
+        .playground-param-header {
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, var(--card-bg) 0%, var(--bg-color) 100%);
+            border-bottom: 1px solid var(--border-color);
+            transition: background 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .playground-param-header:hover {
+            background: linear-gradient(135deg, var(--hover-bg) 0%, var(--card-bg) 100%);
+        }
+
+        .playground-param-title {
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--text-color);
+        }
+
+        .playground-toggle-icon {
+            font-size: 12px;
+            color: var(--text-secondary);
+            transition: transform 0.2s ease;
+        }
+
+        .playground-param-content {
+            padding: 12px 16px;
+            display: block;
+        }
+
+        .playground-tools-textarea {
+            width: 100%;
+            min-height: 120px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            resize: vertical;
+        }
+
+        /* 会话参数卡片特殊样式 */
+        .playground-messages-card .playground-param-header {
+            background: linear-gradient(135deg, #e8f4fd 0%, #f0f7ff 100%);
+        }
+
+        .playground-messages-card:hover .playground-param-header {
+            background: linear-gradient(135deg, #d4ebfc 0%, #e8f4fd 100%);
+        }
+
+        /* 工具定义卡片特殊样式 */
+        .playground-tools-card .playground-param-header {
+            background: linear-gradient(135deg, #f0f9e8 0%, #f5fbf0 100%);
+        }
+
+        .playground-tools-card:hover .playground-param-header {
+            background: linear-gradient(135deg, #e4f5d4 0%, #f0f9e8 100%);
+        }
+
+        /* 暗黑模式适配 */
+        [data-theme="dark"] .playground-param-card {
+            background: var(--card-bg);
+            border-color: var(--border-color);
+        }
+
+        [data-theme="dark"] .playground-param-card:hover {
+            border-color: var(--primary-color);
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        [data-theme="dark"] .playground-param-header {
+            background: linear-gradient(135deg, var(--card-bg) 0%, #1e2a3a 100%);
+            border-bottom-color: var(--border-color);
+        }
+
+        [data-theme="dark"] .playground-param-header:hover {
+            background: linear-gradient(135deg, var(--hover-bg) 0%, var(--card-bg) 100%);
+        }
+
+        [data-theme="dark"] .playground-messages-card .playground-param-header {
+            background: linear-gradient(135deg, #1a2a3a 0%, #1e3045 100%);
+        }
+
+        [data-theme="dark"] .playground-messages-card:hover .playground-param-header {
+            background: linear-gradient(135deg, #1e3045 0%, #243850 100%);
+        }
+
+        [data-theme="dark"] .playground-tools-card .playground-param-header {
+            background: linear-gradient(135deg, #1a2a1e 0%, #1e3525 100%);
+        }
+
+        [data-theme="dark"] .playground-tools-card:hover .playground-param-header {
+            background: linear-gradient(135deg, #1e3525 0%, #244030 100%);
+        }
+
+        [data-theme="dark"] .playground-param-title {
+            color: var(--text-color);
+        }
+
+        [data-theme="dark"] .playground-toggle-icon {
+            color: var(--text-secondary);
+        }
+
+        [data-theme="dark"] .playground-tools-textarea {
+            background: #1e1e1e;
+            color: #9cdcfe;
+            border-color: var(--border-color);
+        }
+
+        /* ========== 会话参数消息行样式 ========== */
+        .playground-message-row {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 8px;
+            padding-bottom: 12px;
+            margin-bottom: 12px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+        }
+
+        .playground-message-row:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .playground-message-top {
+            display: flex !important;
+            align-items: center;
+            justify-content: flex-start !important;
+            gap: 10px;
+            width: 100%;
+        }
+
+        .playground-role-select {
+            flex: 0 0 auto !important;
+            width: 120px !important;
+            min-width: 120px !important;
+            max-width: 120px !important;
+            height: 32px !important;
+            padding: 4px 8px !important;
+            font-size: 13px !important;
+            border-radius: 6px;
+        }
+
+        .playground-delete-btn {
+            background: #dc3545 !important;
+            color: white !important;
+            padding: 4px 10px !important;
+            font-size: 12px !important;
+            height: 32px !important;
+            min-width: 50px !important;
+            max-width: 50px !important;
+            border-radius: 6px !important;
+            flex: 0 0 auto !important;
+            line-height: 1 !important;
+        }
+
+        .playground-delete-btn:hover {
+            background: #c82333 !important;
+        }
+
+        .playground-message-textarea {
+            min-height: 70px;
+            resize: vertical;
+            border-radius: 6px;
+            font-size: 13px;
+            line-height: 1.5;
+            width: 100% !important;
+        }
+
+        /* 暗黑模式下的消息行分隔线 */
+        [data-theme="dark"] .playground-message-row {
+            border-bottom-color: rgba(255, 255, 255, 0.1);
+        }
+
+        /* 手机模式适配 */
+        @media (max-width: 768px) {
+            .playground-params-row {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+
+            .playground-param-header {
+                padding: 10px 12px;
+            }
+
+            .playground-param-title {
+                font-size: 13px;
+            }
+
+            .playground-param-content {
+                padding: 10px 12px;
+            }
+
+            .playground-tools-textarea {
+                min-height: 100px;
+                font-size: 11px;
+            }
+
+            /* 手机模式下消息行优化 */
+            .playground-message-row {
+                padding-bottom: 10px;
+                margin-bottom: 10px;
+            }
+
+            .playground-message-top {
+                gap: 8px;
+            }
+
+            .playground-role-select {
+                flex: 1 1 auto !important;
+                width: auto !important;
+                min-width: 80px !important;
+                max-width: none !important;
+                height: 34px !important;
+                font-size: 13px !important;
+            }
+
+            .playground-delete-btn {
+                height: 34px !important;
+                padding: 4px 12px !important;
+                font-size: 12px !important;
+                min-width: 50px !important;
+                max-width: 60px !important;
+            }
+
+            .playground-message-textarea {
+                min-height: 60px;
+                font-size: 14px;
+            }
+        }
+
+        /* ========== 密钥模式并排布局 ========== */
+        .key-mode-row {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 12px;
+        }
+
+        .key-mode-item {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .key-mode-item label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-color);
+            margin-bottom: 6px;
+        }
+
+        .key-mode-item .config-input {
+            width: 100%;
+            background: var(--input-bg);
+        }
+
+        /* 手机模式下密钥模式垂直排列 */
+        @media (max-width: 480px) {
+            .key-mode-row {
+                flex-direction: column;
+                gap: 12px;
             }
         }
     </style>
@@ -3834,7 +4399,6 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                             <option value="success">仅成功</option>
                             <option value="fail">仅失败</option>
                         </select>
-                        <button class="btn" onclick="refreshLogSummary()">刷新</button>
                     </div>
                     <div id="logSummaryModels"></div>
                     <div id="logSummaryKeys" style="margin-top:12px"></div>
@@ -3886,30 +4450,29 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                                 <div style="display: flex; align-items: center; gap: 15px; margin-top: 8px; flex-wrap: wrap;">
                                     <small class="config-note" style="color: #4285f4; margin: 0;">此输入框仅用于新增密钥，不会显示现有密钥</small>
                                     <button class="btn btn-sm" onclick="showKeyManagementModal()" style="background: transparent; color: #4285f4; border: 1px solid #4285f4; padding: 4px 12px;">查看密钥</button>
-                                    <label style="display: flex; align-items: center; gap: 5px; margin: 0;">
-                                        <input type="checkbox" id="keyAggregationEnabled" class="config-checkbox" checked /> 密钥聚合模式
-                                    </label>
                                 </div>
                             </div>
-                            <div class="form-group">
-                                <label for="keyUpdateMode">密钥更新模式</label>
-                                <select id="keyUpdateMode" class="config-input" style="background: #f5f5f5;">
-                                    <option value="append">追加模式：将新密钥添加到现有密钥列表末尾</option>
-                                    <option value="override">覆盖模式：用新密钥替换所有现有密钥</option>
-                                </select>
+                            <!-- 密钥更新模式和聚合模式并排 -->
+                            <div class="key-mode-row">
+                                <div class="key-mode-item">
+                                    <label for="keyUpdateMode">更新模式</label>
+                                    <select id="keyUpdateMode" class="config-input">
+                                        <option value="append">追加</option>
+                                        <option value="override">覆盖</option>
+                                    </select>
+                                </div>
+                                <div class="key-mode-item">
+                                    <label for="keyAggregationMode">聚合模式</label>
+                                    <select id="keyAggregationMode" class="config-input">
+                                        <option value="round_robin">轮询</option>
+                                        <option value="random">随机</option>
+                                    </select>
+                                </div>
                             </div>
-                            <div class="form-group">
-                                <label for="keyAggregationMode">密钥聚合模式</label>
-                                <select id="keyAggregationMode" class="config-input" style="background: #f5f5f5;">
-                                    <option value="round_robin">轮询</option>
-                                    <option value="random">随机</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>
-                                    <input type="checkbox" id="useAssembly" class="config-checkbox" /> 使用 AssemblyAI 作为上游
-                                </label>
-                            </div>
+                            <small class="config-note" style="margin-top: -8px; display: block;">更新模式：追加=新增密钥到末尾，覆盖=替换所有密钥；聚合模式：轮询=依次使用，随机=随机选择</small>
+                            <!-- 隐藏的兼容性字段 -->
+                            <input type="hidden" id="useAssembly" value="true" />
+                            <input type="hidden" id="keyAggregationEnabled" value="true" />
                             <div class="form-group">
                                 <label>
                                     <input type="checkbox" id="overrideEnv" class="config-checkbox" /> 面板优先（忽略环境变量）
@@ -4061,14 +4624,20 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             <!-- 实时日志标签页 -->
             <div id="logsTab" class="tab-content">
                 <h3>实时日志</h3>
-                <p>查看系统实时日志输出，支持日志筛选和自动滚动</p>
-                <div id="logsStatus"></div>
 
-                <div class="manage-actions">
-                    <button class="refresh-btn" onclick="connectWebSocket()">连接日志流</button>
-                    <button class="btn" style="background-color: #dc3545;" onclick="disconnectWebSocket()">断开连接</button>
-                    <button class="btn" style="background-color: #28a745;" onclick="downloadLogs()">下载日志</button>
-                    <button class="btn" style="background-color: #6c757d;" onclick="clearLogs()">清空日志</button>
+                <div class="log-btn-group" style="margin-bottom: 16px;">
+                    <button class="log-btn log-btn-connect" onclick="connectWebSocket()">
+                        <span class="btn-icon">🔗</span>连接日志流
+                    </button>
+                    <button class="log-btn log-btn-disconnect" onclick="disconnectWebSocket()">
+                        <span class="btn-icon">⛔</span>断开连接
+                    </button>
+                    <button class="log-btn log-btn-download" onclick="downloadLogs()">
+                        <span class="btn-icon">📥</span>下载日志
+                    </button>
+                    <button class="log-btn log-btn-clear" onclick="clearLogs()">
+                        <span class="btn-icon">🗑️</span>清空日志
+                    </button>
                 </div>
 
                 <div class="filter-container">
@@ -4153,24 +4722,27 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                         </div>
                     </div>
                 </div>
-                <div class="config-group">
-                    <div onclick="toggleSection('playgroundMessagesWrap')" style="cursor:pointer; display:flex; align-items:center; justify-content:space-between; padding:6px 8px; background:#f7f7f7; border-radius:6px">
-                        <span>会话参数</span>
-                        <span id="playgroundMessagesToggle">▼</span>
+                <!-- 会话参数与工具定义并排布局 -->
+                <div class="playground-params-row">
+                    <div class="playground-param-card playground-messages-card">
+                        <div class="playground-param-header" onclick="toggleSection('playgroundMessagesWrap')">
+                            <span class="playground-param-title">💬 会话参数</span>
+                            <span id="playgroundMessagesToggle" class="playground-toggle-icon">▼</span>
+                        </div>
+                        <div id="playgroundMessagesWrap" class="playground-param-content">
+                            <div id="playgroundMessages"></div>
+                        </div>
                     </div>
-                    <div id="playgroundMessagesWrap" style="margin-top:8px; display:block">
-                        <div id="playgroundMessages"></div>
-                    </div>
-                </div>
-                <div class="config-group">
-                    <div onclick="toggleSection('playgroundToolsWrap')" style="cursor:pointer; display:flex; align-items:center; justify-content:space-between; padding:6px 8px; background:#f7f7f7; border-radius:6px">
-                        <span>工具/函数定义（JSON）</span>
-                        <span id="playgroundToolsToggle">▼</span>
-                    </div>
-                    <div id="playgroundToolsWrap" style="margin-top:8px; display:block">
-                        <div class="form-group">
-                            <textarea id="playgroundToolsJson" class="config-input" placeholder='[{"type":"function","function":{"name":"get_weather","parameters":{"type":"object","properties":{"city":{"type":"string"}}}}}]' style="min-height:100px" oninput="updateRequestPreview()"></textarea>
-                            <small class="config-note">留空则不启用工具调用；内容需为合法 JSON</small>
+                    <div class="playground-param-card playground-tools-card">
+                        <div class="playground-param-header" onclick="toggleSection('playgroundToolsWrap')">
+                            <span class="playground-param-title">🔧 工具定义</span>
+                            <span id="playgroundToolsToggle" class="playground-toggle-icon">▼</span>
+                        </div>
+                        <div id="playgroundToolsWrap" class="playground-param-content">
+                            <div class="form-group" style="margin:0">
+                                <textarea id="playgroundToolsJson" class="config-input playground-tools-textarea" placeholder='[{"type":"function","function":{"name":"get_weather","parameters":{"type":"object","properties":{"city":{"type":"string"}}}}}]' oninput="updateRequestPreview()"></textarea>
+                                <small class="config-note" style="margin-top:6px; display:block">留空则不启用工具调用；内容需为合法 JSON</small>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -4677,7 +5249,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 const active = document.querySelector('.tab-content.active');
                 const map = {
                     'playgroundTab': 'playgroundStatus',
-                    'logsTab': 'logsStatus',
+                    'logsTab': 'logConnectionStas',
                     'usageTab': 'usageStatus',
                     'configTab': 'configStatus'
                 };
@@ -4804,7 +5376,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 const onclick = btn.getAttribute('onclick') || '';
                 if (onclick.includes("'" + tabName + "'")) btn.classList.add('active');
             });
-            ['playgroundStatus','logsStatus','usageStatus','configStatus'].forEach(id=>{ const el=document.getElementById(id); if (el) el.innerHTML=''; });
+            ['playgroundStatus','usageStatus','configStatus'].forEach(id=>{ const el=document.getElementById(id); if (el) el.innerHTML=''; });
             if (tabName === 'usage') {
                 refreshUsageStats();
                 refreshLogSummary();
@@ -5757,7 +6329,6 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 logWebSocket.onopen = function (event) {
                     document.getElementById('connectionStatusText').textContent = '已连接';
                     document.getElementById('logConnectionStatus').className = 'status success';
-                    showStatus('日志流连接成功', 'success');
                     clearLogsDisplay(); // 只清空前端显示的旧日志，不清空服务器文件
                 };
 
@@ -5784,7 +6355,6 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 logWebSocket.onclose = function (event) {
                     document.getElementById('connectionStatusText').textContent = '连接断开';
                     document.getElementById('logConnectionStatus').className = 'status error';
-                    showStatus('日志流连接断开', 'info');
                 };
 
                 logWebSocket.onerror = function (error) {
@@ -5806,7 +6376,6 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 logWebSocket = null;
                 document.getElementById('connectionStatusText').textContent = '未连接';
                 document.getElementById('logConnectionStatus').className = 'status info';
-                showStatus('日志流连接已断开', 'info');
             }
         }
 
@@ -6429,7 +6998,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     if (!silent) {
                         configForm.classList.remove('hidden');
                     }
-                    refreshAllConfig();
+                    refreshAllConfig(false, silent);  // 静默刷新，不显示按钮加载状态，传递 silent 参数
                     if (!silent) {
                         showStatus('配置加载成功', 'success');
                     }
@@ -6465,7 +7034,8 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 // 密钥配置页面只用于新增，不显示现有密钥，查看密钥请使用"查看密钥"按钮
                 aaiKeysEl.value = '';
             }
-            if (useAssemblyEl) useAssemblyEl.checked = !!currentConfig.use_assembly;
+            // useAssembly 现在是隐藏字段，始终为 true
+            if (useAssemblyEl) useAssemblyEl.value = 'true';
             if (overrideEl) overrideEl.checked = !!currentConfig.override_env;
             const callsRotEl = document.getElementById('callsPerRotation');
             const r429EnEl = document.getElementById('retry429Enabled');
@@ -6542,7 +7112,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
 
         async function saveConfig() {
             const payload = {
-                use_assembly: document.getElementById('useAssembly').checked,
+                use_assembly: true, // 始终为 true，项目基于 AssemblyAI 开发
                 override_env: document.getElementById('overrideEnv').checked,
                 api_password: document.getElementById('configApiPassword').value.trim(),
                 panel_password: document.getElementById('configPanelPassword').value.trim(),
@@ -6681,36 +7251,90 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             }
         }
 
-        async function refreshAllConfig(){
+        async function refreshAllConfig(showBtnLoading = true, silent = false){
             const metaEl = document.getElementById('allConfigMeta');
             const metaBar = document.getElementById('configMetaBar');
             const tbl = document.getElementById('allConfigTable');
+            
+            // 获取刷新按钮并添加加载状态（仅在手动点击时显示）
+            const refreshBtn = showBtnLoading ? document.querySelector('button[onclick="refreshAllConfig()"]') : null;
+            const originalBtnText = refreshBtn ? refreshBtn.textContent : '';
+            if (refreshBtn) {
+                refreshBtn.disabled = true;
+                refreshBtn.textContent = '刷新中...';
+                refreshBtn.style.opacity = '0.7';
+            }
+            
             try{
                 const res = await fetch('/config/all', {headers: getAuthHeaders()});
                 const data = await res.json();
                 const cfg = data.config || {};
                 const backend = data.backend||'file';
                 const prefix = data.prefix||'';
-                if (metaEl) metaEl.textContent = `后端: ${backend} · 前缀: ${prefix}`;
+                if (metaEl) {
+                    const colorMap = {redis:'#28a745', file:'#6c757d', postgres:'#0d6efd', mongodb:'#6f42c1'};
+                    const bcol = colorMap[backend]||'#6c757d';
+                    metaEl.style.display = 'flex';
+                    metaEl.style.alignItems = 'center';
+                    metaEl.style.gap = '6px';
+                    metaEl.style.flexWrap = 'wrap';
+                    metaEl.innerHTML = `
+                        <span style="background:${bcol};color:white;padding:2px 8px;border-radius:3px;font-size:11px;font-weight:500;">后端: ${backend}</span>
+                        <span style="background:#17a2b8;color:white;padding:2px 8px;border-radius:3px;font-size:11px;font-weight:500;">前缀: ${prefix}</span>
+                        <span style="color:#888;font-size:11px;">共 ${Object.keys(cfg).length} 项</span>
+                    `;
+                }
                 if (metaBar){
                     const colorMap = {redis:'#28a745', file:'#6c757d', postgres:'#0d6efd', mongodb:'#6f42c1'};
                     const bcol = colorMap[backend]||'#6c757d';
                     metaBar.innerHTML = `
-                        <span class="badge" style="background:${bcol}; color:white; padding:4px 8px; border-radius:12px">后端: ${backend}</span>
-                        <span class="badge" style="background:#17a2b8; color:white; padding:4px 8px; border-radius:12px">前缀: ${prefix}</span>
-                        <span style="margin-left:8px; color:#666; font-size:12px">全部配置已刷新（${Object.keys(cfg).length} 项）</span>
+                        <span style="display:inline-block;background:${bcol};color:white;padding:3px 10px;border-radius:4px;font-size:12px;font-weight:500;">后端: ${backend}</span>
+                        <span style="display:inline-block;background:#17a2b8;color:white;padding:3px 10px;border-radius:4px;font-size:12px;font-weight:500;margin-left:6px;">前缀: ${prefix}</span>
+                        <span style="margin-left:10px;color:#888;font-size:11px;">共 ${Object.keys(cfg).length} 项配置</span>
                     `;
                 }
-                const catMap = {
-                    host: '服务器', port: '服务器',
-                    api_password: '密码', panel_password: '密码', password: '密码',
-                    proxy: '网络',
-                    assembly_api_keys: '上游', assembly_api_key: '上游', use_assembly: '上游',
-                    override_env: '面板',
-                    calls_per_rotation: '性能',
-                    retry_429_enabled: '重试', retry_429_max_retries: '重试', retry_429_interval: '重试',
-                    auto_ban_enabled: '封禁', auto_ban_error_codes: '封禁',
-                    credentials_dir: '存储'
+                // 配置项名称映射（简洁明了的中文名称）
+                // 配置项名称映射
+                const nameMap = {
+                    host: '监听地址',
+                    port: '端口',
+                    api_password: 'API密码',
+                    panel_password: '面板密码',
+                    password: '通用密码',
+                    proxy: '代理',
+                    assembly_api_keys: '密钥列表',
+                    assembly_api_key: 'API密钥',
+                    use_assembly: '启用上游',
+                    override_env: '面板优先',
+                    calls_per_rotation: '轮换次数',
+                    retry_429_enabled: '429重试',
+                    retry_429_max_retries: '最大重试',
+                    retry_429_interval: '重试间隔',
+                    auto_ban_enabled: '自动封禁',
+                    auto_ban_error_codes: '封禁码',
+                    credentials_dir: '凭证目录',
+                    disabled_key_indices: '禁用索引',
+                    key_aggregation_mode: '聚合模式',
+                    key_states: '密钥状态',
+                    rate_limit_info: '速率限制',
+                    unified_stats: '统计数据',
+                    available_models: '模型列表',
+                    available_models_meta: '模型信息',
+                    available_models_selected: '已选模型',
+                    key_stats: '密钥统计',
+                    assembly_current_account: '当前账号',
+                    assembly_dashboard_session: '会话信息'
+                };
+                
+                // 动态匹配名称（支持带后缀的键名）
+                const getDisplayName = (key) => {
+                    if (nameMap[key]) return nameMap[key];
+                    // 匹配 assembly_dashboard_session:xxx 格式
+                    if (key.startsWith('assembly_dashboard_session:')) return '会话';
+                    if (key.startsWith('assembly_')) return '上游配置';
+                    if (key.startsWith('key_')) return '密钥配置';
+                    if (key.startsWith('rate_')) return '速率配置';
+                    return key.length > 15 ? key.substring(0, 12) + '...' : key;
                 };
                 
                 // 判断是否为长内容（超过100个字符）
@@ -6726,26 +7350,27 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 
                 const rows = Object.keys(cfg).sort().map((k, idx) => {
                     const v = cfg[k];
-                    const vs = typeof v === 'object' ? JSON.stringify(v, null, 2) : String(v);
-                    const cat = catMap[k] || '其他';
-                    const escapedValue = escapeHtml(vs);
+                    // 折叠时显示单行，展开时显示格式化
+                    const vsCompact = typeof v === 'object' ? JSON.stringify(v) : String(v);
+                    const vsFull = typeof v === 'object' ? JSON.stringify(v, null, 2) : String(v);
+                    const displayName = getDisplayName(k);
                     const rowId = `config-row-${idx}`;
                     
                     let valueCell;
                     let actionsCell;
                     
-                    if (isLongContent(vs)) {
-                        // 长内容：显示预览
-                        const preview = escapedValue.substring(0, MAX_PREVIEW_LENGTH) + '...';
+                    if (isLongContent(vsCompact)) {
+                        // 长内容：折叠时显示单行预览，展开时显示格式化内容
+                        const preview = escapeHtml(vsCompact.substring(0, MAX_PREVIEW_LENGTH)) + '...';
+                        const fullContent = escapeHtml(vsFull);
                         valueCell = `
                             <td class="config-value-cell" data-label="值">
                                 <span class="config-value-preview">${preview}</span>
-                                <span class="config-value-full">${escapedValue}</span>
+                                <span class="config-value-full">${fullContent}</span>
                             </td>
                         `;
-                        // 操作列：展开/收起和复制按钮
                         actionsCell = `
-                            <td class="config-actions-cell" data-label="操作">
+                            <td class="config-actions-cell" data-label="操作" style="white-space:nowrap;vertical-align:top;">
                                 <div class="config-value-actions">
                                     <button class="config-toggle-btn" onclick="toggleConfigValue('${rowId}')" data-expanded="false">展开</button>
                                     <button class="config-copy-btn" onclick="copyConfigValue('${rowId}')">复制</button>
@@ -6753,15 +7378,13 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                             </td>
                         `;
                     } else {
-                        // 短内容：直接显示
                         valueCell = `
-                            <td class="config-value-cell" data-label="值">
-                                <span class="config-value-preview">${escapedValue}</span>
+                            <td class="config-value-cell" data-label="值" style="word-break:break-all;">
+                                <span class="config-value-preview">${escapeHtml(vsCompact)}</span>
                             </td>
                         `;
-                        // 操作列：只提供复制按钮
                         actionsCell = `
-                            <td class="config-actions-cell" data-label="操作">
+                            <td class="config-actions-cell" data-label="操作" style="white-space:nowrap;vertical-align:top;">
                                 <div class="config-value-actions">
                                     <button class="config-copy-btn" onclick="copyConfigValue('${rowId}')">复制</button>
                                 </div>
@@ -6770,8 +7393,8 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     }
                     
                     return `<tr id="${rowId}">
-                        <td data-label="分类" style="width:120px;color:#666">${cat}</td>
-                        <td data-label="键" style="width:220px;color:#555">${escapeHtml(k)}</td>
+                        <td data-label="名称" style="width:70px;color:#333;font-weight:500;font-size:13px;vertical-align:top;">${displayName}</td>
+                        <td data-label="键" style="width:180px;color:#888;font-family:monospace;font-size:11px;word-break:break-all;vertical-align:top;" title="${escapeHtml(k)}">${escapeHtml(k)}</td>
                         ${valueCell}
                         ${actionsCell}
                     </tr>`;
@@ -6781,18 +7404,25 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     tbl.innerHTML = `
                         <thead>
                             <tr>
-                                <th style="width:120px">分类</th>
-                                <th style="width:220px">键</th>
+                                <th style="width:70px">名称</th>
+                                <th style="width:180px">键</th>
                                 <th>值</th>
-                                <th style="width:120px">操作</th>
+                                <th style="width:100px">操作</th>
                             </tr>
                         </thead>
                         <tbody>${rows}</tbody>
                     `;
                 }
-                showStatus('全部配置加载成功','success');
+                if (!silent) showStatus('全部配置刷新成功 ✓','success');
             }catch(e){
-                showStatus(`加载全部配置失败: ${e.message}`,'error');
+                if (!silent) showStatus(`加载全部配置失败: ${e.message}`,'error');
+            } finally {
+                // 恢复按钮状态
+                if (refreshBtn) {
+                    refreshBtn.disabled = false;
+                    refreshBtn.textContent = originalBtnText || '刷新全部配置';
+                    refreshBtn.style.opacity = '1';
+                }
             }
         }
         
@@ -7330,7 +7960,14 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             if (checkbox) {
                 checkbox.addEventListener('change', handleGetAllProjectsChange);
             }
-
+            
+            // 初始化工具定义高度同步
+            setTimeout(syncToolsCardHeight, 100);
+            
+            // 窗口大小变化时重新同步
+            window.addEventListener('resize', () => {
+                setTimeout(syncToolsCardHeight, 50);
+            });
         };
 
         // =====================================================================
@@ -7730,41 +8367,139 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             kDiv.innerHTML = kHtml;
         }
 
+        // 模型排行分页状态
+        let rankingCurrentPage = 1;
+        const rankingPageSize = 12;
+        let rankingAllEntries = [];
+        
+        // 柱状图颜色列表（柔和的彩色）
+        const RANKING_COLORS = [
+            '#f8bbd0', '#e1bee7', '#d1c4e9', '#c5cae9', '#bbdefb',
+            '#b3e5fc', '#b2ebf2', '#b2dfdb', '#c8e6c9', '#dcedc8',
+            '#f0f4c3', '#fff9c4', '#ffecb3', '#ffe0b2', '#ffccbc',
+            '#d7ccc8', '#cfd8dc', '#f48fb1', '#ce93d8', '#b39ddb'
+        ];
+
         function renderModelRanking(data){
             const only = document.getElementById('onlyFilter').value || '';
             const models = data.models || {};
-            const entries = Object.entries(models).map(([name, v])=>{
+            rankingAllEntries = Object.entries(models).map(([name, v])=>{
                 const ok = v.ok || 0;
                 const fail = v.fail || 0;
                 const count = only==='success' ? ok : (only==='fail' ? fail : (ok + fail));
                 return { name, ok, fail, count };
             }).filter(e=> e.count > 0);
-            entries.sort((a,b)=> b.count - a.count);
-            const max = Math.max(1, ...entries.map(e=> e.count));
+            rankingAllEntries.sort((a,b)=> b.count - a.count);
+            rankingCurrentPage = 1;
+            renderRankingPage();
+        }
+
+        function renderRankingPage() {
+            const container = document.getElementById('modelRanking');
+            if (!container) return;
+            
+            const entries = rankingAllEntries;
+            const totalEntries = entries.length;
             const total = entries.reduce((sum,e)=> sum + e.count, 0);
-            let html = `<div class="ranking-header"><div>模型调用次数排行</div><div style="font-size:12px; color:var(--text-secondary);">总计: ${total}</div></div>`;
-            html += `<div class="legend"><div><span class="success-dot"></span>成功</div><div><span class="fail-dot"></span>失败</div></div>`;
-            html += `<div class="ranking-list">`;
-            entries.forEach(e=>{
-                // 进度条宽度相对于最大值
-                const barWidth = Math.round((e.count / max) * 100);
-                // 成功/失败比例是相对于自身的总数
-                let okPercent = 0, failPercent = 0;
-                if (only === 'success') {
-                    okPercent = 100;
-                    failPercent = 0;
-                } else if (only === 'fail') {
-                    okPercent = 0;
-                    failPercent = 100;
-                } else {
-                    okPercent = e.count ? Math.round((e.ok / e.count) * 100) : 0;
-                    failPercent = 100 - okPercent;
-                }
-                html += `<div class="ranking-item"><div class="ranking-label" title="${e.name}">${e.name}</div><div class="ranking-bar" style="width:${barWidth}%"><div class="ranking-bar-success" style="width:${okPercent}%"></div><div class="ranking-bar-fail" style="width:${failPercent}%; left:${okPercent}%"></div></div><div class="ranking-count">${e.count}</div></div>`;
+            
+            if (totalEntries === 0) {
+                container.innerHTML = `<div class="ranking-header">
+                    <div class="ranking-title">模型调用次数排行</div>
+                    <div class="ranking-total">总计: 0</div>
+                </div>
+                <div style="text-align:center; color:var(--text-secondary); padding:40px 0;">暂无数据</div>`;
+                return;
+            }
+            
+            const totalPages = Math.ceil(totalEntries / rankingPageSize);
+            const startIdx = (rankingCurrentPage - 1) * rankingPageSize;
+            const pageEntries = entries.slice(startIdx, startIdx + rankingPageSize);
+            
+            const pageMax = Math.max(1, ...pageEntries.map(e=> e.count));
+            const maxBarHeight = 160;
+            
+            // 计算Y轴刻度
+            const yTicks = [];
+            const step = Math.ceil(pageMax / 4);
+            for (let i = 4; i >= 0; i--) {
+                yTicks.push(Math.round(step * i));
+            }
+            
+            let html = `<div class="ranking-header">
+                <div class="ranking-title">模型调用次数排行</div>
+                <div class="ranking-total">总计: ${total}</div>
+            </div>`;
+            
+            html += `<div class="ranking-body">`;
+            
+            // Y轴
+            html += `<div class="ranking-y-axis">`;
+            yTicks.forEach(v => {
+                html += `<span>${v}</span>`;
             });
             html += `</div>`;
-            const container = document.getElementById('modelRanking');
-            if (container) container.innerHTML = html;
+            
+            // 图表区域
+            html += `<div class="ranking-chart-area">
+                <div class="ranking-chart-wrapper">
+                    <div class="ranking-grid-lines">
+                        <div class="ranking-grid-line"></div>
+                        <div class="ranking-grid-line"></div>
+                        <div class="ranking-grid-line"></div>
+                        <div class="ranking-grid-line"></div>
+                        <div class="ranking-grid-line"></div>
+                    </div>
+                    <div class="ranking-chart">`;
+            
+            pageEntries.forEach((e, idx) => {
+                const barHeight = Math.max(2, Math.round((e.count / pageMax) * maxBarHeight));
+                const color = RANKING_COLORS[(startIdx + idx) % RANKING_COLORS.length];
+                html += `<div class="ranking-bar-group">
+                    <div class="ranking-bar-col" style="height:${barHeight}px; background:${color};" title="${e.name}: ${e.count}"></div>
+                </div>`;
+            });
+            
+            html += `</div></div>`;
+            
+            // X轴标签
+            html += `<div class="ranking-x-labels">`;
+            pageEntries.forEach(e => {
+                html += `<div class="ranking-x-label" title="${e.name}">${e.name}</div>`;
+            });
+            html += `</div></div>`;
+            
+            // 分页器（右侧）
+            if (totalPages > 1) {
+                html += `<div class="ranking-pager">
+                    <button class="ranking-pager-btn" onclick="changeRankingPage(-1)" ${rankingCurrentPage <= 1 ? 'disabled' : ''}>▲</button>
+                    <div class="ranking-pager-info">${rankingCurrentPage}/${totalPages}</div>
+                    <button class="ranking-pager-btn" onclick="changeRankingPage(1)" ${rankingCurrentPage >= totalPages ? 'disabled' : ''}>▼</button>
+                </div>`;
+            }
+            
+            html += `</div>`; // ranking-body
+            
+            // 底部图例（显示所有模型的颜色）
+            html += `<div class="ranking-legend-bar">`;
+            entries.forEach((e, idx) => {
+                const color = RANKING_COLORS[idx % RANKING_COLORS.length];
+                html += `<div class="ranking-legend-item">
+                    <span class="ranking-legend-dot" style="background:${color};"></span>
+                    <span>${e.name}</span>
+                </div>`;
+            });
+            html += `</div>`;
+            
+            container.innerHTML = html;
+        }
+
+        function changeRankingPage(delta) {
+            const totalPages = Math.ceil(rankingAllEntries.length / rankingPageSize);
+            const newPage = rankingCurrentPage + delta;
+            if (newPage >= 1 && newPage <= totalPages) {
+                rankingCurrentPage = newPage;
+                renderRankingPage();
+            }
         }
 
         // 渲染使用统计列表
@@ -8139,30 +8874,44 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
         function addMessageRow(role='user', content=''){
             const wrap = document.getElementById('playgroundMessages');
             const row = document.createElement('div');
-            row.className = 'form-group';
-            row.style = 'display:flex; gap:8px; align-items:flex-start; margin-bottom:8px';
+            row.className = 'playground-message-row';
+            
+            // 顶部行：类型选择 + 删除按钮
+            const topRow = document.createElement('div');
+            topRow.className = 'playground-message-top';
+            
             const roleSel = document.createElement('select');
-            roleSel.className = 'config-input';
-            roleSel.style = 'width:140px; min-width:140px; height:32px; padding:2px 8px';
+            roleSel.className = 'config-input playground-role-select';
             ['system','user','assistant','tool'].forEach(r=>{ const o=document.createElement('option'); o.value=r; o.textContent=r; roleSel.appendChild(o); });
             roleSel.value = role;
-            // 添加 onchange 事件监听
             roleSel.onchange = () => updateRequestPreview();
-            const ta = document.createElement('textarea');
-            ta.className = 'config-input';
-            ta.style = 'min-height:80px; flex:1; resize:vertical';
-            ta.value = content || '';
-            // 添加 oninput 事件监听（实时更新）
-            ta.oninput = () => updateRequestPreview();
+            
             const del = document.createElement('button');
-            del.className = 'btn';
-            del.style = 'background:#dc3545; padding:4px 8px; font-size:12px; min-width:auto; height:32px; width:auto; flex:0 0 auto';
+            del.className = 'btn playground-delete-btn';
             del.textContent = '删除';
-            del.onclick = ()=>{ row.remove(); updateRequestPreview(); };
-            row.appendChild(roleSel); row.appendChild(ta); row.appendChild(del);
+            del.onclick = ()=>{ 
+                row.remove(); 
+                updateRequestPreview(); 
+                // 删除后同步高度
+                setTimeout(syncToolsCardHeight, 10);
+            };
+            
+            topRow.appendChild(roleSel);
+            topRow.appendChild(del);
+            
+            // 内容区域：文本框
+            const ta = document.createElement('textarea');
+            ta.className = 'config-input playground-message-textarea';
+            ta.value = content || '';
+            ta.oninput = () => updateRequestPreview();
+            
+            row.appendChild(topRow);
+            row.appendChild(ta);
             wrap.appendChild(row);
-            // 添加后更新预览
             updateRequestPreview();
+            
+            // 添加后同步高度
+            setTimeout(syncToolsCardHeight, 10);
         }
 
         function clearMessages(){
@@ -8174,6 +8923,8 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             if (raw) raw.textContent = '';
             // 清空后更新预览
             updateRequestPreview();
+            // 清空后同步高度
+            setTimeout(syncToolsCardHeight, 10);
         }
 
         // 全局变量存储正在进行的测试
@@ -8194,7 +8945,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             const maxT = parseInt(document.getElementById('playgroundMaxTokens').value) || 4096;
             const stream = document.getElementById('playgroundStream')?.checked || false;
             
-            const rows = Array.from(document.querySelectorAll('#playgroundMessages .form-group'));
+            const rows = Array.from(document.querySelectorAll('#playgroundMessages .playground-message-row'));
             let messages = rows.map(r => {
                 const selectEl = r.querySelector('select');
                 const textareaEl = r.querySelector('textarea');
@@ -8354,7 +9105,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             const maxT = parseInt(document.getElementById('playgroundMaxTokensValue')?.value || document.getElementById('playgroundMaxTokens').value) || 4096;
             const selectedKey = document.getElementById('playgroundApiKey')?.value || '';
             
-            const rows = Array.from(document.querySelectorAll('#playgroundMessages .form-group'));
+            const rows = Array.from(document.querySelectorAll('#playgroundMessages .playground-message-row'));
             const messages = rows.map(r=>{
                 const role = r.querySelector('select').value;
                 const content = r.querySelector('textarea').value;
@@ -8547,6 +9298,8 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             if (!el) return;
             const show = (el.style.display === 'none');
             el.style.display = show ? 'block' : 'none';
+            
+            // 更新箭头图标
             const map = {
                 'playgroundMessagesWrap': 'playgroundMessagesToggle',
                 'playgroundToolsWrap': 'playgroundToolsToggle',
@@ -8555,12 +9308,62 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             const tid = map[id];
             const t = tid ? document.getElementById(tid) : null;
             if (t) t.textContent = show ? '▼' : '▶';
+            
+            // 更新卡片折叠状态（用于CSS样式）
+            const card = el.closest('.playground-param-card');
+            if (card) {
+                if (show) {
+                    card.classList.remove('collapsed');
+                } else {
+                    card.classList.add('collapsed');
+                }
+            }
+            
+            // 同步工具定义高度
+            syncToolsCardHeight();
+        }
+        
+        // 同步工具定义卡片高度与会话参数卡片
+        function syncToolsCardHeight() {
+            const messagesCard = document.querySelector('.playground-messages-card');
+            const toolsCard = document.querySelector('.playground-tools-card');
+            const toolsTextarea = document.getElementById('playgroundToolsJson');
+            
+            if (!messagesCard || !toolsCard || !toolsTextarea) return;
+            
+            // 如果任一卡片折叠，不同步高度
+            if (messagesCard.classList.contains('collapsed') || toolsCard.classList.contains('collapsed')) {
+                toolsTextarea.style.height = '';
+                return;
+            }
+            
+            // 获取会话参数卡片的内容高度
+            const messagesContent = document.getElementById('playgroundMessagesWrap');
+            if (!messagesContent) return;
+            
+            const messagesHeight = messagesContent.offsetHeight;
+            const toolsContent = document.getElementById('playgroundToolsWrap');
+            if (!toolsContent) return;
+            
+            // 计算工具定义textarea需要的高度
+            // 减去padding和config-note的高度
+            const toolsNote = toolsContent.querySelector('.config-note');
+            const noteHeight = toolsNote ? toolsNote.offsetHeight + 6 : 30; // 6是margin-top
+            const padding = 24; // 上下padding各12px
+            const targetHeight = Math.max(120, messagesHeight - noteHeight - padding);
+            
+            toolsTextarea.style.height = targetHeight + 'px';
         }
 
         function collapseAfterSend(){
             ['playgroundMessagesWrap','playgroundToolsWrap','requestPreviewWrap'].forEach(id=>{
                 const el = document.getElementById(id);
-                if (el) el.style.display = 'none';
+                if (el) {
+                    el.style.display = 'none';
+                    // 添加折叠状态
+                    const card = el.closest('.playground-param-card');
+                    if (card) card.classList.add('collapsed');
+                }
             });
             const msgToggle = document.getElementById('playgroundMessagesToggle');
             const toolsToggle = document.getElementById('playgroundToolsToggle');
@@ -8597,7 +9400,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             const maxT = parseInt(document.getElementById('playgroundMaxTokensValue')?.value || document.getElementById('playgroundMaxTokens').value) || 4096;
             const selectedKey = document.getElementById('playgroundApiKey')?.value || '';
             
-            const rows = Array.from(document.querySelectorAll('#playgroundMessages .form-group'));
+            const rows = Array.from(document.querySelectorAll('#playgroundMessages .playground-message-row'));
             const messages = rows.map(r => {
                 const role = r.querySelector('select')?.value || 'user';
                 const content = r.querySelector('textarea')?.value || '';
@@ -9043,7 +9846,8 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
         }
 
         // 加载账户列表
-        async function loadAccountsList() {
+        // skipSubTabSwitch: 如果为 true，则不触发 switchAccountSubTab（用于切换账号时避免重复加载）
+        async function loadAccountsList(skipSubTabSwitch = false) {
             try {
                 const res = await fetch('/api/account/accounts', { headers: getAuthHeaders() });
                 const data = await res.json();
@@ -9051,13 +9855,15 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     accountsList = data.accounts;
                     currentAccountEmail = data.current_account;
                     renderAccountsList();
-                    if (currentAccountEmail) {
-                        // 如果有当前账户，显示账户详情
-                        document.getElementById('accountDetailsSection').classList.remove('hidden');
-                        switchAccountSubTab('overview');
-                    } else {
-                        // 如果没有当前账户，隐藏详情区域
-                        document.getElementById('accountDetailsSection').classList.add('hidden');
+                    if (!skipSubTabSwitch) {
+                        if (currentAccountEmail) {
+                            // 如果有当前账户，显示账户详情
+                            document.getElementById('accountDetailsSection').classList.remove('hidden');
+                            switchAccountSubTab('overview');
+                        } else {
+                            // 如果没有当前账户，隐藏详情区域
+                            document.getElementById('accountDetailsSection').classList.add('hidden');
+                        }
                     }
                 }
             } catch (e) {
@@ -9202,6 +10008,31 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 return;
             }
             
+            // 立即清空页面显示内容，显示加载状态（避免显示旧账号数据）
+            // 在 API 调用之前就清空，确保用户不会看到旧数据
+            const loadingHtml = '<div class="loading">加载中...</div>';
+            const infoEl = document.getElementById('accountInfoContent');
+            const balanceEl = document.getElementById('accountBalanceContent');
+            const usageEl = document.getElementById('accountUsageContent');
+            const costEl = document.getElementById('accountCostContent');
+            const ratesEl = document.getElementById('accountRatesContent');
+            if (infoEl) infoEl.innerHTML = loadingHtml;
+            if (balanceEl) balanceEl.innerHTML = loadingHtml;
+            if (usageEl) usageEl.innerHTML = loadingHtml;
+            if (costEl) costEl.innerHTML = loadingHtml;
+            if (ratesEl) ratesEl.innerHTML = loadingHtml;
+            
+            // 清空缓存，防止从缓存读取旧数据
+            accountCache.info = { ts: 0, html: '' };
+            accountCache.apiKeys = { ts: 0, html: '' };
+            accountCache.billing = { ts: 0, html: '' };
+            accountCache.usage = {};
+            accountCache.cost = {};
+            accountCache.rates = { ts: 0, html: '' };
+            
+            // 强制浏览器重绘，确保加载状态立即显示
+            await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+            
             try {
                 const res = await fetch('/api/account/switch', {
                     method: 'POST',
@@ -9218,13 +10049,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 const data = await res.json();
                 if (data.success) {
                     currentAccountEmail = email;
-                    // 清空缓存，重新加载数据
-                    accountCache.info = { ts: 0, html: '' };
-                    accountCache.apiKeys = { ts: 0, html: '' };
-                    accountCache.billing = { ts: 0, html: '' };
-                    accountCache.usage = {};
-                    accountCache.cost = {};
-                    accountCache.rates = { ts: 0, html: '' };
+                    
                     // 显示账户详情并切换到概览（但不触发数据加载，由下面的并发加载统一处理）
                     document.getElementById('accountDetailsSection').classList.remove('hidden');
                     
@@ -9241,8 +10066,8 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     // 并发加载所有子标签页的数据（强制刷新，静默模式）
                     try {
                         await Promise.all([
-                            // 重新加载账户列表（不显示提示）
-                            loadAccountsList(),
+                            // 重新加载账户列表（不触发 switchAccountSubTab，避免重复加载和显示旧数据）
+                            loadAccountsList(true),
                             // 概览数据（包含账户信息和余额）
                             loadAccountInfo(true),
                             loadAccountBilling(true),
