@@ -668,7 +668,9 @@ async def get_account_api_keys(force: bool = False, account_email: Optional[str]
     if not session:
         raise HTTPException(status_code=401, detail="Not logged in. Please login first.")
     
-    cache_key = "api_keys"
+    # 使用账户邮箱作为缓存键的一部分，确保不同账户有独立的缓存
+    session_email = session.get("email") or account_email or "default"
+    cache_key = f"api_keys:{session_email}"
     if not force:
         cached = _cache_get(cache_key)
         if cached:
@@ -845,7 +847,9 @@ async def get_billing_info(force: bool = False, account_email: Optional[str] = N
     user_info = session.get("user_info", {})
     metronome_id = user_info.get("metronome_id")
     
-    cache_key = "billing"
+    # 使用账户邮箱作为缓存键的一部分，确保不同账户有独立的缓存
+    session_email = session.get("email") or account_email or "default"
+    cache_key = f"billing:{session_email}"
     cached = None if force else _cache_get(cache_key)
     if cached:
         return cached
@@ -936,10 +940,15 @@ async def get_usage_data(
     Returns:
         使用量数据，包括总 tokens、按模型分类的使用量等
     """
+    # 获取 session 以确定账户邮箱
+    session = await _get_session(account_email)
+    session_email = (session.get("email") if session else None) or account_email or "default"
+    
     # 计算默认日期范围
     # 参考 AssemblyAI API: starting_on=2025-11-26&ending_before=2025-11-27 表示查询 11/26 当天
     # ending_before 是 exclusive 的（不包含该日期）
-    cache_key = "usage:summary"
+    # 使用账户邮箱作为缓存键的一部分，确保不同账户有独立的缓存
+    cache_key = f"usage:summary:{session_email}"
     cached = None if force else _cache_get(cache_key)
     if cached:
         return cached
@@ -1072,10 +1081,15 @@ async def get_cost_data(
     Returns:
         成本数据，包括总成本、按服务/模型分类的成本等
     """
+    # 获取 session 以确定账户邮箱
+    session = await _get_session(account_email)
+    session_email = (session.get("email") if session else None) or account_email or "default"
+    
     # 计算默认日期范围
     # 参考 AssemblyAI API: starting_on=2025-11-26&ending_before=2025-11-27 表示查询 11/26 当天
     # ending_before 是 exclusive 的（不包含该日期）
-    cache_key = "cost:summary"
+    # 使用账户邮箱作为缓存键的一部分，确保不同账户有独立的缓存
+    cache_key = f"cost:summary:{session_email}"
     cached = None if force else _cache_get(cache_key)
     if cached:
         return cached
@@ -1150,7 +1164,12 @@ async def get_cost_data(
 
 @router.get("/rates")
 async def get_rates(region: str = "US", force: bool = False, account_email: Optional[str] = None) -> Dict[str, Any]:
-    cache_key = f"rates:{region}"
+    # 获取 session 以确定账户邮箱
+    session = await _get_session(account_email)
+    session_email = (session.get("email") if session else None) or account_email or "default"
+    
+    # 使用账户邮箱作为缓存键的一部分，确保不同账户有独立的缓存
+    cache_key = f"rates:{region}:{session_email}"
     cached = None if force else _cache_get(cache_key)
     if cached:
         return cached

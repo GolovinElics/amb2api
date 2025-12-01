@@ -10083,11 +10083,13 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             const usageEl = document.getElementById('accountUsageContent');
             const costEl = document.getElementById('accountCostContent');
             const ratesEl = document.getElementById('accountRatesContent');
+            const apiKeysEl = document.getElementById('apiKeysSection');
             if (infoEl) infoEl.innerHTML = loadingHtml;
             if (balanceEl) balanceEl.innerHTML = loadingHtml;
             if (usageEl) usageEl.innerHTML = loadingHtml;
             if (costEl) costEl.innerHTML = loadingHtml;
             if (ratesEl) ratesEl.innerHTML = loadingHtml;
+            if (apiKeysEl) apiKeysEl.innerHTML = loadingHtml;
             
             // 清空缓存，防止从缓存读取旧数据
             accountCache.info = { ts: 0, html: '' };
