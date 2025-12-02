@@ -916,7 +916,17 @@
         }
 
         .hidden {
-            display: none;
+            display: none !important;
+        }
+        
+        /* 主界面样式 */
+        #mainSection {
+            width: 100%;
+        }
+        
+        #mainSection > h1 {
+            margin-top: 0;
+            padding-top: 10px;
         }
 
         .loading {
@@ -1003,9 +1013,13 @@
             100% { background-position: -200% 0; }
         }
 
+        /* ========== 全新登录页面设计 ========== */
         .login-form {
-            text-align: center;
-            padding: 50px 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 30px 20px;
             position: relative;
             animation: loginFadeIn 0.8s ease-out;
         }
@@ -1021,224 +1035,313 @@
             }
         }
 
-        .login-form h1 {
-            font-size: 36px !important;
-            font-weight: 800 !important;
-            margin-bottom: 50px !important;
-            letter-spacing: -1px !important;
-            position: relative !important;
-            padding-bottom: 25px !important;
-            text-shadow: 0 2px 10px rgba(102, 126, 234, 0.3) !important;
-            background: linear-gradient(135deg, #667eea, #764ba2) !important;
-            -webkit-background-clip: text !important;
-            -webkit-text-fill-color: transparent !important;
-            background-clip: text !important;
-        }
-
-        .login-form h1::after {
-            content: '' !important;
-            position: absolute !important;
-            bottom: 0 !important;
-            left: 50% !important;
-            transform: translateX(-50%) !important;
-            width: 80px !important;
-            height: 5px !important;
-            background: linear-gradient(90deg, transparent, #667eea, #764ba2, transparent) !important;
-            border-radius: 3px !important;
-            animation: underlineGlow 2s ease-in-out infinite !important;
-        }
-
-        @keyframes underlineGlow {
-            0%, 100% { 
-                opacity: 0.6; 
-                width: 80px; 
-                box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
-            }
-            50% { 
-                opacity: 1; 
-                width: 120px; 
-                box-shadow: 0 0 20px rgba(102, 126, 234, 0.8);
-            }
-        }
-
-        .login-form p {
-            color: var(--text-secondary) !important;
-            margin-bottom: 35px !important;
-            font-size: 18px !important;
-            font-weight: 600 !important;
-            letter-spacing: 0.5px !important;
-            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
-        }
-
-        .login-form .form-group {
-            position: relative;
-            margin-bottom: 30px;
-            display: block;
+        /* 登录卡片容器 */
+        .login-card {
+            background: var(--container-bg);
+            border-radius: 24px;
+            padding: 40px 36px;
             width: 100%;
             max-width: 400px;
-            margin-left: auto;
-            margin-right: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1),
+                        0 0 0 1px rgba(0, 0, 0, 0.05);
+            position: relative;
+            overflow: hidden;
         }
 
+        [data-theme="dark"] .login-card {
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4),
+                        0 0 0 1px rgba(255, 255, 255, 0.05);
+        }
+
+        /* 卡片顶部装饰条 - 蓝白渐变 */
+        .login-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #4285f4, #34a9ff, #87ceeb, #4285f4);
+            background-size: 300% 100%;
+            animation: gradientSlide 3s ease infinite;
+        }
+
+        @keyframes gradientSlide {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        /* Logo 区域 - 蓝白渐变 */
+        .login-logo {
+            width: 72px;
+            height: 72px;
+            margin: 0 auto 20px;
+            background: linear-gradient(135deg, #4285f4 0%, #87ceeb 100%);
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            box-shadow: 0 10px 30px rgba(66, 133, 244, 0.3);
+            animation: logoFloat 3s ease-in-out infinite;
+        }
+
+        @keyframes logoFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-6px); }
+        }
+
+        [data-theme="dark"] .login-logo {
+            background: linear-gradient(135deg, #4285f4 0%, #5b9bd5 100%);
+            box-shadow: 0 10px 30px rgba(66, 133, 244, 0.4);
+        }
+
+        .login-form h1 {
+            font-size: 26px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: var(--text-color);
+            text-align: center;
+            letter-spacing: -0.5px;
+        }
+
+        .login-form .login-subtitle {
+            color: var(--text-secondary);
+            margin-bottom: 28px;
+            font-size: 14px;
+            font-weight: 500;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .login-form .login-subtitle .lock-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 22px;
+            height: 22px;
+            background: linear-gradient(135deg, rgba(66, 133, 244, 0.1), rgba(135, 206, 235, 0.1));
+            border-radius: 6px;
+            font-size: 11px;
+        }
+
+        [data-theme="dark"] .login-form .login-subtitle .lock-icon {
+            background: linear-gradient(135deg, rgba(91, 155, 213, 0.2), rgba(102, 126, 234, 0.2));
+        }
+
+        /* 输入框容器 */
+        .login-input-wrapper {
+            position: relative;
+            margin-bottom: 24px;
+        }
+
+        .login-input-wrapper .input-icon {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 18px;
+            transition: color 0.3s ease;
+            z-index: 1;
+        }
 
         .login-form input[type="password"] {
-            width: 100% !important;
-            max-width: 400px !important;
-            padding: 18px 20px !important;
-            border: 3px solid var(--input-border) !important;
-            border-radius: 12px !important;
-            font-size: 18px !important;
-            font-weight: 600 !important;
-            letter-spacing: 2px !important;
-            margin-bottom: 30px !important;
-            box-sizing: border-box !important;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08) !important;
-            background: var(--input-bg) !important;
-            color: var(--text-color) !important;
+            width: 100%;
+            padding: 16px 16px 16px 48px;
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 500;
+            letter-spacing: 2px;
+            box-sizing: border-box;
+            transition: all 0.3s ease;
+            background: var(--input-bg);
+            color: var(--text-color);
         }
 
         .login-form input[type="password"]:focus {
-            letter-spacing: 3px !important;
-            border-width: 4px !important;
-            border-color: #667eea !important;
-            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3),
-                        0 0 0 6px rgba(102, 126, 234, 0.1) !important;
-            transform: translateY(-2px) !important;
-            outline: none !important;
+            border-color: #4285f4;
+            box-shadow: 0 0 0 4px rgba(66, 133, 244, 0.1);
+            outline: none;
+        }
+
+        .login-form input[type="password"]:focus + .input-icon,
+        .login-input-wrapper:focus-within .input-icon {
+            color: #4285f4;
+        }
+
+        [data-theme="dark"] .login-form input[type="password"]:focus {
+            border-color: #4285f4;
+            box-shadow: 0 0 0 4px rgba(66, 133, 244, 0.15);
+        }
+
+        [data-theme="dark"] .login-form input[type="password"]:focus + .input-icon,
+        [data-theme="dark"] .login-input-wrapper:focus-within .input-icon {
+            color: #4285f4;
         }
 
         .login-form input[type="password"]::placeholder {
-            letter-spacing: 0.5px !important;
-            font-weight: 400 !important;
-            opacity: 0.6 !important;
+            letter-spacing: 0;
+            font-weight: 400;
+            color: var(--text-muted);
         }
 
-        .login-form input[type="password"]:focus::placeholder {
-            opacity: 0.4 !important;
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-8px); }
+            20%, 40%, 60%, 80% { transform: translateX(8px); }
+        }
+
+        .login-form input[type="password"].error {
+            border-color: #ea4335;
+            animation: shake 0.5s ease-in-out;
+            box-shadow: 0 0 0 4px rgba(234, 67, 53, 0.1);
+        }
+
+        [data-theme="dark"] .login-form input[type="password"].error {
+            border-color: #ff6b6b;
+            box-shadow: 0 0 0 4px rgba(255, 107, 107, 0.15);
+        }
+
+        /* 登录按钮 - 蓝白渐变 */
+        .login-form .btn {
+            width: 100%;
+            padding: 14px 24px;
+            font-size: 15px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            background: linear-gradient(135deg, #4285f4 0%, #34a9ff 100%);
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(66, 133, 244, 0.3);
+            transition: all 0.3s ease;
+            border: none;
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+            color: white;
+        }
+
+        .login-form .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(66, 133, 244, 0.4);
+        }
+
+        .login-form .btn:active {
+            transform: translateY(0);
+            box-shadow: 0 4px 15px rgba(66, 133, 244, 0.3);
+        }
+
+        .login-form .btn:disabled {
+            background: var(--border-color);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        [data-theme="dark"] .login-form .btn {
+            background: linear-gradient(135deg, #4285f4 0%, #5b9bd5 100%);
+            box-shadow: 0 4px 15px rgba(66, 133, 244, 0.3);
+        }
+
+        [data-theme="dark"] .login-form .btn:hover {
+            box-shadow: 0 8px 25px rgba(66, 133, 244, 0.4);
+        }
+
+        /* 按钮加载状态 */
+        .login-form .btn.loading {
+            pointer-events: none;
+            color: transparent;
+        }
+
+        .login-form .btn.loading::after {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            top: 50%;
+            left: 50%;
+            margin-left: -10px;
+            margin-top: -10px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        .login-form .btn.loading span {
+            opacity: 0;
+        }
+
+        /* 底部装饰 */
+        .login-footer {
+            margin-top: 24px;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        .login-footer a {
+            color: #4285f4;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .login-footer a:hover {
+            text-decoration: underline;
+        }
+
+        [data-theme="dark"] .login-footer a {
+            color: #4285f4;
+        }
+
+        /* 背景装饰元素 - 蓝白配色 */
+        .login-bg-decoration {
+            position: absolute;
+            border-radius: 50%;
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .login-bg-decoration.circle-1 {
+            width: 250px;
+            height: 250px;
+            background: radial-gradient(circle, rgba(66, 133, 244, 0.1) 0%, transparent 70%);
+            top: -80px;
+            right: -80px;
+        }
+
+        .login-bg-decoration.circle-2 {
+            width: 180px;
+            height: 180px;
+            background: radial-gradient(circle, rgba(135, 206, 235, 0.15) 0%, transparent 70%);
+            bottom: -40px;
+            left: -40px;
+        }
+
+        [data-theme="dark"] .login-bg-decoration.circle-1 {
+            background: radial-gradient(circle, rgba(66, 133, 244, 0.15) 0%, transparent 70%);
+        }
+
+        [data-theme="dark"] .login-bg-decoration.circle-2 {
+            background: radial-gradient(circle, rgba(91, 155, 213, 0.15) 0%, transparent 70%);
+        }
+
+        /* 状态消息样式 */
+        #loginStatus .status {
+            margin-top: 16px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 14px;
         }
 
         @keyframes gradientMove {
             0% { background-position: 0% 50%; }
             50% { background-position: 100% 50%; }
             100% { background-position: 0% 50%; }
-        }
-
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            10%, 30%, 50%, 70%, 90% { transform: translateX(-10px); }
-            20%, 40%, 60%, 80% { transform: translateX(10px); }
-        }
-
-        .login-form input[type="password"].error {
-            border-color: #ea4335 !important;
-            animation: shake 0.5s ease-in-out !important;
-            box-shadow: 0 0 0 4px rgba(234, 67, 53, 0.15), 0 4px 12px rgba(234, 67, 53, 0.2) !important;
-        }
-
-        [data-theme="dark"] .login-form input[type="password"].error {
-            border-color: #ff6b6b !important;
-            box-shadow: 0 0 0 4px rgba(255, 107, 107, 0.2), 0 4px 12px rgba(255, 107, 107, 0.3) !important;
-        }
-        
-        .login-form .btn {
-            width: 100% !important;
-            max-width: 400px !important;
-            padding: 22px 50px !important;
-            font-size: 20px !important;
-            font-weight: 800 !important;
-            letter-spacing: 2px !important;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%) !important;
-            background-size: 200% 200% !important;
-            animation: gradientMove 3s ease infinite !important;
-            border-radius: 50px !important;
-            box-shadow: 0 10px 40px rgba(102, 126, 234, 0.5),
-                        0 0 0 0 rgba(102, 126, 234, 0.7),
-                        inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
-            text-transform: uppercase !important;
-            border: 2px solid rgba(255, 255, 255, 0.2) !important;
-            position: relative !important;
-            overflow: hidden !important;
-        }
-
-        .login-form .btn::before {
-            content: '' !important;
-            position: absolute !important;
-            top: 50% !important;
-            left: 50% !important;
-            width: 0 !important;
-            height: 0 !important;
-            border-radius: 50% !important;
-            background: rgba(255, 255, 255, 0.5) !important;
-            transform: translate(-50%, -50%) !important;
-            transition: width 0.6s, height 0.6s !important;
-        }
-
-        .login-form .btn:hover::before {
-            width: 300px !important;
-            height: 300px !important;
-        }
-
-        .login-form .btn:hover {
-            transform: translateY(-8px) scale(1.05) !important;
-            box-shadow: 0 15px 50px rgba(102, 126, 234, 0.6),
-                        0 0 0 10px rgba(102, 126, 234, 0.15),
-                        inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
-            border-color: rgba(255, 255, 255, 0.4) !important;
-        }
-
-        .login-form .btn:active {
-            transform: translateY(-2px) scale(0.98) !important;
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4) !important;
-        }
-
-        .login-form .btn:disabled {
-            background: linear-gradient(135deg, #ccc, #999) !important;
-            cursor: not-allowed !important;
-            transform: none !important;
-            box-shadow: none !important;
-            animation: none !important;
-        }
-
-        .login-form .btn.loading {
-            pointer-events: none !important;
-        }
-
-        .login-form .btn.loading::after {
-            content: '' !important;
-            position: absolute !important;
-            width: 20px !important;
-            height: 20px !important;
-            top: 50% !important;
-            left: 50% !important;
-            margin-left: -10px !important;
-            margin-top: -10px !important;
-            border: 3px solid rgba(255, 255, 255, 0.3) !important;
-            border-top-color: white !important;
-            border-radius: 50% !important;
-            animation: spin 0.8s linear infinite !important;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        .login-form .btn.loading span {
-            opacity: 0 !important;
-        }
-
-        [data-theme="dark"] .login-form .btn {
-            background: linear-gradient(135deg, #5b9bd5 0%, #4facfe 50%, #667eea 100%) !important;
-            box-shadow: 0 10px 40px rgba(91, 155, 213, 0.5),
-                        0 0 0 0 rgba(91, 155, 213, 0.7),
-                        inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
-        }
-
-        [data-theme="dark"] .login-form .btn:hover {
-            box-shadow: 0 15px 50px rgba(91, 155, 213, 0.6),
-                        0 0 0 10px rgba(91, 155, 213, 0.15),
-                        inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
         }
 
         .tabs {
@@ -1709,16 +1812,58 @@
             
             /* 移动端登录表单优化 */
             .login-form {
-                padding: 30px 16px;
+                padding: 20px 16px;
+            }
+            
+            .login-card {
+                padding: 32px 24px;
+                border-radius: 20px;
+            }
+            
+            .login-logo {
+                width: 64px;
+                height: 64px;
+                font-size: 28px;
+                border-radius: 16px;
+                margin-bottom: 20px;
             }
             
             .login-form h1 {
-                font-size: 24px;
+                font-size: 22px;
             }
             
-            .login-form input[type="password"],
+            .login-form .login-subtitle {
+                font-size: 14px;
+                margin-bottom: 24px;
+            }
+            
+            .login-form input[type="password"] {
+                padding: 14px 14px 14px 44px;
+                font-size: 15px;
+            }
+            
+            .login-input-wrapper .input-icon {
+                left: 14px;
+                font-size: 16px;
+            }
+            
             .login-form .btn {
-                max-width: 100%;
+                padding: 14px 20px;
+                font-size: 15px;
+            }
+            
+            .login-bg-decoration.circle-1 {
+                width: 200px;
+                height: 200px;
+                top: -80px;
+                right: -80px;
+            }
+            
+            .login-bg-decoration.circle-2 {
+                width: 150px;
+                height: 150px;
+                bottom: -40px;
+                left: -40px;
             }
             
             /* 移动端卡片和容器优化 */
@@ -4090,15 +4235,41 @@
 
         <!-- 登录界面 -->
         <div id="loginSection" class="login-form">
-            <h1>AMB2API 管理面板</h1>
-            <p>🔐 请输入访问密码以继续</p>
-            <div class="form-group">
-                <input type="password" id="loginPassword" placeholder="请输入访问密码" onkeypress="handlePasswordEnter(event)" autocomplete="current-password" />
+            <!-- 背景装饰 -->
+            <div class="login-bg-decoration circle-1"></div>
+            <div class="login-bg-decoration circle-2"></div>
+            
+            <!-- 登录卡片 -->
+            <div class="login-card">
+                <!-- Logo -->
+                <div class="login-logo">⛵️</div>
+                
+                <!-- 标题 -->
+                <h1>AMB2API</h1>
+                <p class="login-subtitle">
+                    <span class="lock-icon">🔐</span>
+                    请输入访问密码以继续
+                </p>
+                
+                <!-- 密码输入 -->
+                <div class="login-input-wrapper">
+                    <input type="password" id="loginPassword" placeholder="输入访问密码" onkeypress="handlePasswordEnter(event)" autocomplete="current-password" />
+                    <span class="input-icon">🔒</span>
+                </div>
+                
+                <!-- 登录按钮 -->
+                <button class="btn" id="loginBtn" onclick="login()">
+                    <span>登录</span>
+                </button>
+                
+                <!-- 状态消息 -->
+                <div id="loginStatus"></div>
+                
+                <!-- 底部信息 -->
+                <div class="login-footer">
+                    <p>安全访问 · 数据加密传输</p>
+                </div>
             </div>
-            <button class="btn" id="loginBtn" onclick="login()">
-                <span>立即登录</span>
-            </button>
-            <div id="loginStatus" style="margin-top:8px"></div>
         </div>
 
         <!-- 主界面 -->
@@ -4854,9 +5025,17 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                             <div class="config-group">
                                 <h4>账户信息</h4>
                                 <div id="accountInfoContent">
-                                    <div class="loading-spinner">
-                                        <div class="spinner"></div>
-                                        <div class="spinner-text">正在加载账户信息...</div>
+                                    <div class="skeleton-loader">
+                                        <div class="skeleton-card">
+                                            <div class="skeleton-line medium" style="margin-bottom: 12px;"></div>
+                                            <div class="skeleton-line long"></div>
+                                            <div class="skeleton-line long"></div>
+                                            <div class="skeleton-line medium"></div>
+                                        </div>
+                                        <div class="loading-spinner" style="padding: 20px 0;">
+                                            <div class="spinner"></div>
+                                            <div class="spinner-text">正在加载账户信息...</div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -4864,9 +5043,21 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                             <div class="config-group">
                                 <h4>余额</h4>
                                 <div id="accountBalanceContent">
-                                    <div class="loading-spinner">
-                                        <div class="spinner"></div>
-                                        <div class="spinner-text">正在加载余额信息...</div>
+                                    <div class="skeleton-loader">
+                                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+                                            <div class="skeleton-card" style="text-align: center;">
+                                                <div class="skeleton-line short" style="margin: 0 auto 12px;"></div>
+                                                <div class="skeleton-big-number"></div>
+                                            </div>
+                                            <div class="skeleton-card" style="text-align: center;">
+                                                <div class="skeleton-line short" style="margin: 0 auto 12px;"></div>
+                                                <div class="skeleton-big-number"></div>
+                                            </div>
+                                        </div>
+                                        <div class="loading-spinner" style="padding: 20px 0;">
+                                            <div class="spinner"></div>
+                                            <div class="spinner-text">正在加载余额信息...</div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -4881,9 +5072,26 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                                 <button class="btn btn-sm" onclick="loadAccountUsage(true)">刷新</button>
                             </div>
                             <div id="accountUsageContent">
-                                <div class="loading-spinner">
-                                    <div class="spinner"></div>
-                                    <div class="spinner-text">正在加载使用量数据...</div>
+                                <div class="skeleton-loader">
+                                    <div class="skeleton-card" style="text-align: center;">
+                                        <div class="skeleton-line short" style="margin: 0 auto 12px;"></div>
+                                        <div class="skeleton-big-number"></div>
+                                        <div class="skeleton-line short" style="margin: 8px auto 0;"></div>
+                                    </div>
+                                    <div class="skeleton-card">
+                                        <div class="skeleton-line medium"></div>
+                                        <div style="height: 6px; background: var(--border-color); border-radius: 4px; margin-bottom: 16px;"></div>
+                                    </div>
+                                    <div class="skeleton-card">
+                                        <div class="skeleton-line medium" style="margin-bottom: 16px;"></div>
+                                        <div class="skeleton-line long"></div>
+                                        <div class="skeleton-line long"></div>
+                                        <div class="skeleton-line medium"></div>
+                                    </div>
+                                    <div class="loading-spinner" style="padding: 20px 0;">
+                                        <div class="spinner"></div>
+                                        <div class="spinner-text">正在加载使用量数据...</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -4899,9 +5107,24 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                                 <button class="btn btn-sm" onclick="exportAccountCost('csv')" style="background: #17a2b8;">导出 CSV</button>
                             </div>
                             <div id="accountCostContent">
-                                <div class="loading-spinner">
-                                    <div class="spinner"></div>
-                                    <div class="spinner-text">正在加载成本数据...</div>
+                                <div class="skeleton-loader">
+                                    <div class="skeleton-card" style="text-align: center;">
+                                        <div class="skeleton-line short" style="margin: 0 auto 8px;"></div>
+                                        <div class="skeleton-line short" style="margin: 0 auto 12px;"></div>
+                                        <div class="skeleton-big-number"></div>
+                                    </div>
+                                    <div class="skeleton-card">
+                                        <div class="skeleton-line medium" style="margin-bottom: 16px;"></div>
+                                        <div style="height: 8px; background: var(--border-color); border-radius: 4px; margin-bottom: 16px;"></div>
+                                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+                                            <div class="skeleton-card" style="margin: 0;"><div class="skeleton-line short"></div><div class="skeleton-line medium"></div></div>
+                                            <div class="skeleton-card" style="margin: 0;"><div class="skeleton-line short"></div><div class="skeleton-line medium"></div></div>
+                                        </div>
+                                    </div>
+                                    <div class="loading-spinner" style="padding: 20px 0;">
+                                        <div class="spinner"></div>
+                                        <div class="spinner-text">正在加载成本数据...</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -4919,9 +5142,18 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                                 <button class="btn btn-sm" onclick="loadAccountRates(true)">刷新</button>
                             </div>
                             <div id="accountRatesContent">
-                                <div class="loading-spinner">
-                                    <div class="spinner"></div>
-                                    <div class="spinner-text">正在加载费率信息...</div>
+                                <div class="skeleton-loader">
+                                    <div class="skeleton-card">
+                                        <div class="skeleton-line medium" style="margin-bottom: 16px;"></div>
+                                        <div class="skeleton-line long"></div>
+                                        <div class="skeleton-line long"></div>
+                                        <div class="skeleton-line long"></div>
+                                        <div class="skeleton-line medium"></div>
+                                    </div>
+                                    <div class="loading-spinner" style="padding: 20px 0;">
+                                        <div class="spinner"></div>
+                                        <div class="spinner-text">正在加载费率信息...</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -5409,23 +5641,39 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     }
                     
                     setTimeout(() => {
-                        document.getElementById('loginSection').style.opacity = '0';
-                        document.getElementById('loginSection').style.transform = 'scale(0.95)';
-                        document.getElementById('loginSection').style.transition = 'all 0.5s ease';
+                        const loginEl = document.getElementById('loginSection');
+                        const mainEl = document.getElementById('mainSection');
+                        
+                        loginEl.style.opacity = '0';
+                        loginEl.style.transform = 'scale(0.95)';
+                        loginEl.style.transition = 'all 0.4s ease';
                         
                         setTimeout(() => {
-                    document.getElementById('loginSection').classList.add('hidden');
-                    document.getElementById('mainSection').classList.remove('hidden');
-                            document.getElementById('mainSection').style.opacity = '0';
-                            document.getElementById('mainSection').style.transform = 'translateY(20px)';
-                            document.getElementById('mainSection').style.transition = 'all 0.6s ease';
+                            // 隐藏登录区域并清除样式
+                            loginEl.classList.add('hidden');
+                            loginEl.style.opacity = '';
+                            loginEl.style.transform = '';
+                            loginEl.style.transition = '';
                             
-                            setTimeout(() => {
-                                document.getElementById('mainSection').style.opacity = '1';
-                                document.getElementById('mainSection').style.transform = 'translateY(0)';
-                            }, 50);
-                        }, 500);
-                    }, 800);
+                            // 显示主界面
+                            mainEl.classList.remove('hidden');
+                            mainEl.style.opacity = '0';
+                            mainEl.style.transform = 'translateY(10px)';
+                            mainEl.style.transition = 'all 0.4s ease';
+                            
+                            requestAnimationFrame(() => {
+                                mainEl.style.opacity = '1';
+                                mainEl.style.transform = 'translateY(0)';
+                                
+                                // 动画完成后清除样式
+                                setTimeout(() => {
+                                    mainEl.style.opacity = '';
+                                    mainEl.style.transform = '';
+                                    mainEl.style.transition = '';
+                                }, 400);
+                            });
+                        }, 400);
+                    }, 600);
                     
                     showStatus('登录成功', 'success');
                     switchTab('config');
@@ -5454,7 +5702,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     loginBtn.disabled = false;
                     const span = loginBtn.querySelector('span');
                     if (span && span.textContent !== '✓ 登录成功') {
-                        span.textContent = '立即登录';
+                        span.textContent = '登录';
                     }
                 }
             }
