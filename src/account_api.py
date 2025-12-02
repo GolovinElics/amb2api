@@ -47,6 +47,21 @@ def _cache_set(key: str, data: Dict[str, Any]) -> None:
     _cache_store[key] = {"ts": time.time(), "data": data}
 
 
+def _cache_clear_for_account(account_email: str) -> None:
+    """清除指定账户的所有缓存"""
+    keys_to_remove = []
+    for key in _cache_store.keys():
+        if account_email in key:
+            keys_to_remove.append(key)
+    for key in keys_to_remove:
+        del _cache_store[key]
+    if keys_to_remove:
+        log.info(f"Cleared {len(keys_to_remove)} cache entries for account {account_email}")
+
+
+
+
+
 class LoginRequest(BaseModel):
     """登录请求模型"""
     email: str
@@ -610,6 +625,10 @@ async def switch_account(request: SwitchAccountRequest) -> Dict[str, Any]:
     try:
         adapter = await get_storage_adapter()
         await adapter.set_config(CURRENT_ACCOUNT_KEY, {"email": email})
+        
+        # 清除新账户的缓存，确保切换后获取最新数据
+        _cache_clear_for_account(email)
+        
         return {
             "success": True,
             "message": f"Switched to account {email}",
@@ -654,69 +673,136 @@ async def get_account_info(account_email: Optional[str] = None) -> Dict[str, Any
 
 @router.get("/api-keys")
 async def get_account_api_keys(force: bool = False, account_email: Optional[str] = None) -> Dict[str, Any]:
-    """
-    获取账户的 API key 列表（独立端点）
-    
-    Args:
-        force: 是否强制刷新
-        account_email: 账户邮箱，如果为None则获取当前账户
-    
-    优先从 session 中获取 api_token（登录时已保存），
-    如果需要完整的项目信息，则从 Dashboard API 获取。
-    """
+    """获取账户的 API key 列表"""
     session = await _get_session(account_email)
     if not session:
         raise HTTPException(status_code=401, detail="Not logged in. Please login first.")
     
-    # 使用账户邮箱作为缓存键的一部分，确保不同账户有独立的缓存
     session_email = session.get("email") or account_email or "default"
     cache_key = f"api_keys:{session_email}"
+    
+    # 非强制刷新时使用缓存
     if not force:
         cached = _cache_get(cache_key)
         if cached:
             return cached
     
-    result = {
-        "projects": [],
-        "api_keys": [],
-    }
-    
-    # 优先从 session 中获取 api_token（快速响应）
+    # 从 session 获取基础 API token
     user_info = session.get("user_info", {})
     api_token = user_info.get("api_token") or session.get("api_token")
     
+    result = {"projects": [], "api_keys": []}
     if api_token:
-        # 直接使用登录时保存的 api_token
         result["api_keys"].append({
-            "id": None,
-            "project_id": None,
-            "project_name": "Default",
-            "api_key": api_token,
-            "name": "Default API Key",
-            "is_disabled": False,
-            "created": session.get("logged_in_at"),
+            "id": None, "project_id": None, "project_name": "Default",
+            "api_key": api_token, "name": "Default API Key",
+            "is_disabled": False, "created": session.get("logged_in_at"),
         })
-        log.info("Using api_token from session")
+    
+    # 尝试从 Dashboard 获取完整列表（只尝试一个最可靠的端点）
+    try:
+        endpoint = "/dashboard/code"
+        rsc = await _make_dashboard_request("GET", endpoint, params={"_rsc": "1"}, account_email=account_email)
+        if rsc and "raw" in rsc:
+            raw = rsc["raw"]
+            log.info(f"Got RSC from {endpoint}, length={len(raw)}, has_tokens={'tokens' in raw}")
+            projects = _parse_projects_from_rsc(raw)
+            if projects:
+                full_result = {"projects": projects, "api_keys": []}
+                for project in projects:
+                    for token in project.get("tokens", []):
+                        full_result["api_keys"].append({
+                            "id": token.get("id"),
+                            "project_id": token.get("project_id"),
+                            "project_name": project.get("project", {}).get("name"),
+                            "api_key": token.get("api_key"),
+                            "name": token.get("name"),
+                            "is_disabled": token.get("is_disabled"),
+                            "created": token.get("created"),
+                        })
+                if full_result["api_keys"]:
+                    log.info(f"Fetched {len(full_result['api_keys'])} API keys for {session_email}")
+                    _cache_set(cache_key, full_result)
+                    return full_result
+    except Exception as e:
+        log.warning(f"Failed to fetch API keys from {endpoint}: {e}")
     
     _cache_set(cache_key, result)
-    if force:
+    return result
+
+
+@router.get("/overview")
+async def get_account_overview(force: bool = False, account_email: Optional[str] = None) -> Dict[str, Any]:
+    """
+    获取账户概览数据（合并 info + billing + api-keys）
+    
+    一次请求返回概览页面需要的所有数据，减少请求数量，提高加载速度。
+    """
+    session = await _get_session(account_email)
+    if not session:
+        raise HTTPException(status_code=401, detail="Not logged in. Please login first.")
+    
+    session_email = session.get("email") or account_email or "default"
+    
+    # 检查缓存
+    cache_key = f"overview:{session_email}"
+    if not force:
+        cached = _cache_get(cache_key)
+        if cached:
+            return cached
+    
+    # 并发获取所有数据
+    async def get_info():
+        user_info = session.get("user_info", {})
+        return {
+            "id": str(user_info.get("id") or session.get("user_id") or ""),
+            "email": str(user_info.get("email") or session.get("email") or ""),
+            "customer_type": str(user_info.get("customer_type") or "PAYG"),
+            "cc_brand": user_info.get("cc_brand"),
+            "cc_last4": user_info.get("cc_last4"),
+            "created": str(user_info.get("created") or session.get("logged_in_at") or ""),
+        }
+    
+    async def get_billing():
         try:
-            rsc = await _make_dashboard_request(
-                "GET",
-                "/dashboard/cost",
-                params={"_rsc": "125dm"},
-                account_email=account_email,
-            )
+            params = {"view": "US", "_rsc": "10s30"}
+            page = await _make_dashboard_request("GET", "/dashboard/account/billing", params=params, account_email=account_email)
+            if page and "raw" in page:
+                raw_text = page["raw"].strip()
+                if raw_text and not raw_text.startswith("<!DOCTYPE"):
+                    parsed = _parse_billing_rsc_data(page)
+                    return {
+                        "balance": parsed.get("balance") or 0.0,
+                        "total_spend_30_days": parsed.get("total_spend_30_days") or 0.0,
+                        "spend_trend": parsed.get("spend_trend", []),
+                    }
+        except Exception as e:
+            log.warning(f"Failed to get billing in overview: {e}")
+        return {"balance": 0.0, "total_spend_30_days": 0.0, "spend_trend": []}
+    
+    async def get_api_keys():
+        try:
+            user_info = session.get("user_info", {})
+            api_token = user_info.get("api_token") or session.get("api_token")
+            
+            result = []
+            if api_token:
+                result.append({
+                    "id": None, "project_id": None, "project_name": "Default",
+                    "api_key": api_token, "name": "Default API Key",
+                    "is_disabled": False, "created": session.get("logged_in_at"),
+                })
+            
+            # 尝试从 Dashboard 获取完整列表
+            endpoint = "/dashboard/code"
+            rsc = await _make_dashboard_request("GET", endpoint, params={"_rsc": "1"}, account_email=account_email)
             if rsc and "raw" in rsc:
                 projects = _parse_projects_from_rsc(rsc["raw"])
                 if projects:
-                    updated = {
-                        "projects": projects,
-                        "api_keys": [],
-                    }
+                    result = []
                     for project in projects:
                         for token in project.get("tokens", []):
-                            updated["api_keys"].append({
+                            result.append({
                                 "id": token.get("id"),
                                 "project_id": token.get("project_id"),
                                 "project_name": project.get("project", {}).get("name"),
@@ -725,50 +811,72 @@ async def get_account_api_keys(force: bool = False, account_email: Optional[str]
                                 "is_disabled": token.get("is_disabled"),
                                 "created": token.get("created"),
                             })
-                    if updated["api_keys"]:
-                        _cache_set(cache_key, updated)
-                        return updated
+            return result
         except Exception as e:
-            log.warning(f"Force refresh API keys failed: {e}")
-        return result
-    else:
+            log.warning(f"Failed to get api_keys in overview: {e}")
+            return []
+    
+    # 并发执行
+    info_task = asyncio.create_task(get_info())
+    billing_task = asyncio.create_task(get_billing())
+    api_keys_task = asyncio.create_task(get_api_keys())
+    
+    info, billing, api_keys = await asyncio.gather(info_task, billing_task, api_keys_task)
+    
+    result = {
+        "info": info,
+        "billing": billing,
+        "api_keys": api_keys,
+    }
+    
+    _cache_set(cache_key, result)
+    log.info(f"Overview data fetched for {session_email}: balance=${billing.get('balance', 0)}, {len(api_keys)} keys")
+    return result
+
+
+@router.get("/api-keys/debug")
+async def debug_api_keys(account_email: Optional[str] = None) -> Dict[str, Any]:
+    """调试端点：返回原始 RSC 数据"""
+    session = await _get_session(account_email)
+    if not session:
+        raise HTTPException(status_code=401, detail="Not logged in")
+    
+    session_email = session.get("email") or account_email or "default"
+    result = {"session_email": session_email, "endpoints": []}
+    
+    endpoints = [
+        ("/dashboard/code", {"_rsc": "1"}),
+        ("/dashboard/cost", {"_rsc": "125dm"}),
+    ]
+    
+    for endpoint, params in endpoints:
         try:
-            import asyncio, time
-            global _api_keys_fetch_task, _api_keys_last_fetch_ts
-            if (_api_keys_fetch_task is None or _api_keys_fetch_task.done()) and (time.time() - _api_keys_last_fetch_ts > 60):
-                _api_keys_last_fetch_ts = time.time()
-                async def _refresh():
-                    try:
-                        r = await _make_dashboard_request(
-                            "GET",
-                            "/dashboard/cost",
-                            params={"_rsc": "125dm"},
-                            account_email=account_email,
-                        )
-                        if r and "raw" in r:
-                            projects = _parse_projects_from_rsc(r["raw"])
-                            if projects:
-                                updated = {"projects": projects, "api_keys": []}
-                                for project in projects:
-                                    for token in project.get("tokens", []):
-                                        updated["api_keys"].append({
-                                            "id": token.get("id"),
-                                            "project_id": token.get("project_id"),
-                                            "project_name": project.get("project", {}).get("name"),
-                                            "api_key": token.get("api_key"),
-                                            "name": token.get("name"),
-                                            "is_disabled": token.get("is_disabled"),
-                                            "created": token.get("created"),
-                                        })
-                                if updated["api_keys"]:
-                                    _cache_set(cache_key, updated)
-                                    log.info(f"API keys cache updated: {len(updated['api_keys'])} keys")
-                    except Exception as ex:
-                        log.debug(f"Background API keys refresh failed: {ex}")
-                _api_keys_fetch_task = asyncio.create_task(_refresh())
-        except Exception:
-            pass
-        return result
+            rsc = await _make_dashboard_request("GET", endpoint, params=params, account_email=account_email)
+            if rsc and "raw" in rsc:
+                raw = rsc["raw"]
+                has_projects = '"projects"' in raw
+                has_tokens = '"tokens"' in raw
+                # 尝试找到 projects 或 tokens 的位置
+                projects_pos = raw.find('"projects"')
+                tokens_pos = raw.find('"tokens"')
+                
+                result["endpoints"].append({
+                    "endpoint": endpoint,
+                    "raw_length": len(raw),
+                    "has_projects": has_projects,
+                    "has_tokens": has_tokens,
+                    "projects_pos": projects_pos,
+                    "tokens_pos": tokens_pos,
+                    "sample": raw[:1000] if len(raw) > 0 else "",
+                    "around_projects": raw[max(0, projects_pos-50):projects_pos+200] if projects_pos >= 0 else "",
+                    "around_tokens": raw[max(0, tokens_pos-50):tokens_pos+200] if tokens_pos >= 0 else "",
+                })
+            else:
+                result["endpoints"].append({"endpoint": endpoint, "error": "No raw data"})
+        except Exception as e:
+            result["endpoints"].append({"endpoint": endpoint, "error": str(e)})
+    
+    return result
 
 
 def _parse_projects_from_rsc(raw_text: str) -> List[Dict[str, Any]]:
@@ -782,11 +890,7 @@ def _parse_projects_from_rsc(raw_text: str) -> List[Dict[str, Any]]:
     projects = []
     
     try:
-        # 查找 "projects":[ 开始的 JSON 数组
-        # 格式: "projects":[{"project":{...},"tokens":[...]}]
-        projects_pattern = r'"projects":\s*\[((?:\{[^}]*"project":[^}]*\}[^]]*)+)\]'
-        
-        # 更简单的方法：直接查找 projects 数组
+        # 方法1：查找 "projects":[ 开始的 JSON 数组
         start_marker = '"projects":['
         start_pos = raw_text.find(start_marker)
         
@@ -797,7 +901,7 @@ def _parse_projects_from_rsc(raw_text: str) -> List[Dict[str, Any]]:
             # 找到匹配的 ] 结束位置
             bracket_count = 0
             array_end = -1
-            for i in range(array_start, min(array_start + 5000, len(raw_text))):
+            for i in range(array_start, min(array_start + 20000, len(raw_text))):
                 if raw_text[i] == '[':
                     bracket_count += 1
                 elif raw_text[i] == ']':
@@ -810,9 +914,44 @@ def _parse_projects_from_rsc(raw_text: str) -> List[Dict[str, Any]]:
                 json_str = raw_text[array_start:array_end]
                 try:
                     projects = json.loads(json_str)
-                    log.info(f"Parsed {len(projects)} projects from RSC data")
+                    # 统计解析到的 tokens 数量
+                    total_tokens = sum(len(p.get("tokens", [])) for p in projects)
+                    log.info(f"Parsed {len(projects)} projects with {total_tokens} tokens from RSC data")
+                    return projects
                 except json.JSONDecodeError as e:
-                    log.warning(f"Failed to parse projects JSON: {e}")
+                    log.warning(f"Failed to parse projects JSON: {e}, json_str length: {len(json_str)}")
+        
+        # 方法2：尝试查找 "tokens":[ 数组（备用方案）
+        if not projects:
+            tokens_marker = '"tokens":['
+            tokens_pos = raw_text.find(tokens_marker)
+            if tokens_pos >= 0:
+                array_start = tokens_pos + len(tokens_marker) - 1
+                bracket_count = 0
+                array_end = -1
+                for i in range(array_start, min(array_start + 10000, len(raw_text))):
+                    if raw_text[i] == '[':
+                        bracket_count += 1
+                    elif raw_text[i] == ']':
+                        bracket_count -= 1
+                        if bracket_count == 0:
+                            array_end = i + 1
+                            break
+                
+                if array_end > array_start:
+                    json_str = raw_text[array_start:array_end]
+                    try:
+                        tokens = json.loads(json_str)
+                        if tokens:
+                            # 构造一个虚拟的 project 结构
+                            projects = [{"project": {"name": "Default"}, "tokens": tokens}]
+                            log.info(f"Parsed {len(tokens)} tokens directly from RSC data (fallback)")
+                            return projects
+                    except json.JSONDecodeError as e:
+                        log.warning(f"Failed to parse tokens JSON: {e}")
+        
+        if not projects:
+            log.debug(f"No 'projects' or 'tokens' marker found in RSC data (length: {len(raw_text)})")
         
     except Exception as e:
         log.error(f"Failed to parse projects from RSC: {e}")
@@ -867,46 +1006,30 @@ async def get_billing_info(force: bool = False, account_email: Optional[str] = N
     start_date = end_date - timedelta(days=30)
     
     try:
-        billing_data = None
-        for params in [
-            {"view": "US", "_rsc": "10s30"},
-            {"_rsc": "1"},
-            {"_rsc": "1mzsd"},
-            {}
-        ]:
-            page = await _make_dashboard_request(
-                "GET",
-                "/dashboard/account/billing",
-                params=params,
-                account_email=account_email,
-            )
-            if page and "raw" in page:
-                raw_text = page["raw"].strip()
-                if raw_text and not raw_text.startswith("<!DOCTYPE"):
-                    billing_data = page
-                    result.setdefault("debug_info", {})
-                    result["debug_info"]["source_params"] = params
-                    break
+        # 只发一个请求，使用最可靠的参数
+        params = {"view": "US", "_rsc": "10s30"}
+        page = await _make_dashboard_request("GET", "/dashboard/account/billing", params=params, account_email=account_email)
         
-        if billing_data:
-            parsed = _parse_billing_rsc_data(billing_data)
-            result["balance"] = parsed.get("balance") or 0.0
-            result["total_spend_30_days"] = parsed.get("total_spend_30_days") or 0.0
-            result["spend_trend"] = parsed.get("spend_trend", [])
-            if parsed.get("by_service"):
-                result["cost_breakdown"] = {s.get("service"): s.get("cost", 0.0) for s in parsed.get("by_service", [])}
-            log.info(f"Parsed billing from RSC: balance=${result['balance']}, spend=${result['total_spend_30_days']}")
-            
-            # 如果解析失败，记录原始数据用于调试
-            if result["balance"] == 0.0 and result["total_spend_30_days"] == 0.0:
-                if "raw" in billing_data:
-                    raw_sample = billing_data["raw"][:500] if len(billing_data.get("raw", "")) > 500 else billing_data.get("raw", "")
-                    log.warning(f"RSC parsing returned no data. Raw sample: {raw_sample}")
-                    result["debug_info"] = "RSC parsing returned no data"
+        best_result = None
+        if page and "raw" in page:
+            raw_text = page["raw"].strip()
+            if raw_text and not raw_text.startswith("<!DOCTYPE"):
+                best_result = _parse_billing_rsc_data(page)
+                best_result["_source"] = f"billing with {params}"
+        
+        if best_result:
+            result["balance"] = best_result.get("balance") or 0.0
+            result["total_spend_30_days"] = best_result.get("total_spend_30_days") or 0.0
+            result["spend_trend"] = best_result.get("spend_trend", [])
+            if best_result.get("by_service"):
+                result["cost_breakdown"] = {s.get("service"): s.get("cost", 0.0) for s in best_result.get("by_service", [])}
+            result["debug_info"] = {"source": best_result.get("_source", "unknown")}
+            log.info(f"Parsed billing from RSC: balance=${result['balance']}, spend=${result['total_spend_30_days']} (source: {best_result.get('_source', 'unknown')})")
+        else:
+            log.warning("No valid billing data from any source")
     
     except Exception as e:
         log.error(f"Failed to fetch billing info: {e}")
-        # 返回默认值而不是抛出异常
         result["error"] = str(e)
     
     _cache_set(cache_key, result)
@@ -944,9 +1067,6 @@ async def get_usage_data(
     session = await _get_session(account_email)
     session_email = (session.get("email") if session else None) or account_email or "default"
     
-    # 计算默认日期范围
-    # 参考 AssemblyAI API: starting_on=2025-11-26&ending_before=2025-11-27 表示查询 11/26 当天
-    # ending_before 是 exclusive 的（不包含该日期）
     # 使用账户邮箱作为缓存键的一部分，确保不同账户有独立的缓存
     cache_key = f"usage:summary:{session_email}"
     cached = None if force else _cache_get(cache_key)
@@ -962,90 +1082,32 @@ async def get_usage_data(
     }
     
     try:
-        base_params = {}
-        rsc_params_list = [
-            {"_rsc": "sd5d8"},
-            {"_rsc": "1mzsd"},
-            {"_rsc": "1"},
-            base_params,
-        ]
-
-        rsc_data = None
-
-        # 优先从 usage 页面获取 RSC 数据，其次回退到 code 页面
-        for path in ["/dashboard/usage", "/dashboard/code"]:
-            for rsc_params in rsc_params_list:
-                try:
-                    rsc_data = await _make_dashboard_request(
-                        "GET",
-                        path,
-                        params=rsc_params,
-                        account_email=account_email,
-                    )
-
-                    if rsc_data and "raw" in rsc_data:
-                        raw_text = rsc_data["raw"]
-                        if not (raw_text.strip().startswith("<!DOCTYPE") or raw_text.strip().startswith("<html")):
-                            log.info(f"Got valid RSC data from {path} with params: {rsc_params}")
-                            break
-                        else:
-                            rsc_data = None
-                except Exception:
-                    rsc_data = None
-            if rsc_data:
-                break
-
-        if rsc_data:
-            parsed = _parse_usage_rsc_data(rsc_data)
-            result["total_tokens"] = parsed.get("total_tokens", 0)
-            result["items"] = parsed.get("items", [])
-            result["by_model"] = parsed.get("by_model", [])
-            result["segments"] = parsed.get("segments", [])
-            result["debug_info"] = parsed.get("debug_info", {})
-
-            if "error" in parsed:
-                result["error"] = parsed["error"]
-
-            # 如果没有获得by_model数据（最重要的数据），尝试从多个来源获取
-            if not result["by_model"] or len(result["by_model"]) == 0:
-                log.warning("No by_model data in first attempt, trying fallback sources")
-                
-                # 尝试所有可能的路径和参数组合
-                fallback_attempts = [
-                    ("/dashboard/usage", {"_rsc": "sd5d8"}),
-                    ("/dashboard/usage", {"_rsc": "1mzsd"}),
-                    ("/dashboard/code", {"_rsc": "sd5d8"}),
-                    ("/dashboard/code", {"_rsc": "1mzsd"}),
-                    ("/dashboard/code", {"_rsc": "1"}),
-                ]
-                
-                for fallback_path, rsc_params in fallback_attempts:
-                    try:
-                        fb_data = await _make_dashboard_request(
-                            "GET",
-                            fallback_path,
-                            params=rsc_params,
-                            account_email=account_email,
-                        )
-                        if fb_data and "raw" in fb_data:
-                            raw_text = fb_data["raw"]
-                            if not (raw_text.strip().startswith("<!DOCTYPE") or raw_text.strip().startswith("<html")):
-                                parsed_fb = _parse_usage_rsc_data(fb_data)
-                                if parsed_fb and parsed_fb.get("by_model"):
-                                    # 找到了by_model数据，合并结果
-                                    result["total_tokens"] = parsed_fb.get("total_tokens", result["total_tokens"])
-                                    result["items"] = parsed_fb.get("items", result["items"])
-                                    result["by_model"] = parsed_fb.get("by_model", result["by_model"])
-                                    result["segments"] = parsed_fb.get("segments", result["segments"])
-                                    result["debug_info"]["fallback_used"] = True
-                                    result["debug_info"]["fallback_source"] = f"{fallback_path} with {rsc_params}"
-                                    log.info(f"Found by_model data from fallback: {fallback_path} with {rsc_params}")
-                                    break
-                    except Exception as e:
-                        log.debug(f"Fallback attempt failed for {fallback_path}: {e}")
-                        continue
-
-            log.info(f"Parsed usage from RSC: {result['total_tokens']} tokens, {len(result['by_model'])} models, {len(result['segments'])} segments")
+        # 只发一个请求，使用最可靠的参数
+        path = "/dashboard/usage"
+        params = {"_rsc": "1mzsd"}
+        rsc_data = await _make_dashboard_request("GET", path, params=params, account_email=account_email)
+        
+        final_result = None
+        if rsc_data and "raw" in rsc_data:
+            raw_text = rsc_data["raw"]
+            if not (raw_text.strip().startswith("<!DOCTYPE") or raw_text.strip().startswith("<html")):
+                final_result = _parse_usage_rsc_data(rsc_data)
+                final_result["_source"] = f"{path} with {params}"
+        
+        if final_result:
+            result["total_tokens"] = final_result.get("total_tokens", 0)
+            result["items"] = final_result.get("items", [])
+            result["by_model"] = final_result.get("by_model", [])
+            result["segments"] = final_result.get("segments", [])
+            result["debug_info"] = final_result.get("debug_info", {})
+            result["debug_info"]["source"] = final_result.get("_source", "unknown")
+            
+            if "error" in final_result:
+                result["error"] = final_result["error"]
+            
+            log.info(f"Parsed usage from RSC: {result['total_tokens']} tokens, {len(result['by_model'])} models, {len(result['segments'])} segments (source: {final_result.get('_source', 'unknown')})")
+        else:
+            log.warning("No valid usage data from any source")
 
     except Exception as e:
         log.error(f"Failed to fetch usage data: {e}")
@@ -1085,9 +1147,6 @@ async def get_cost_data(
     session = await _get_session(account_email)
     session_email = (session.get("email") if session else None) or account_email or "default"
     
-    # 计算默认日期范围
-    # 参考 AssemblyAI API: starting_on=2025-11-26&ending_before=2025-11-27 表示查询 11/26 当天
-    # ending_before 是 exclusive 的（不包含该日期）
     # 使用账户邮箱作为缓存键的一部分，确保不同账户有独立的缓存
     cache_key = f"cost:summary:{session_email}"
     cached = None if force else _cache_get(cache_key)
@@ -1097,62 +1156,35 @@ async def get_cost_data(
     result = {
         "total_cost": 0.0,
         "items": [],
-        "by_service": []
+        "by_service": [],
+        "by_model": [],
+        "spend_trend": [],
+        "debug_info": {}
     }
     
     try:
-        rsc_data = None
-        rsc_params_list = [
-            {"_rsc": "sd5d8"},
-            {"_rsc": "1mzsd"},
-            {"_rsc": "1"},
-            {},
-        ]
+        # 只发一个请求，使用最可靠的参数
+        params = {"_rsc": "1mzsd"}
+        rsc_data = await _make_dashboard_request("GET", "/dashboard/cost", params=params, account_email=account_email)
         
-        for rsc_params in rsc_params_list:
-            try:
-                rsc_data = await _make_dashboard_request(
-                    "GET",
-                    "/dashboard/cost",
-                    params=rsc_params,
-                    account_email=account_email,
-                )
-                if rsc_data and "raw" in rsc_data:
-                    raw_text = rsc_data["raw"]
-                    if not (raw_text.strip().startswith("<!DOCTYPE") or raw_text.strip().startswith("<html")):
-                        if "chartExportData" in raw_text or '"data":' in raw_text or "total" in raw_text:
-                            log.info(f"Got valid cost data with params: {rsc_params}")
-                            break
-                    rsc_data = None
-            except Exception as e:
-                log.debug(f"Cost request failed with {rsc_params}: {e}")
-                rsc_data = None
+        final_result = None
+        if rsc_data and "raw" in rsc_data:
+            raw_text = rsc_data["raw"]
+            if not (raw_text.strip().startswith("<!DOCTYPE") or raw_text.strip().startswith("<html")):
+                if "chartExportData" in raw_text or '"data":' in raw_text or "total" in raw_text:
+                    final_result = _parse_cost_rsc_data(rsc_data)
+                    final_result["_source"] = f"cost with {params}"
         
-        if rsc_data:
-            parsed = _parse_cost_rsc_data(rsc_data)
-            result["total_cost"] = parsed.get("total_cost", 0.0)
-            result["by_service"] = parsed.get("by_service", [])
-            result["by_model"] = parsed.get("by_model", [])
-            result["spend_trend"] = parsed.get("spend_trend", [])
+        if final_result:
+            result["total_cost"] = final_result.get("total_cost", 0.0)
+            result["by_service"] = final_result.get("by_service", [])
+            result["by_model"] = final_result.get("by_model", [])
+            result["spend_trend"] = final_result.get("spend_trend", [])
+            result["debug_info"]["source"] = final_result.get("_source", "unknown")
             
-            # 如果没有获得by_model数据，尝试fallback
-            if not result["by_model"] or len(result["by_model"]) == 0:
-                log.warning("No by_model data in cost, trying fallback")
-                # 尝试其他参数组合
-                for rsc_params in rsc_params_list:
-                    try:
-                        fb_data = await _make_dashboard_request("GET", "/dashboard/cost", params=rsc_params, account_email=account_email)
-                        if fb_data and "raw" in fb_data:
-                            parsed_fb = _parse_cost_rsc_data(fb_data)
-                            if parsed_fb.get("by_model"):
-                                result["by_model"] = parsed_fb["by_model"]
-                                result["debug_info"] = {"fallback_used": True}
-                                log.info(f"Found by_model data from fallback with {rsc_params}")
-                                break
-                    except Exception:
-                        continue
-            
-            log.info(f"Parsed cost from RSC: ${result['total_cost']}, {len(result['by_model'])} models")
+            log.info(f"Parsed cost from RSC: ${result['total_cost']}, {len(result['by_model'])} models (source: {final_result.get('_source', 'unknown')})")
+        else:
+            log.warning("No valid cost data from any source")
     
     except Exception as e:
         log.error(f"Failed to fetch cost data: {e}")

@@ -9897,6 +9897,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 if (currentAccountSubTab === 'overview') {
                     loadAccountInfo(true);
                     loadAccountBilling(true);
+                    loadAccountApiKeys(false); // 非强制刷新，使用缓存或后台更新
                 } else if (currentAccountSubTab === 'usage') {
                     loadAccountUsage(true);
                 } else if (currentAccountSubTab === 'cost') {
@@ -10132,58 +10133,60 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                         if (btn) btn.style.background = (t === 'overview') ? '#4285f4' : '#6c757d';
                     });
                     
-                    // 并发加载所有子标签页的数据（强制刷新，静默模式）
-                    try {
-                        await Promise.all([
-                            // 重新加载账户列表（不触发 switchAccountSubTab，避免重复加载和显示旧数据）
-                            loadAccountsList(true),
-                            // 概览数据（包含账户信息和余额）
-                            loadAccountInfo(true),
-                            loadAccountBilling(true),
-                            loadAccountApiKeys(true),
-                            // 使用量数据
-                            loadAccountUsage(true, true), // force=true, silent=true（后台加载）
-                            // 成本数据
-                            loadAccountCost(true, true), // force=true, silent=true（后台加载）
-                            // 费率数据
-                            loadAccountRates(true) // force=true
-                        ]);
-                        // 所有数据加载完成，完全静默处理，不显示任何提示
-                        // 启动自动刷新
-                        startAccountAutoRefresh();
-                    } catch (e) {
-                        console.warn('并发加载账户数据时出错:', e);
-                        // 静默处理错误，不显示提示
-                        // 即使出错也启动自动刷新
-                        startAccountAutoRefresh();
-                    }
+                    // 使用合并的 overview API 减少请求数量（1个请求代替3个）
+                    // 同时并发加载 usage、cost、rates
+                    console.log('Starting parallel data loading for account:', email);
+                    const startTime = Date.now();
                     
-                    // 刷新四个管理页面（完全静默模式，不显示任何提示）
-                    try {
-                        // 1. 凭证管理（文件管理）
-                        if (typeof refreshCredsStatus === 'function') {
-                            refreshCredsStatus(true); // silent=true
+                    // 使用 Promise.allSettled 来跟踪所有请求的完成情况
+                    // overview API 合并了 info + billing + apiKeys
+                    Promise.allSettled([
+                        loadAccountsList(true),
+                        loadAccountOverviewData(true),  // 合并的 info + billing + apiKeys
+                        loadAccountUsage(true, true),
+                        loadAccountCost(true, true),
+                        loadAccountRates(true, true)
+                    ]).then(results => {
+                        const elapsed = Date.now() - startTime;
+                        console.log(`All data loading completed in ${elapsed}ms`, results.map((r, i) => ({
+                            index: i,
+                            status: r.status,
+                            reason: r.status === 'rejected' ? r.reason?.message : undefined
+                        })));
+                    });
+                    
+                    // 启动自动刷新
+                    startAccountAutoRefresh();
+                    
+                    // 延迟刷新其他管理页面，避免占用浏览器连接池
+                    // 等待 2 秒后再刷新，让主要的账户数据请求先完成
+                    setTimeout(() => {
+                        try {
+                            // 1. 凭证管理（文件管理）
+                            if (typeof refreshCredsStatus === 'function') {
+                                refreshCredsStatus(true); // silent=true
+                            }
+                            // 2. 配置管理
+                            if (typeof loadConfig === 'function') {
+                                loadConfig(true); // silent=true
+                            }
+                            // 3. 使用统计
+                            if (typeof refreshUsageStats === 'function') {
+                                refreshUsageStats(true); // silent=true
+                            }
+                            // 4. 速率限制
+                            if (typeof loadRateLimits === 'function') {
+                                loadRateLimits(); // 静默调用
+                            }
+                            // 5. 多密钥管理（如果弹窗已打开，则刷新）
+                            const keyModal = document.getElementById('keyManagementModal');
+                            if (keyModal && keyModal.style.display === 'block' && typeof loadKeyManagementModal === 'function') {
+                                loadKeyManagementModal();
+                            }
+                        } catch (e) {
+                            console.warn('刷新管理页面时出错:', e);
                         }
-                        // 2. 配置管理
-                        if (typeof loadConfig === 'function') {
-                            loadConfig(true); // silent=true
-                        }
-                        // 3. 使用统计
-                        if (typeof refreshUsageStats === 'function') {
-                            refreshUsageStats(true); // silent=true
-                        }
-                        // 4. 速率限制
-                        if (typeof loadRateLimits === 'function') {
-                            loadRateLimits(); // 静默调用
-                        }
-                        // 5. 多密钥管理（如果弹窗已打开，则刷新）
-                        const keyModal = document.getElementById('keyManagementModal');
-                        if (keyModal && keyModal.style.display === 'block' && typeof loadKeyManagementModal === 'function') {
-                            loadKeyManagementModal();
-                        }
-                    } catch (e) {
-                        console.warn('刷新管理页面时出错:', e);
-                    }
+                    }, 2000);
                 } else {
                     showAccountStatus(data.detail || data.message || '切换账户失败', 'error');
                 }
@@ -10194,20 +10197,159 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
         }
 
         // 检查账户登录状态
+        // 加载概览数据（合并 info + billing + apiKeys，减少请求数量）
+        async function loadAccountOverviewData(force = false) {
+            if (!currentAccountEmail) return;
+            
+            try {
+                const params = new URLSearchParams();
+                if (force) params.append('force', '1');
+                params.append('account_email', currentAccountEmail);
+                
+                console.log('Loading overview data for:', currentAccountEmail);
+                const res = await fetch('/api/account/overview?' + params.toString(), { headers: getAuthHeaders() });
+                if (!res.ok) throw new Error('加载概览数据失败');
+                const data = await res.json();
+                console.log('Overview data received:', data);
+                
+                // 更新 info 缓存和显示
+                if (data.info) {
+                    const infoHtml = `
+                        <div style="display: grid; gap: 12px;">
+                            <div><strong>邮箱:</strong> ${data.info.email || '-'}</div>
+                            <div><strong>账户 ID:</strong> ${data.info.id || '-'}</div>
+                            <div><strong>类型:</strong> ${data.info.customer_type || '-'}</div>
+                            <div><strong>创建时间:</strong> ${data.info.created ? new Date(data.info.created).toLocaleDateString() : '-'}</div>
+                            <div><strong>支付方式:</strong> ${data.info.cc_brand ? data.info.cc_brand.toUpperCase() + ' ****' + data.info.cc_last4 : '未设置'}</div>
+                            <div id="apiKeysSection" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-color);"></div>
+                        </div>
+                    `;
+                    accountCache.info = { ts: Date.now(), html: infoHtml };
+                    const infoEl = document.getElementById('accountInfoContent');
+                    if (infoEl) infoEl.innerHTML = infoHtml;
+                }
+                
+                // 更新 billing 缓存和显示
+                if (data.billing) {
+                    const balance = data.billing.balance || 0;
+                    const totalSpend = data.billing.total_spend_30_days || 0;
+                    let billingHtml = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px;">';
+                    billingHtml += '<div style="text-align: center; padding: 24px; background: linear-gradient(135deg, var(--card-bg) 0%, rgba(255,77,77,0.05) 100%); border-radius: 12px; border: 1px solid var(--border-color); box-shadow: 0 4px 15px rgba(255,77,77,0.1);">';
+                    billingHtml += '<div style="font-size: 14px; color: var(--text-secondary); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px;">💰 当前余额</div>';
+                    billingHtml += '<div class="balance-amount" style="font-size: 36px; font-weight: bold;">$' + balance.toFixed(5) + '</div>';
+                    billingHtml += '</div>';
+                    billingHtml += '<div style="text-align: center; padding: 24px; background: linear-gradient(135deg, var(--card-bg) 0%, rgba(40,167,69,0.05) 100%); border-radius: 12px; border: 1px solid var(--border-color); box-shadow: 0 4px 15px rgba(40,167,69,0.1);">';
+                    billingHtml += '<div style="font-size: 14px; color: var(--text-secondary); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px;">📊 30天消费</div>';
+                    billingHtml += '<div class="spend-amount" style="font-size: 36px; font-weight: bold;">$' + totalSpend.toFixed(5) + '</div>';
+                    billingHtml += '</div></div>';
+                    billingHtml += '<div style="margin-top: 16px; text-align: center;">';
+                    billingHtml += '<a href="https://www.assemblyai.com/dashboard/account/billing" target="_blank" class="btn btn-sm" style="background: linear-gradient(135deg, #17a2b8, #138496); border: none; padding: 8px 20px;">💳 充值</a>';
+                    billingHtml += '<button class="btn btn-sm" onclick="loadAccountBilling(true)" style="margin-left: 8px; padding: 8px 20px;">🔄 刷新</button>';
+                    billingHtml += '</div>';
+                    accountCache.billing = { ts: Date.now(), html: billingHtml };
+                    const balanceEl = document.getElementById('accountBalanceContent');
+                    if (balanceEl) balanceEl.innerHTML = billingHtml;
+                }
+                
+                // 更新 apiKeys 缓存和显示（使用与 loadAccountApiKeys 相同的样式）
+                if (data.api_keys) {
+                    let apiKeysHtml = '';
+                    if (data.api_keys.length > 0) {
+                        apiKeysHtml = `
+                            <strong style="display: block; margin-bottom: 12px;">API Keys (${data.api_keys.length}):</strong>
+                            <div style="display: flex; flex-direction: column; gap: 10px;">
+                                ${data.api_keys.map((key, idx) => `
+                                    <div style="background: var(--card-bg); padding: 12px; border-radius: 6px; border: 1px solid var(--border-color);">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                            <span style="font-weight: 500; color: var(--text-color);">${key.name || 'Unnamed Key'}</span>
+                                            <span style="font-size: 12px; color: ${key.is_disabled ? 'var(--error-color)' : 'var(--success-color)'};">
+                                                ${key.is_disabled ? '已禁用' : '已启用'}
+                                            </span>
+                                        </div>
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <div id="apiKey_${idx}" style="flex: 1; font-family: monospace; font-size: 13px; background: var(--bg-color); padding: 8px; border-radius: 4px; word-break: break-all; color: var(--text-color);">
+                                                ${key.api_key || '-'}
+                                            </div>
+                                            <button class="btn btn-sm" onclick="copyApiKey('${key.api_key || ''}')" style="padding: 6px 12px; white-space: nowrap;">📋 复制</button>
+                                        </div>
+                                        <div style="display: flex; justify-content: space-between; margin-top: 8px; font-size: 12px; color: var(--text-secondary);">
+                                            <span>项目: ${key.project_name || '-'}</span>
+                                            <span>创建: ${key.created ? new Date(key.created).toLocaleDateString() : '-'}</span>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        `;
+                    } else {
+                        apiKeysHtml = '<div style="color: var(--text-secondary); font-style: italic;">未找到 API Keys</div>';
+                    }
+                    accountCache.apiKeys = { ts: Date.now(), html: apiKeysHtml };
+                    const apiKeysEl = document.getElementById('apiKeysSection');
+                    if (apiKeysEl) apiKeysEl.innerHTML = apiKeysHtml;
+                }
+                
+                return data;
+            } catch (e) {
+                console.error('Failed to load overview data:', e);
+                throw e;
+            }
+        }
+        
+        // 复制 API Key 到剪贴板
+        function copyApiKey(apiKey) {
+            if (!apiKey) {
+                showAccountStatus('无效的 API Key', 'error');
+                return;
+            }
+            navigator.clipboard.writeText(apiKey).then(() => {
+                showAccountStatus('API Key 已复制到剪贴板', 'success');
+            }).catch(err => {
+                console.error('复制失败:', err);
+                showAccountStatus('复制失败，请手动复制', 'error');
+            });
+        }
+        
         async function checkAccountSession() {
             try {
-                // 先加载账户列表
-                await loadAccountsList();
+                // 先加载账户列表（不触发子标签页切换，避免重复加载）
+                await loadAccountsList(true);
                 
                 // 检查是否有已登录的账户
                 if (accountsList.length > 0) {
                     document.getElementById('accountLoginSection').classList.add('hidden');
                     document.getElementById('accountLoggedInSection').classList.remove('hidden');
                     
-                    // 如果有当前账户，显示详情
+                    // 如果有当前账户，显示详情并并发加载所有数据
                     if (currentAccountEmail) {
                         document.getElementById('accountDetailsSection').classList.remove('hidden');
-                        switchAccountSubTab('overview');
+                        
+                        // 设置子标签页状态为概览，但不触发加载
+                        currentAccountSubTab = 'overview';
+                        const tabs = ['overview', 'usage', 'cost', 'rates'];
+                        tabs.forEach(t => {
+                            const el = document.getElementById('accountSub' + t.charAt(0).toUpperCase() + t.slice(1));
+                            const btn = document.getElementById('accountSubTab' + t.charAt(0).toUpperCase() + t.slice(1));
+                            if (el) el.classList.toggle('hidden', t !== 'overview');
+                            if (btn) btn.style.background = (t === 'overview') ? '#4285f4' : '#6c757d';
+                        });
+                        
+                        // 使用合并的 overview API 加载概览数据（1个请求代替3个）
+                        // 同时并发加载 usage、cost、rates
+                        console.log('Initial load: Starting parallel data loading for account:', currentAccountEmail);
+                        Promise.allSettled([
+                            loadAccountOverviewData(true),  // 合并的 info + billing + apiKeys
+                            loadAccountUsage(true, true),
+                            loadAccountCost(true, true),
+                            loadAccountRates(true, true)
+                        ]).then(results => {
+                            console.log('Initial load: All data loading completed', results.map((r, i) => ({
+                                index: i,
+                                status: r.status
+                            })));
+                        });
+                        
+                        // 启动自动刷新
+                        startAccountAutoRefresh();
                     } else {
                         document.getElementById('accountDetailsSection').classList.add('hidden');
                     }
@@ -10347,14 +10489,17 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 const el = document.getElementById('accountUsageContent');
                 const cacheKey = 'summary';
                 const cached = accountCache.usage[cacheKey];
+                console.log('Switching to usage tab, cache:', cached ? { ts: cached.ts, complete: cached.complete, hasHtml: !!cached.html } : 'none');
                 if (el && cached && cached.html && isFresh(cached.ts)) {
                     // 先显示缓存内容（即使不完整）
+                    console.log('Using cached usage data');
                     el.innerHTML = cached.html;
                     // 如果数据不完整，在后台静默刷新
                     if (!cached.complete) {
                         loadAccountUsage(true, true); // force=true, silent=true
                     }
                 } else {
+                    console.log('No valid cache, loading usage data');
                     loadAccountUsage();
                 }
             } else if (tabName === 'cost') {
@@ -10362,21 +10507,27 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 const el = document.getElementById('accountCostContent');
                 const cacheKey = 'summary';
                 const cached = accountCache.cost[cacheKey];
+                console.log('Switching to cost tab, cache:', cached ? { ts: cached.ts, complete: cached.complete, hasHtml: !!cached.html } : 'none');
                 if (el && cached && cached.html && isFresh(cached.ts)) {
                     // 先显示缓存内容（即使不完整）
+                    console.log('Using cached cost data');
                     el.innerHTML = cached.html;
                     // 如果数据不完整，在后台静默刷新
                     if (!cached.complete) {
                         loadAccountCost(true, true); // force=true, silent=true
                     }
                 } else {
+                    console.log('No valid cache, loading cost data');
                     loadAccountCost();
                 }
             } else if (tabName === 'rates') {
                 const el = document.getElementById('accountRatesContent');
+                console.log('Switching to rates tab, cache:', accountCache.rates ? { ts: accountCache.rates.ts, hasHtml: !!accountCache.rates.html } : 'none');
                 if (el && accountCache.rates.html && isFresh(accountCache.rates.ts)) {
+                    console.log('Using cached rates data');
                     el.innerHTML = accountCache.rates.html;
                 } else {
+                    console.log('No valid cache, loading rates data');
                     loadAccountRates();
                 }
             }
@@ -10390,7 +10541,8 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
         }
 
         // 加载账户信息（快速响应，不包含 API keys）
-        async function loadAccountInfo(force = false) {
+        // skipApiKeys: 如果为 true，则不自动加载 API keys（用于 switchAccount 中避免重复请求）
+        async function loadAccountInfo(force = false, skipApiKeys = false) {
             if (!currentAccountEmail) {
                 const el = document.getElementById('accountInfoContent');
                 if (el) el.innerHTML = '<p style="color: var(--text-secondary);">请先选择账户</p>';
@@ -10400,8 +10552,10 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             if (!el) return;
             if (!force && accountCache.info.html && isFresh(accountCache.info.ts)) {
                 el.innerHTML = accountCache.info.html;
-                // 异步加载 API keys（不阻塞）
-                loadAccountApiKeys(force);
+                // 异步加载 API keys（不阻塞），除非 skipApiKeys=true
+                if (!skipApiKeys) {
+                    loadAccountApiKeys(force);
+                }
                 return;
             }
             el.innerHTML = '<div class="loading">加载中...</div>';
@@ -10433,12 +10587,14 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 accountCache.info = { ts: Date.now(), html };
                 el.innerHTML = html;
                 
-                // 异步加载 API keys（不阻塞基础信息显示）
-                const sek = document.getElementById('apiKeysSection');
-                if (sek && accountCache.apiKeys && accountCache.apiKeys.html && isFresh(accountCache.apiKeys.ts)) {
-                    sek.innerHTML = accountCache.apiKeys.html;
+                // 异步加载 API keys（不阻塞基础信息显示），除非 skipApiKeys=true
+                if (!skipApiKeys) {
+                    const sek = document.getElementById('apiKeysSection');
+                    if (sek && accountCache.apiKeys && accountCache.apiKeys.html && isFresh(accountCache.apiKeys.ts)) {
+                        sek.innerHTML = accountCache.apiKeys.html;
+                    }
+                    loadAccountApiKeys(false);
                 }
-                loadAccountApiKeys(false);
             } catch (e) {
                 el.innerHTML = `<div class="status error">加载失败: ${e.message}</div>`;
             }
@@ -10481,7 +10637,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     apiKeysHtml = `
                         <strong style="display: block; margin-bottom: 12px;">API Keys (${data.api_keys.length}):</strong>
                         <div style="display: flex; flex-direction: column; gap: 10px;">
-                            ${data.api_keys.map(key => `
+                            ${data.api_keys.map((key, idx) => `
                                 <div style="background: var(--card-bg); padding: 12px; border-radius: 6px; border: 1px solid var(--border-color);">
                                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                                         <span style="font-weight: 500; color: var(--text-color);">${key.name || 'Unnamed Key'}</span>
@@ -10489,8 +10645,11 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                                             ${key.is_disabled ? '已禁用' : '已启用'}
                                         </span>
                                     </div>
-                                    <div style="font-family: monospace; font-size: 13px; background: var(--bg-color); padding: 8px; border-radius: 4px; word-break: break-all; color: var(--text-color);">
-                                        ${key.api_key || '-'}
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <div style="flex: 1; font-family: monospace; font-size: 13px; background: var(--bg-color); padding: 8px; border-radius: 4px; word-break: break-all; color: var(--text-color);">
+                                            ${key.api_key || '-'}
+                                        </div>
+                                        <button class="btn btn-sm" onclick="copyApiKey('${key.api_key || ''}')" style="padding: 6px 12px; white-space: nowrap;">📋 复制</button>
                                     </div>
                                     <div style="display: flex; justify-content: space-between; margin-top: 8px; font-size: 12px; color: var(--text-secondary);">
                                         <span>项目: ${key.project_name || '-'}</span>
@@ -10511,6 +10670,8 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 // 缓存 API keys HTML
                 accountCache.apiKeys = { ts: Date.now(), html: apiKeysHtml };
                 el.innerHTML = apiKeysHtml;
+                
+
             } catch (e) {
                 const errorMsg = e.name === 'AbortError' ? '请求超时，请稍后重试' : e.message;
                 el.innerHTML = `<div class="status error">加载 API Keys 失败: ${errorMsg}<br><button class="btn btn-sm" onclick="loadAccountApiKeys(true)" style="margin-top: 8px;">重试</button></div>`;
@@ -10641,8 +10802,8 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             if (!el) return;
             const key = 'summary';
             
-            // 强制刷新时清除缓存
-            if (force && !silent) {
+            // 强制刷新时清除缓存（无论是否静默）
+            if (force) {
                 delete accountCache.usage[key];
             }
             
@@ -10664,10 +10825,11 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 params.append('force', '1');
                 params.append('_t', timestamp);
                 if (currentAccountEmail) params.append('account_email', currentAccountEmail);
+                console.log('Fetching usage data for:', currentAccountEmail, 'force:', force, 'silent:', silent);
                 const res = await fetch('/api/account/usage?' + params.toString(), { headers: getAuthHeaders() });
                 if (!res.ok) throw new Error('加载失败');
                 const data = await res.json();
-                console.log('Usage data (force=' + force + '):', data);
+                console.log('Usage data received (force=' + force + ', silent=' + silent + '):', data);
                 
                 let html = '<div style="display: grid; gap: 16px;">';
                 
@@ -10803,8 +10965,8 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             if (!el) return;
             const key = 'summary';
             
-            // 强制刷新时清除缓存（非静默模式）
-            if (force && !silent) {
+            // 强制刷新时清除缓存（无论是否静默）
+            if (force) {
                 delete accountCache.cost[key];
             }
             
@@ -10826,6 +10988,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 params.append('force', '1');
                 params.append('_t', timestamp);
                 if (currentAccountEmail) params.append('account_email', currentAccountEmail);
+                console.log('Fetching cost data for:', currentAccountEmail);
                 const res = await fetch('/api/account/cost?' + params.toString(), { headers: getAuthHeaders() });
                 if (!res.ok) throw new Error('加载失败');
                 const data = await res.json();
@@ -10990,7 +11153,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
         }
 
         // 加载费率数据
-        async function loadAccountRates(force = false) {
+        async function loadAccountRates(force = false, silent = false) {
             if (!currentAccountEmail) {
                 const el = document.getElementById('accountRatesContent');
                 if (el) el.innerHTML = '<p style="color: var(--text-secondary);">请先选择账户</p>';
@@ -10998,20 +11161,31 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             }
             const el = document.getElementById('accountRatesContent');
             if (!el) return;
+            
+            // 强制刷新时清除缓存
+            if (force) {
+                accountCache.rates = { ts: 0, html: '' };
+            }
+            
             if (!force && accountCache.rates.html && isFresh(accountCache.rates.ts)) {
                 el.innerHTML = accountCache.rates.html;
                 return;
             }
-            el.innerHTML = '<div class="loading">加载中...</div>';
+            // 静默模式不显示加载中
+            if (!silent) {
+                el.innerHTML = '<div class="loading">加载中...</div>';
+            }
             const region = document.getElementById('accountRatesRegion')?.value || 'US';
             try {
                 const params = new URLSearchParams();
                 params.append('region', region);
                 if (force) params.append('force', '1');
                 if (currentAccountEmail) params.append('account_email', currentAccountEmail);
+                console.log('Fetching rates data for:', currentAccountEmail, 'force:', force, 'silent:', silent);
                 const res = await fetch(`/api/account/rates?${params.toString()}`, { headers: getAuthHeaders() });
                 if (!res.ok) throw new Error('加载失败');
                 const data = await res.json();
+                console.log('Rates data received:', data);
                 let html = '<div style="display: grid; gap: 20px;">';
                 
                 // LLM Gateway - 合并输入/输出两列并优先展示
