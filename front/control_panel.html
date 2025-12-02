@@ -777,6 +777,8 @@
             box-shadow: 0 2px 10px var(--shadow-color);
             transition: background-color 0.3s ease;
             overflow-x: visible;
+            position: relative;
+            z-index: 10;
         }
 
         @media (max-width: 768px) {
@@ -791,6 +793,19 @@
                 padding: 16px 12px; 
                 border-radius: 6px;
             }
+        }
+
+        /* 登录模式下的容器样式 - 透明背景 */
+        .container.login-mode {
+            background-color: transparent !important;
+            box-shadow: none !important;
+            border: none !important;
+            padding-top: 10vh; /* 让登录框在垂直方向更美观 */
+        }
+
+        [data-theme="dark"] .container.login-mode {
+            background-color: transparent !important;
+            border: none !important;
         }
 
         h1 {
@@ -1040,35 +1055,18 @@
             background: var(--container-bg);
             border-radius: 24px;
             padding: 40px 36px;
-            padding-top: 44px;
+            padding-top: 40px;
             width: 100%;
             max-width: 400px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.08),
+                        0 8px 24px rgba(0, 0, 0, 0.06);
             position: relative;
-            overflow: hidden;
+            overflow: visible;
         }
 
         [data-theme="dark"] .login-card {
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
-        }
-
-        /* 卡片顶部装饰条 - 蓝白渐变，完全贴合 */
-        .login-card::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 5px;
-            background: linear-gradient(90deg, #4285f4, #34a9ff, #87ceeb, #4285f4);
-            background-size: 300% 100%;
-            animation: gradientSlide 3s ease infinite;
-            z-index: 100;
-        }
-
-        @keyframes gradientSlide {
-            0%, 100% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4),
+                        0 8px 24px rgba(0, 0, 0, 0.3);
         }
 
         /* Logo 区域 - 蓝白渐变 */
@@ -1428,49 +1426,45 @@
             position: relative;
             border-radius: 24px;
             transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 3px;
+            background: conic-gradient(
+                from var(--border-angle, 0deg),
+                #4285f4 0deg,
+                #34a853 90deg,
+                #fbbc05 180deg,
+                #ea4335 270deg,
+                #4285f4 360deg
+            );
+            animation: borderRotate 6s linear infinite;
         }
         
-        /* 光晕边框动画 - 在包装器外围显示 */
-        .login-card-wrapper::before {
-            content: '';
-            position: absolute;
-            top: -3px;
-            left: -3px;
-            right: -3px;
-            bottom: -3px;
-            background: linear-gradient(45deg, 
-                #4285f4, #34a853, #fbbc05, #ea4335, 
-                #4285f4, #34a853, #fbbc05, #ea4335);
-            background-size: 400% 400%;
-            border-radius: 27px;
-            z-index: -1;
-            opacity: 0;
-            animation: glowBorder 8s ease infinite;
-            transition: opacity 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+        @property --border-angle {
+            syntax: '<angle>';
+            initial-value: 0deg;
+            inherits: false;
         }
         
-        .login-card-wrapper:hover::before {
-            opacity: 1;
+        @keyframes borderRotate {
+            0% { --border-angle: 0deg; }
+            100% { --border-angle: 360deg; }
         }
         
         .login-card-wrapper:hover {
             transform: translateY(-8px);
         }
         
-        @keyframes glowBorder {
-            0%, 100% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-        }
-        
         /* 登录卡片悬浮效果增强 */
         .login-card-wrapper:hover .login-card {
             box-shadow: 0 30px 100px rgba(0, 0, 0, 0.12),
-                        0 0 60px rgba(66, 133, 244, 0.15);
+                        0 0 40px rgba(66, 133, 244, 0.1);
         }
         
         [data-theme="dark"] .login-card-wrapper:hover .login-card {
             box-shadow: 0 30px 100px rgba(0, 0, 0, 0.5),
-                        0 0 60px rgba(66, 133, 244, 0.25);
+                        0 0 40px rgba(66, 133, 244, 0.2);
         }
         
         /* 浮动光点动画（全局显示） */
@@ -5883,62 +5877,24 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     setTimeout(() => {
                         const loginEl = document.getElementById('loginSection');
                         const mainEl = document.getElementById('mainSection');
+                        const container = document.querySelector('.container');
+                        const rippleCanvas = document.getElementById('rippleCanvas');
+                        const gradientOverlay = document.getElementById('gradientOverlay');
                         
-                        loginEl.style.opacity = '0';
-                        loginEl.style.transform = 'scale(0.95)';
-                        loginEl.style.transition = 'all 0.4s ease';
+                        // 立即隐藏涟漪和渐变背景
+                        if (rippleCanvas) rippleCanvas.style.display = 'none';
+                        if (gradientOverlay) gradientOverlay.style.display = 'none';
                         
-                        setTimeout(() => {
-                            // 隐藏登录区域并清除样式
-                            loginEl.classList.add('hidden');
-                            loginEl.style.opacity = '';
-                            loginEl.style.transform = '';
-                            loginEl.style.transition = '';
-                            
-                            // 缓慢隐藏登录专属特效（涟漪、渐变背景），保留通用特效
-                            const rippleCanvas = document.getElementById('rippleCanvas');
-                            const gradientOverlay = document.getElementById('gradientOverlay');
-                            
-                            // 涟漪和渐变背景缓慢淡出
-                            if (rippleCanvas) {
-                                rippleCanvas.style.transition = 'opacity 1.5s ease';
-                                rippleCanvas.style.opacity = '0';
-                                setTimeout(() => {
-                                    rippleCanvas.style.display = 'none';
-                                    rippleCanvas.style.transition = '';
-                                    rippleCanvas.style.opacity = '';
-                                }, 1500);
-                            }
-                            if (gradientOverlay) {
-                                gradientOverlay.style.transition = 'opacity 2s ease';
-                                gradientOverlay.style.opacity = '0';
-                                setTimeout(() => {
-                                    gradientOverlay.style.display = 'none';
-                                    gradientOverlay.style.transition = '';
-                                }, 2000);
-                            }
-                            
-                            // 粒子、彩带、光晕保留在主页面，不隐藏
-                            
-                            // 显示主界面
-                            mainEl.classList.remove('hidden');
-                            mainEl.style.opacity = '0';
-                            mainEl.style.transform = 'translateY(10px)';
-                            mainEl.style.transition = 'all 0.4s ease';
-                            
-                            requestAnimationFrame(() => {
-                                mainEl.style.opacity = '1';
-                                mainEl.style.transform = 'translateY(0)';
-                                
-                                // 动画完成后清除样式
-                                setTimeout(() => {
-                                    mainEl.style.opacity = '';
-                                    mainEl.style.transform = '';
-                                    mainEl.style.transition = '';
-                                }, 400);
-                            });
-                        }, 400);
-                    }, 600);
+                        // 先移除登录模式样式，恢复容器正常布局
+                        container.classList.remove('login-mode');
+                        
+                        // 隐藏登录框，显示主界面
+                        loginEl.classList.add('hidden');
+                        loginEl.style.opacity = '';
+                        
+                        // 显示主界面
+                        mainEl.classList.remove('hidden');
+                    }, 400);
                     
                     showStatus('登录成功', 'success');
                     switchTab('config');
@@ -8855,15 +8811,28 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             
             update() {
                 this.ripples.forEach(r => {
-                    r.radius += r.speed;
-                    r.wavePhase += 0.008;  // 非常缓慢的波动
+                    // 计算扩散进度 (0 到 1)
+                    const progress = r.radius / r.maxRadius;
                     
-                    // 熔岩蔓延后逐渐变淡但保持很久
-                    if (r.radius > r.maxRadius * 0.5) {
-                        r.opacity = Math.max(0.02, r.opacity - 0.0005);
+                    // 使用缓出函数：开始快，越往外越慢
+                    // easeOutQuart: 1 - (1 - x)^4
+                    const easeOutFactor = 1 - Math.pow(1 - progress, 4);
+                    // 速度从初始速度的2倍开始，逐渐减慢到0.1倍
+                    const dynamicSpeed = r.speed * 2 * (1 - easeOutFactor * 0.95);
+                    r.radius += Math.max(dynamicSpeed, r.speed * 0.1);
+                    
+                    r.wavePhase += 0.008;
+                    
+                    // 扩散越远，透明度越低（线性衰减）
+                    const distanceFade = 1 - progress * 0.8;
+                    r.currentOpacity = r.opacity * distanceFade;
+                    
+                    // 超过一半后额外衰减
+                    if (progress > 0.5) {
+                        r.currentOpacity *= Math.max(0.1, 1 - (progress - 0.5) * 1.5);
                     }
                 });
-                this.ripples = this.ripples.filter(r => r.opacity > 0.015);
+                this.ripples = this.ripples.filter(r => r.radius < r.maxRadius && r.currentOpacity > 0.01);
             }
             
             draw() {
@@ -8932,22 +8901,23 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     }
                     this.ctx.closePath();
                     
-                    // 熔岩填充 - 从中心到边缘的渐变
+                    // 熔岩填充 - 从中心到边缘的渐变，越远越淡
                     const gradient = this.ctx.createRadialGradient(0, 0, 0, 0, 0, r.radius + 20);
-                    const baseOpacity = r.opacity;
+                    const baseOpacity = r.currentOpacity || r.opacity;
                     
-                    // 中心较淡，边缘较浓（像熔岩边缘凝固）
-                    gradient.addColorStop(0, r.color.replace(/[\d.]+\)$/, (baseOpacity * 0.3) + ')'));
-                    gradient.addColorStop(0.6, r.color.replace(/[\d.]+\)$/, (baseOpacity * 0.5) + ')'));
-                    gradient.addColorStop(0.85, r.color.replace(/[\d.]+\)$/, (baseOpacity * 0.8) + ')'));
-                    gradient.addColorStop(1, r.color.replace(/[\d.]+\)$/, (baseOpacity * 0.4) + ')'));
+                    // 中心较浓，边缘较淡（扩散衰减效果）
+                    gradient.addColorStop(0, r.color.replace(/[\d.]+\)$/, (baseOpacity * 0.6) + ')'));
+                    gradient.addColorStop(0.3, r.color.replace(/[\d.]+\)$/, (baseOpacity * 0.5) + ')'));
+                    gradient.addColorStop(0.6, r.color.replace(/[\d.]+\)$/, (baseOpacity * 0.3) + ')'));
+                    gradient.addColorStop(0.85, r.color.replace(/[\d.]+\)$/, (baseOpacity * 0.15) + ')'));
+                    gradient.addColorStop(1, r.color.replace(/[\d.]+\)$/, (baseOpacity * 0.05) + ')'));
                     
                     this.ctx.fillStyle = gradient;
                     this.ctx.fill();
                     
-                    // 边缘线条 - 熔岩边缘的高亮
-                    this.ctx.strokeStyle = r.color.replace(/[\d.]+\)$/, (baseOpacity * 0.6) + ')');
-                    this.ctx.lineWidth = 2;
+                    // 边缘线条 - 更淡的边缘
+                    this.ctx.strokeStyle = r.color.replace(/[\d.]+\)$/, (baseOpacity * 0.3) + ')');
+                    this.ctx.lineWidth = 1.5;
                     this.ctx.stroke();
                     
                     this.ctx.restore();
@@ -9098,6 +9068,12 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             
             // 初始化登录页面动态特效
             initLoginEffects();
+
+            // 如果显示登录页面，添加登录模式样式
+            const loginSection = document.getElementById('loginSection');
+            if (loginSection && !loginSection.classList.contains('hidden')) {
+                document.querySelector('.container').classList.add('login-mode');
+            }
 
             // 添加勾选框事件监听器
             const checkbox = document.getElementById('getAllProjectsCreds');
