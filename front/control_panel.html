@@ -924,6 +924,85 @@
             color: #666;
         }
 
+        /* 漂亮的加载动画 */
+        .loading-spinner {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+            gap: 16px;
+        }
+
+        .loading-spinner .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border-color);
+            border-top-color: #4285f4;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .loading-spinner .spinner-text {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* 骨架屏加载动画 */
+        .skeleton-loader {
+            padding: 20px;
+        }
+
+        .skeleton-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+
+        .skeleton-line {
+            height: 16px;
+            background: linear-gradient(90deg, var(--border-color) 25%, var(--card-bg) 50%, var(--border-color) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            border-radius: 4px;
+            margin-bottom: 12px;
+        }
+
+        .skeleton-line.short { width: 40%; }
+        .skeleton-line.medium { width: 70%; }
+        .skeleton-line.long { width: 100%; }
+
+        .skeleton-circle {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(90deg, var(--border-color) 25%, var(--card-bg) 50%, var(--border-color) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            margin: 0 auto 16px;
+        }
+
+        .skeleton-big-number {
+            height: 40px;
+            width: 150px;
+            margin: 0 auto 8px;
+            background: linear-gradient(90deg, var(--border-color) 25%, var(--card-bg) 50%, var(--border-color) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            border-radius: 4px;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
         .login-form {
             text-align: center;
             padding: 50px 0;
@@ -3120,7 +3199,7 @@
 
         .modal-content {
             background-color: var(--container-bg);
-            position: relative;
+            position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
@@ -3570,16 +3649,16 @@
                 font-size: 11px;
             }
             .key-col-status { 
-                width: 50px; 
+                width: 55px; 
                 font-size: 10px; 
                 text-align: center;
             }
             .key-col-status .status-badge {
                 padding: 2px 6px !important;
                 font-size: 10px !important;
-                white-space: nowrap;
+                white-space: nowrap !important;
             }
-            .key-col-action { width: 50px; }
+            .key-col-action { width: 80px; }
             
             .key-table {
                 min-width: auto;
@@ -3671,16 +3750,17 @@
             }
             
             .key-col-status {
-                width: 45px !important;
+                width: 50px !important;
             }
             
             .key-col-status .status-badge {
                 padding: 1px 4px !important;
                 font-size: 9px !important;
+                white-space: nowrap !important;
             }
             
             .key-col-action {
-                width: 45px !important;
+                width: 70px !important;
             }
             
             /* 操作按钮缩小 */
@@ -4232,114 +4312,6 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 </div>
             </div>
 
-            <!-- 多密钥管理弹窗 -->
-            <div class="modal" id="keyManagementModal">
-                <div class="modal-content key-modal-content">
-                    <div class="modal-header key-modal-header">
-                        <div class="key-modal-title-wrap">
-                            <h4 class="modal-title key-modal-title">
-                                多密钥管理
-                                <span class="key-modal-tag">⛩️ OpenAI</span>
-                            </h4>
-                            <span class="key-stat-badge">总密钥数: <span id="modalKeyTotal">0</span></span>
-                            <span class="key-stat-badge"><span id="modalAggregationMode">轮询模式</span></span>
-                        </div>
-                        <button class="modal-close" onclick="closeKeyManagementModal()">&times;</button>
-                    </div>
-                    
-                    <!-- 统计卡片 -->
-                    <div class="key-stats-grid">
-                        <div class="key-stat-card">
-                            <div class="key-stat-header">
-                                <span class="key-stat-dot" style="background: #28a745;"></span>
-                                <span class="key-stat-label">已启用</span>
-                            </div>
-                            <div class="key-stat-value" style="color: #28a745;"><span id="modalKeyEnabled">0</span> / <span id="modalKeyTotal2">0</span></div>
-                            <div class="progress-bar">
-                                <div id="enabledProgressBar" class="progress-fill" style="background: #28a745;"></div>
-                            </div>
-                        </div>
-                        <div class="key-stat-card">
-                            <div class="key-stat-header">
-                                <span class="key-stat-dot" style="background: #dc3545;"></span>
-                                <span class="key-stat-label">手动禁用</span>
-                            </div>
-                            <div class="key-stat-value" style="color: #dc3545;"><span id="modalKeyManualDisabled">0</span> / <span id="modalKeyTotal3">0</span></div>
-                            <div class="progress-bar">
-                                <div id="manualDisabledProgressBar" class="progress-fill" style="background: #dc3545;"></div>
-                            </div>
-                        </div>
-                        <div class="key-stat-card">
-                            <div class="key-stat-header">
-                                <span class="key-stat-dot" style="background: #ffc107;"></span>
-                                <span class="key-stat-label">自动禁用</span>
-                            </div>
-                            <div class="key-stat-value" style="color: #ffc107;"><span id="modalKeyAutoDisabled">0</span> / <span id="modalKeyTotal4">0</span></div>
-                            <div class="progress-bar">
-                                <div id="autoDisabledProgressBar" class="progress-fill" style="background: #ffc107;"></div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- 工具栏 -->
-                    <div class="key-toolbar">
-                        <div class="key-toolbar-filter">
-                            <select id="modalKeyStatusFilter" class="filter-select" onchange="loadKeyManagementModal()">
-                                <option value="all">全部状态</option>
-                                <option value="enabled">已启用</option>
-                                <option value="disabled">已禁用</option>
-                                <option value="invalid">失效密钥</option>
-                            </select>
-                        </div>
-                        <div class="key-toolbar-actions">
-                            <button class="btn btn-sm" onclick="loadKeyManagementModal()">刷新</button>
-                            <button class="btn btn-sm btn-outline-primary" onclick="enableAllKeys()">启用全部</button>
-                            <button class="btn btn-sm btn-outline-danger" onclick="disableAllKeys()">禁用全部</button>
-                            <button class="btn btn-sm btn-outline-warning" onclick="deleteAutoDisabledKeys()">删除自动禁用密钥</button>
-                            <button class="btn btn-sm btn-outline-info" onclick="cleanupKeyStats()">🧹 清理过期统计</button>
-                        </div>
-                    </div>
-                    
-                    <!-- 密钥表格 -->
-                    <div class="key-table-container">
-                        <table class="table key-table">
-                            <thead>
-                                <tr>
-                                    <th class="key-col-index">索引</th>
-                                    <th class="key-col-key">密钥</th>
-                                    <th class="key-col-status">状态</th>
-                                    <th class="key-col-reason">禁用原因</th>
-                                    <th class="key-col-time">禁用时间</th>
-                                    <th class="key-col-action">操作</th>
-                                </tr>
-                            </thead>
-                            <tbody id="keyManagementTableBody">
-                                <tr><td colspan="6" style="text-align: center; padding: 40px;">加载中...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    
-                    <!-- 分页 -->
-                    <div class="key-pagination">
-                        <span class="key-pagination-info">显示第 <span id="keyPageStart">1</span> 条-第 <span id="keyPageEnd">10</span> 条，共 <span id="keyPageTotal">0</span> 条</span>
-                        <div class="key-pagination-controls">
-                            <button class="pagination-btn" id="keyPrevPage" onclick="changeKeyPage(-1)">&lt;</button>
-                            <span id="keyCurrentPage" class="key-pagination-current">1</span>
-                            <button class="pagination-btn" id="keyNextPage" onclick="changeKeyPage(1)">&gt;</button>
-                            <span class="key-pagination-label">每页条数:</span>
-                            <select id="keyPageSize" class="filter-select" onchange="loadKeyManagementModal()">
-                                <option value="5" selected>5</option>
-                                <option value="10">10</option>
-                                <option value="20">20</option>
-                                <option value="50">50</option>
-                            </select>
-                            <span class="key-pagination-label">跳至</span>
-                            <input type="number" id="keyJumpPage" class="key-pagination-input" min="1" onchange="jumpToKeyPage()">
-                        </div>
-                    </div>
-                </div>
-            </div>
-
             <!-- 速率限制标签页 -->
             <div id="ratelimitTab" class="tab-content">
                 <h3>API Key 速率限制监控</h3>
@@ -4852,7 +4824,10 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                         </div>
                         
                         <div id="accountListContainer">
-                            <div class="loading">加载账户列表...</div>
+                            <div class="loading-spinner">
+                                <div class="spinner"></div>
+                                <div class="spinner-text">正在加载账户列表...</div>
+                            </div>
                         </div>
                         <div id="accountSelectorContainer" class="hidden" style="margin-top: 16px;">
                             <label for="accountSelector" style="display: block; margin-bottom: 8px; font-weight: 600;">当前查看账户：</label>
@@ -4879,14 +4854,20 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                             <div class="config-group">
                                 <h4>账户信息</h4>
                                 <div id="accountInfoContent">
-                                    <div class="loading">加载中...</div>
+                                    <div class="loading-spinner">
+                                        <div class="spinner"></div>
+                                        <div class="spinner-text">正在加载账户信息...</div>
+                                    </div>
                                 </div>
                             </div>
                             <!-- 余额卡片 -->
                             <div class="config-group">
                                 <h4>余额</h4>
                                 <div id="accountBalanceContent">
-                                    <div class="loading">加载中...</div>
+                                    <div class="loading-spinner">
+                                        <div class="spinner"></div>
+                                        <div class="spinner-text">正在加载余额信息...</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -4900,7 +4881,10 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                                 <button class="btn btn-sm" onclick="loadAccountUsage(true)">刷新</button>
                             </div>
                             <div id="accountUsageContent">
-                                <div class="loading">加载中...</div>
+                                <div class="loading-spinner">
+                                    <div class="spinner"></div>
+                                    <div class="spinner-text">正在加载使用量数据...</div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -4915,7 +4899,10 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                                 <button class="btn btn-sm" onclick="exportAccountCost('csv')" style="background: #17a2b8;">导出 CSV</button>
                             </div>
                             <div id="accountCostContent">
-                                <div class="loading">加载中...</div>
+                                <div class="loading-spinner">
+                                    <div class="spinner"></div>
+                                    <div class="spinner-text">正在加载成本数据...</div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -4932,12 +4919,123 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                                 <button class="btn btn-sm" onclick="loadAccountRates(true)">刷新</button>
                             </div>
                             <div id="accountRatesContent">
-                                <div class="loading">加载中...</div>
+                                <div class="loading-spinner">
+                                    <div class="spinner"></div>
+                                    <div class="spinner-text">正在加载费率信息...</div>
+                                </div>
                             </div>
                         </div>
                     </div>
                     </div>
 
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 多密钥管理弹窗 -->
+    <div class="modal" id="keyManagementModal">
+        <div class="modal-content key-modal-content">
+            <div class="modal-header key-modal-header">
+                <div class="key-modal-title-wrap">
+                    <h4 class="modal-title key-modal-title">
+                        多密钥管理
+                        <span class="key-modal-tag">⛩️ OpenAI</span>
+                    </h4>
+                    <span class="key-stat-badge">总密钥数: <span id="modalKeyTotal">0</span></span>
+                    <span class="key-stat-badge"><span id="modalAggregationMode">轮询模式</span></span>
+                </div>
+                <button class="modal-close" onclick="closeKeyManagementModal()">&times;</button>
+            </div>
+            
+            <!-- 统计卡片 -->
+            <div class="key-stats-grid">
+                <div class="key-stat-card">
+                    <div class="key-stat-header">
+                        <span class="key-stat-dot" style="background: #28a745;"></span>
+                        <span class="key-stat-label">已启用</span>
+                    </div>
+                    <div class="key-stat-value" style="color: #28a745;"><span id="modalKeyEnabled">0</span> / <span id="modalKeyTotal2">0</span></div>
+                    <div class="progress-bar">
+                        <div id="enabledProgressBar" class="progress-fill" style="background: #28a745;"></div>
+                    </div>
+                </div>
+                <div class="key-stat-card">
+                    <div class="key-stat-header">
+                        <span class="key-stat-dot" style="background: #dc3545;"></span>
+                        <span class="key-stat-label">手动禁用</span>
+                    </div>
+                    <div class="key-stat-value" style="color: #dc3545;"><span id="modalKeyManualDisabled">0</span> / <span id="modalKeyTotal3">0</span></div>
+                    <div class="progress-bar">
+                        <div id="manualDisabledProgressBar" class="progress-fill" style="background: #dc3545;"></div>
+                    </div>
+                </div>
+                <div class="key-stat-card">
+                    <div class="key-stat-header">
+                        <span class="key-stat-dot" style="background: #ffc107;"></span>
+                        <span class="key-stat-label">自动禁用</span>
+                    </div>
+                    <div class="key-stat-value" style="color: #ffc107;"><span id="modalKeyAutoDisabled">0</span> / <span id="modalKeyTotal4">0</span></div>
+                    <div class="progress-bar">
+                        <div id="autoDisabledProgressBar" class="progress-fill" style="background: #ffc107;"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 工具栏 -->
+            <div class="key-toolbar">
+                <div class="key-toolbar-filter">
+                    <select id="modalKeyStatusFilter" class="filter-select" onchange="loadKeyManagementModal()">
+                        <option value="all">全部状态</option>
+                        <option value="enabled">已启用</option>
+                        <option value="disabled">已禁用</option>
+                        <option value="invalid">失效密钥</option>
+                    </select>
+                </div>
+                <div class="key-toolbar-actions">
+                    <button class="btn btn-sm" onclick="loadKeyManagementModal()">刷新</button>
+                    <button class="btn btn-sm btn-outline-primary" onclick="enableAllKeys()">启用全部</button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="disableAllKeys()">禁用全部</button>
+                    <button class="btn btn-sm btn-outline-warning" onclick="deleteAutoDisabledKeys()">删除自动禁用密钥</button>
+                    <button class="btn btn-sm btn-outline-info" onclick="cleanupKeyStats()">🧹 清理过期统计</button>
+                </div>
+            </div>
+            
+            <!-- 密钥表格 -->
+            <div class="key-table-container">
+                <table class="table key-table">
+                    <thead>
+                        <tr>
+                            <th class="key-col-index">索引</th>
+                            <th class="key-col-key">密钥</th>
+                            <th class="key-col-status">状态</th>
+                            <th class="key-col-reason">禁用原因</th>
+                            <th class="key-col-time">禁用时间</th>
+                            <th class="key-col-action">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="keyManagementTableBody">
+                        <tr><td colspan="6" style="text-align: center; padding: 40px;">加载中...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- 分页 -->
+            <div class="key-pagination">
+                <span class="key-pagination-info">显示第 <span id="keyPageStart">1</span> 条-第 <span id="keyPageEnd">10</span> 条，共 <span id="keyPageTotal">0</span> 条</span>
+                <div class="key-pagination-controls">
+                    <button class="pagination-btn" id="keyPrevPage" onclick="changeKeyPage(-1)">&lt;</button>
+                    <span id="keyCurrentPage" class="key-pagination-current">1</span>
+                    <button class="pagination-btn" id="keyNextPage" onclick="changeKeyPage(1)">&gt;</button>
+                    <span class="key-pagination-label">每页条数:</span>
+                    <select id="keyPageSize" class="filter-select" onchange="loadKeyManagementModal()">
+                        <option value="5" selected>5</option>
+                        <option value="10">10</option>
+                        <option value="20">20</option>
+                        <option value="50">50</option>
+                    </select>
+                    <span class="key-pagination-label">跳至</span>
+                    <input type="number" id="keyJumpPage" class="key-pagination-input" min="1" onchange="jumpToKeyPage()">
                 </div>
             </div>
         </div>
@@ -5561,7 +5659,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 html += `<tr>
                     <td style="color: var(--text-secondary);">#${key.index}</td>
                     <td><code style="font-size: 11px; color: var(--text-color); word-break: break-all;">${fullKey}</code></td>
-                    <td><span class="status-badge ${statusClass}" style="background: ${statusColor}; color: white; padding: 2px 10px; border-radius: 4px; font-size: 12px;">${statusText}</span></td>
+                    <td><span class="status-badge ${statusClass}" style="background: ${statusColor}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px; white-space: nowrap; display: inline-block;">${statusText}</span></td>
                     <td style="color: var(--text-muted); font-size: 12px;">${disableReason}</td>
                     <td style="color: var(--text-muted); font-size: 12px;">${disableTime}</td>
                     <td style="text-align: right;">
@@ -10078,19 +10176,18 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             
             // 立即清空页面显示内容，显示加载状态（避免显示旧账号数据）
             // 在 API 调用之前就清空，确保用户不会看到旧数据
-            const loadingHtml = '<div class="loading">加载中...</div>';
             const infoEl = document.getElementById('accountInfoContent');
             const balanceEl = document.getElementById('accountBalanceContent');
             const usageEl = document.getElementById('accountUsageContent');
             const costEl = document.getElementById('accountCostContent');
             const ratesEl = document.getElementById('accountRatesContent');
             const apiKeysEl = document.getElementById('apiKeysSection');
-            if (infoEl) infoEl.innerHTML = loadingHtml;
-            if (balanceEl) balanceEl.innerHTML = loadingHtml;
-            if (usageEl) usageEl.innerHTML = loadingHtml;
-            if (costEl) costEl.innerHTML = loadingHtml;
-            if (ratesEl) ratesEl.innerHTML = loadingHtml;
-            if (apiKeysEl) apiKeysEl.innerHTML = loadingHtml;
+            if (infoEl) infoEl.innerHTML = getOverviewLoadingHTML();
+            if (balanceEl) balanceEl.innerHTML = getBillingLoadingHTML();
+            if (usageEl) usageEl.innerHTML = getUsageLoadingHTML();
+            if (costEl) costEl.innerHTML = getCostLoadingHTML();
+            if (ratesEl) ratesEl.innerHTML = getRatesLoadingHTML();
+            if (apiKeysEl) apiKeysEl.innerHTML = '<div class="loading-spinner"><div class="spinner"></div><div class="spinner-text">正在加载 API Keys...</div></div>';
             
             // 清空缓存，防止从缓存读取旧数据
             accountCache.info = { ts: 0, html: '' };
@@ -10558,7 +10655,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 }
                 return;
             }
-            el.innerHTML = '<div class="loading">加载中...</div>';
+            el.innerHTML = getOverviewLoadingHTML();
             try {
                 const params = currentAccountEmail ? `?account_email=${encodeURIComponent(currentAccountEmail)}` : '';
                 const res = await fetch('/api/account/info' + params, { headers: getAuthHeaders() });
@@ -10580,7 +10677,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                         <div><strong>创建时间:</strong> ${data.created ? new Date(data.created).toLocaleDateString() : '-'}</div>
                         <div><strong>支付方式:</strong> ${data.cc_brand ? data.cc_brand.toUpperCase() + ' ****' + data.cc_last4 : '未设置'}</div>
                         <div id="apiKeysSection" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-color);">
-                            <div class="loading">正在加载 API Keys...</div>
+                            <div class="loading-spinner" style="padding: 16px 0;"><div class="spinner"></div><div class="spinner-text">正在加载 API Keys...</div></div>
                         </div>
                     </div>
                 `;
@@ -10691,7 +10788,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 el.innerHTML = accountCache.billing.html;
                 return;
             }
-            el.innerHTML = '<div class="loading">加载中...</div>';
+            el.innerHTML = getBillingLoadingHTML();
             try {
                 const params = new URLSearchParams();
                 if (force) params.append('force', '1');
@@ -10792,6 +10889,117 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             return `window_size=${window_size}`;
         }
 
+        // 生成使用量页面的加载动画HTML
+        function getUsageLoadingHTML() {
+            return `
+                <div class="skeleton-loader">
+                    <div class="skeleton-card" style="text-align: center;">
+                        <div class="skeleton-line short" style="margin: 0 auto 12px;"></div>
+                        <div class="skeleton-big-number"></div>
+                        <div class="skeleton-line short" style="margin: 8px auto 0;"></div>
+                    </div>
+                    <div class="skeleton-card">
+                        <div class="skeleton-line medium"></div>
+                        <div style="height: 6px; background: var(--border-color); border-radius: 4px; margin-bottom: 16px;"></div>
+                    </div>
+                    <div class="skeleton-card">
+                        <div class="skeleton-line medium" style="margin-bottom: 16px;"></div>
+                        <div class="skeleton-line long"></div>
+                        <div class="skeleton-line long"></div>
+                        <div class="skeleton-line medium"></div>
+                    </div>
+                    <div class="loading-spinner" style="padding: 20px 0;">
+                        <div class="spinner"></div>
+                        <div class="spinner-text">正在加载使用量数据...</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 生成成本页面的加载动画HTML
+        function getCostLoadingHTML() {
+            return `
+                <div class="skeleton-loader">
+                    <div class="skeleton-card" style="text-align: center;">
+                        <div class="skeleton-line short" style="margin: 0 auto 8px;"></div>
+                        <div class="skeleton-line short" style="margin: 0 auto 12px;"></div>
+                        <div class="skeleton-big-number"></div>
+                    </div>
+                    <div class="skeleton-card">
+                        <div class="skeleton-line medium" style="margin-bottom: 16px;"></div>
+                        <div style="height: 8px; background: var(--border-color); border-radius: 4px; margin-bottom: 16px;"></div>
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+                            <div class="skeleton-card" style="margin: 0;"><div class="skeleton-line short"></div><div class="skeleton-line medium"></div></div>
+                            <div class="skeleton-card" style="margin: 0;"><div class="skeleton-line short"></div><div class="skeleton-line medium"></div></div>
+                        </div>
+                    </div>
+                    <div class="loading-spinner" style="padding: 20px 0;">
+                        <div class="spinner"></div>
+                        <div class="spinner-text">正在加载成本数据...</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 生成费率页面的加载动画HTML
+        function getRatesLoadingHTML() {
+            return `
+                <div class="skeleton-loader">
+                    <div class="skeleton-card">
+                        <div class="skeleton-line medium" style="margin-bottom: 16px;"></div>
+                        <div class="skeleton-line long"></div>
+                        <div class="skeleton-line long"></div>
+                        <div class="skeleton-line long"></div>
+                        <div class="skeleton-line medium"></div>
+                    </div>
+                    <div class="loading-spinner" style="padding: 20px 0;">
+                        <div class="spinner"></div>
+                        <div class="spinner-text">正在加载费率信息...</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 生成概览页面的加载动画HTML
+        function getOverviewLoadingHTML() {
+            return `
+                <div class="skeleton-loader">
+                    <div class="skeleton-card">
+                        <div class="skeleton-line medium" style="margin-bottom: 12px;"></div>
+                        <div class="skeleton-line long"></div>
+                        <div class="skeleton-line long"></div>
+                        <div class="skeleton-line medium"></div>
+                    </div>
+                    <div class="loading-spinner" style="padding: 20px 0;">
+                        <div class="spinner"></div>
+                        <div class="spinner-text">正在加载账户信息...</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 生成余额页面的加载动画HTML
+        function getBillingLoadingHTML() {
+            return `
+                <div class="skeleton-loader">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+                        <div class="skeleton-card" style="text-align: center;">
+                            <div class="skeleton-line short" style="margin: 0 auto 12px;"></div>
+                            <div class="skeleton-big-number"></div>
+                        </div>
+                        <div class="skeleton-card" style="text-align: center;">
+                            <div class="skeleton-line short" style="margin: 0 auto 12px;"></div>
+                            <div class="skeleton-big-number"></div>
+                        </div>
+                    </div>
+                    <div class="loading-spinner" style="padding: 20px 0;">
+                        <div class="spinner"></div>
+                        <div class="spinner-text">正在加载余额信息...</div>
+                    </div>
+                </div>
+            `;
+        }
+
         async function loadAccountUsage(force = false, silent = false) {
             if (!currentAccountEmail) {
                 const el = document.getElementById('accountUsageContent');
@@ -10816,7 +11024,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             }
             // 静默模式不显示加载中
             if (!silent) {
-                el.innerHTML = '<div class="loading">加载中...</div>';
+                el.innerHTML = getUsageLoadingHTML();
             }
             try {
                 // 强制刷新时添加force参数和时间戳防止缓存
@@ -10831,19 +11039,31 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 const data = await res.json();
                 console.log('Usage data received (force=' + force + ', silent=' + silent + '):', data);
                 
+                // 归类并复刻使用量分布与列表 - 确保数据始终显示
+                const hasModelData = data.by_model && Array.isArray(data.by_model) && data.by_model.length > 0;
+                const hasItemsData = data.items && Array.isArray(data.items) && data.items.length > 0;
+                const totalTokens = data.total_tokens || 0;
+                
+                // 如果没有详细数据，显示加载中状态（带动画）
+                if (!hasModelData && !hasItemsData) {
+                    el.innerHTML = getUsageLoadingHTML();
+                    // 5秒后自动重试
+                    setTimeout(() => {
+                        if (currentAccountSubTab === 'usage') {
+                            loadAccountUsage(true, true);
+                        }
+                    }, 5000);
+                    return;
+                }
+                
                 let html = '<div style="display: grid; gap: 16px;">';
                 
-                // 总 tokens 显示
-                const totalTokens = data.total_tokens || 0;
+                // 总 tokens 显示（只有在有详细数据时才显示）
                 html += '<div style="text-align: center; padding: 20px; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color);">';
                 html += '<div style="font-size: 14px; color: var(--text-secondary); margin-bottom: 8px;">LLM Gateway + LeMUR</div>';
                 html += '<div style="font-size: 36px; font-weight: bold; color: var(--text-color);">' + totalTokens.toLocaleString() + '</div>';
                 html += '<div style="font-size: 14px; color: var(--text-secondary);">Total tokens</div>';
                 html += '</div>';
-                
-                // 归类并复刻使用量分布与列表 - 确保数据始终显示
-                const hasModelData = data.by_model && Array.isArray(data.by_model) && data.by_model.length > 0;
-                const hasItemsData = data.items && Array.isArray(data.items) && data.items.length > 0;
                 
                 if (hasModelData) {
                     const models = [...data.by_model];
@@ -10908,9 +11128,6 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     });
                     html += '</tbody></table>';
                     html += '</div>';
-                } else if (totalTokens > 0) {
-                    // 有总量但没有详细数据
-                    html += '<div class="status warning">详细使用量数据正在加载中，请稍候或点击刷新按钮重试...</div>';
                 } else {
                     html += '<div class="status info">暂无使用量数据，请稍后刷新重试</div>';
                 }
@@ -10928,24 +11145,9 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 
                 html += '</div>';
                 
-                // 只有在数据完整时才缓存（必须有by_model数据，不能只有总量）
-                const isComplete = hasModelData || hasItemsData;
-                if (isComplete) {
-                    accountCache.usage[key] = { ts: Date.now(), html, complete: true };
-                    console.log('Usage data cached successfully (complete)');
-                } else if (totalTokens > 0) {
-                    // 有总量但没有详细数据，缓存但标记为不完整，30秒后自动重试
-                    accountCache.usage[key] = { ts: Date.now(), html, complete: false };
-                    console.warn('Usage data incomplete (only total), will retry');
-                    // 30秒后自动静默重试获取完整数据
-                    setTimeout(() => {
-                        if (currentAccountSubTab === 'usage') {
-                            loadAccountUsage(true, true); // 静默刷新
-                        }
-                    }, 30000);
-                } else {
-                    console.warn('Usage data empty, not caching');
-                }
+                // 缓存完整数据
+                accountCache.usage[key] = { ts: Date.now(), html, complete: true };
+                console.log('Usage data cached successfully');
                 
                 el.innerHTML = html;
             } catch (e) {
@@ -10979,7 +11181,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             }
             // 静默模式不显示加载中
             if (!silent) {
-                el.innerHTML = '<div class="loading">加载中...</div>';
+                el.innerHTML = getCostLoadingHTML();
             }
             try {
                 // 强制刷新时添加force参数和时间戳防止缓存
@@ -11173,7 +11375,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             }
             // 静默模式不显示加载中
             if (!silent) {
-                el.innerHTML = '<div class="loading">加载中...</div>';
+                el.innerHTML = getRatesLoadingHTML();
             }
             const region = document.getElementById('accountRatesRegion')?.value || 'US';
             try {

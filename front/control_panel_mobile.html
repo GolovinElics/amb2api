@@ -6,6 +6,36 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>GCLI2API 移动端控制面板</title>
     <style>
+        /* CSS 变量 - 亮色模式 */
+        :root {
+            --bg-color: #f5f5f5;
+            --container-bg: white;
+            --text-color: #333;
+            --text-secondary: #666;
+            --text-muted: #999;
+            --border-color: #e1e4e8;
+            --input-bg: white;
+            --input-border: #ddd;
+            --card-bg: #f8f9fa;
+            --hover-bg: #f1f5f9;
+            --shadow-color: rgba(0, 0, 0, 0.1);
+        }
+
+        /* 暗黑模式 */
+        [data-theme="dark"] {
+            --bg-color: #1a1a2e;
+            --container-bg: #16213e;
+            --text-color: #e8e8e8;
+            --text-secondary: #a0a0a0;
+            --text-muted: #707070;
+            --border-color: #2d3748;
+            --input-bg: #1e2a47;
+            --input-border: #3d4f6f;
+            --card-bg: #1e2a47;
+            --hover-bg: #243b55;
+            --shadow-color: rgba(0, 0, 0, 0.3);
+        }
+
         * {
             box-sizing: border-box;
             -webkit-tap-highlight-color: transparent;
@@ -15,17 +45,113 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
             margin: 0;
             padding: 0;
-            background-color: #f5f5f5;
+            background-color: var(--bg-color);
             font-size: 16px;
             line-height: 1.5;
+            color: var(--text-color);
+            transition: background-color 0.3s ease, color 0.3s ease;
         }
 
         .container {
             max-width: 100%;
             margin: 0;
             padding: 10px;
-            background-color: white;
+            background-color: var(--container-bg);
             min-height: 100vh;
+            transition: background-color 0.3s ease;
+        }
+
+        /* 暗黑模式切换按钮 - 移动端可拖拽悬浮 */
+        .theme-toggle {
+            position: fixed;
+            /* 初始位置由JavaScript设置 */
+            z-index: 9999;
+            background: var(--container-bg);
+            border: 2px solid var(--border-color);
+            border-radius: 50%;
+            width: 48px;
+            height: 48px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            color: var(--text-color);
+            box-shadow: 0 2px 10px var(--shadow-color);
+            transition: box-shadow 0.3s ease, transform 0.2s ease;
+            user-select: none;
+            touch-action: none;
+            /* 确保可以被JavaScript修改位置 */
+            will-change: top, left, right, bottom;
+        }
+
+        .theme-toggle.dragging {
+            cursor: move;
+            transition: none;
+            z-index: 10000;
+            box-shadow: 0 4px 20px var(--shadow-color);
+            transform: scale(1.1);
+        }
+
+        .theme-toggle:active:not(.dragging) {
+            transform: scale(0.95);
+        }
+
+        .theme-toggle .icon {
+            transition: transform 0.3s ease;
+            flex-shrink: 0;
+        }
+
+        /* 暗黑模式下的输入框和卡片样式 */
+        [data-theme="dark"] input[type="text"],
+        [data-theme="dark"] input[type="password"],
+        [data-theme="dark"] input[type="number"],
+        [data-theme="dark"] input[type="url"],
+        [data-theme="dark"] select,
+        [data-theme="dark"] textarea {
+            background-color: var(--input-bg) !important;
+            color: var(--text-color) !important;
+            border-color: var(--input-border) !important;
+        }
+
+        [data-theme="dark"] .card {
+            background-color: var(--card-bg) !important;
+            border-color: var(--border-color) !important;
+        }
+
+        [data-theme="dark"] .stat-item {
+            background-color: var(--card-bg) !important;
+            border-color: var(--border-color) !important;
+        }
+
+        [data-theme="dark"] .tab {
+            background-color: var(--card-bg) !important;
+            color: var(--text-color) !important;
+        }
+
+        [data-theme="dark"] .tab.active {
+            background-color: var(--container-bg) !important;
+        }
+
+        [data-theme="dark"] .tabs {
+            border-color: var(--border-color) !important;
+        }
+
+        [data-theme="dark"] .modal-content {
+            background-color: var(--container-bg) !important;
+            color: var(--text-color) !important;
+        }
+
+        [data-theme="dark"] label {
+            color: var(--text-color) !important;
+        }
+
+        [data-theme="dark"] h1, [data-theme="dark"] h2, [data-theme="dark"] h3, [data-theme="dark"] h4 {
+            color: var(--text-color) !important;
+        }
+
+        [data-theme="dark"] .login-form p {
+            color: var(--text-secondary) !important;
         }
 
         h1 {
@@ -481,6 +607,11 @@
 </head>
 
 <body>
+    <!-- 暗黑模式切换按钮 - 可拖拽悬浮 -->
+    <div class="theme-toggle" id="themeToggle" role="button" tabindex="0" title="拖动移动 | 点击切换暗黑模式">
+        <span class="icon" id="themeIcon">🌙</span>
+    </div>
+
     <div class="container">
 
         <!-- 登录界面 -->
@@ -3365,6 +3496,196 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             showStatus('请输入密码登录', 'info');
             setupDragAndDrop();
 
+            // 初始化主题切换按钮
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            updateThemeButton(savedTheme);
+            
+            // ==================== 初始化主题切换按钮拖拽功能 ====================
+            const themeToggle = document.getElementById('themeToggle');
+            if (themeToggle) {
+                console.log('Theme toggle found, initializing drag...');
+                
+                let isDragging = false;
+                let hasMoved = false;
+                let startX, startY;
+                let initialX, initialY;
+                let touchStartTime = 0;
+                const MOVE_THRESHOLD = 5;
+
+                // 从 localStorage 加载位置
+                const savedPosition = localStorage.getItem('themeTogglePositionMobile');
+                if (savedPosition) {
+                    try {
+                        const { top, right, bottom, left } = JSON.parse(savedPosition);
+                        if (top !== null) themeToggle.style.top = top + 'px';
+                        if (right !== null) themeToggle.style.right = right + 'px';
+                        if (bottom !== null) themeToggle.style.bottom = bottom + 'px';
+                        if (left !== null) themeToggle.style.left = left + 'px';
+                    } catch (e) {
+                        themeToggle.style.top = '12px';
+                        themeToggle.style.right = '12px';
+                    }
+                } else {
+                    themeToggle.style.top = '12px';
+                    themeToggle.style.right = '12px';
+                }
+
+                function getEventPos(e) {
+                    if (e.touches && e.touches.length > 0) {
+                        return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                    }
+                    if (e.changedTouches && e.changedTouches.length > 0) {
+                        return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
+                    }
+                    return { x: e.clientX, y: e.clientY };
+                }
+
+                function startDrag(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Start drag');
+                    
+                    touchStartTime = Date.now();
+                    hasMoved = false;
+                    isDragging = false;
+                    
+                    const pos = getEventPos(e);
+                    startX = pos.x;
+                    startY = pos.y;
+
+                    const rect = themeToggle.getBoundingClientRect();
+                    initialX = rect.left;
+                    initialY = rect.top;
+
+                    document.addEventListener('mousemove', onDrag, { passive: false });
+                    document.addEventListener('mouseup', stopDrag);
+                    document.addEventListener('touchmove', onDrag, { passive: false });
+                    document.addEventListener('touchend', stopDrag);
+                    document.addEventListener('touchcancel', stopDrag);
+                }
+
+                function onDrag(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    const pos = getEventPos(e);
+                    const deltaX = pos.x - startX;
+                    const deltaY = pos.y - startY;
+
+                    if (!isDragging && (Math.abs(deltaX) > MOVE_THRESHOLD || Math.abs(deltaY) > MOVE_THRESHOLD)) {
+                        isDragging = true;
+                        hasMoved = true;
+                        themeToggle.classList.add('dragging');
+                        console.log('Dragging started');
+                    }
+
+                    if (isDragging) {
+                        const newX = initialX + deltaX;
+                        const newY = initialY + deltaY;
+
+                        const maxX = window.innerWidth - themeToggle.offsetWidth;
+                        const maxY = window.innerHeight - themeToggle.offsetHeight;
+                        
+                        themeToggle.style.top = Math.max(0, Math.min(newY, maxY)) + 'px';
+                        themeToggle.style.left = Math.max(0, Math.min(newX, maxX)) + 'px';
+                        themeToggle.style.right = 'auto';
+                        themeToggle.style.bottom = 'auto';
+                    }
+                }
+
+                function stopDrag(e) {
+                    document.removeEventListener('mousemove', onDrag);
+                    document.removeEventListener('mouseup', stopDrag);
+                    document.removeEventListener('touchmove', onDrag);
+                    document.removeEventListener('touchend', stopDrag);
+                    document.removeEventListener('touchcancel', stopDrag);
+
+                    const wasDragging = isDragging;
+                    console.log('Stop drag, was dragging:', wasDragging);
+                    
+                    if (isDragging) {
+                        themeToggle.classList.remove('dragging');
+                        snapToEdge();
+                    }
+                    
+                    isDragging = false;
+                    
+                    const touchDuration = Date.now() - touchStartTime;
+                    if (!wasDragging && !hasMoved && touchDuration < 300) {
+                        toggleTheme();
+                    }
+                    
+                    hasMoved = false;
+                }
+
+                function snapToEdge() {
+                    const rect = themeToggle.getBoundingClientRect();
+                    const windowWidth = window.innerWidth;
+                    const windowHeight = window.innerHeight;
+                    const buttonWidth = rect.width;
+                    const buttonHeight = rect.height;
+
+                    const centerX = rect.left + buttonWidth / 2;
+                    const centerY = rect.top + buttonHeight / 2;
+
+                    const distToLeft = centerX;
+                    const distToRight = windowWidth - centerX;
+                    const distToTop = centerY;
+                    const distToBottom = windowHeight - centerY;
+
+                    const minDist = Math.min(distToLeft, distToRight, distToTop, distToBottom);
+
+                    let finalTop = null, finalRight = null, finalBottom = null, finalLeft = null;
+
+                    if (minDist === distToLeft) {
+                        finalLeft = 12;
+                        finalTop = Math.max(12, Math.min(rect.top, windowHeight - buttonHeight - 12));
+                    } else if (minDist === distToRight) {
+                        finalRight = 12;
+                        finalTop = Math.max(12, Math.min(rect.top, windowHeight - buttonHeight - 12));
+                    } else if (minDist === distToTop) {
+                        finalTop = 12;
+                        finalLeft = Math.max(12, Math.min(rect.left, windowWidth - buttonWidth - 12));
+                    } else {
+                        finalBottom = 12;
+                        finalLeft = Math.max(12, Math.min(rect.left, windowWidth - buttonWidth - 12));
+                    }
+
+                    themeToggle.style.transition = 'all 0.3s ease';
+                    if (finalTop !== null) {
+                        themeToggle.style.top = finalTop + 'px';
+                        themeToggle.style.bottom = 'auto';
+                    } else {
+                        themeToggle.style.bottom = finalBottom + 'px';
+                        themeToggle.style.top = 'auto';
+                    }
+
+                    if (finalLeft !== null) {
+                        themeToggle.style.left = finalLeft + 'px';
+                        themeToggle.style.right = 'auto';
+                    } else {
+                        themeToggle.style.right = finalRight + 'px';
+                        themeToggle.style.left = 'auto';
+                    }
+
+                    setTimeout(() => {
+                        themeToggle.style.transition = '';
+                        localStorage.setItem('themeTogglePositionMobile', JSON.stringify({
+                            top: finalTop,
+                            right: finalRight,
+                            bottom: finalBottom,
+                            left: finalLeft
+                        }));
+                    }, 300);
+                }
+
+                themeToggle.addEventListener('touchstart', startDrag, { passive: false });
+                themeToggle.addEventListener('mousedown', startDrag);
+                console.log('Theme toggle drag initialized');
+            } else {
+                console.error('Theme toggle button not found!');
+            }
+
             // 添加勾选框事件监听器
             const checkbox = document.getElementById('getAllProjectsCreds');
             if (checkbox) {
@@ -3434,6 +3755,33 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 showStatus('✅ 已切换到官方端点，记得保存配置', 'success');
             }
         }
+
+        // ==================== 暗黑模式 ====================
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateThemeButton(newTheme);
+        }
+
+        function updateThemeButton(theme) {
+            const icon = document.getElementById('themeIcon');
+            if (theme === 'dark') {
+                icon.textContent = '☀️';
+            } else {
+                icon.textContent = '🌙';
+            }
+        }
+
+        // 初始化主题
+        (function initTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        })();
+
+
     </script>
 </body>
 
