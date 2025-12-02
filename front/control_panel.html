@@ -1040,30 +1040,30 @@
             background: var(--container-bg);
             border-radius: 24px;
             padding: 40px 36px;
+            padding-top: 44px;
             width: 100%;
             max-width: 400px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1),
-                        0 0 0 1px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
             position: relative;
             overflow: hidden;
         }
 
         [data-theme="dark"] .login-card {
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4),
-                        0 0 0 1px rgba(255, 255, 255, 0.05);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
         }
 
-        /* 卡片顶部装饰条 - 蓝白渐变 */
-        .login-card::before {
+        /* 卡片顶部装饰条 - 蓝白渐变，完全贴合 */
+        .login-card::after {
             content: '';
             position: absolute;
             top: 0;
             left: 0;
             right: 0;
-            height: 4px;
+            height: 5px;
             background: linear-gradient(90deg, #4285f4, #34a9ff, #87ceeb, #4285f4);
             background-size: 300% 100%;
             animation: gradientSlide 3s ease infinite;
+            z-index: 100;
         }
 
         @keyframes gradientSlide {
@@ -1328,6 +1328,218 @@
 
         [data-theme="dark"] .login-bg-decoration.circle-2 {
             background: radial-gradient(circle, rgba(91, 155, 213, 0.15) 0%, transparent 70%);
+        }
+
+        /* ========== 登录页面高级动态特效 ========== */
+        
+        /* 粒子画布 */
+        #particleCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        /* 彩带/五彩纸屑画布 */
+        #confettiCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 9998;
+        }
+        
+        /* 涟漪画布 - 用于不规则椭圆波浪涟漪 */
+        #rippleCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 2;
+        }
+        
+        /* 渐变背景层 - 持久浸染效果 */
+        #gradientOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+            opacity: 0;
+            transition: opacity 1.5s ease;
+            background: linear-gradient(135deg, 
+                rgba(66, 133, 244, 0.08) 0%, 
+                rgba(52, 168, 83, 0.06) 25%, 
+                rgba(251, 188, 5, 0.05) 50%, 
+                rgba(234, 67, 53, 0.06) 75%,
+                rgba(66, 133, 244, 0.08) 100%);
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
+        }
+        
+        @keyframes gradientShift {
+            0%, 100% { background-position: 0% 50%; }
+            25% { background-position: 50% 0%; }
+            50% { background-position: 100% 50%; }
+            75% { background-position: 50% 100%; }
+        }
+        
+        [data-theme="dark"] #gradientOverlay {
+            background: linear-gradient(135deg, 
+                rgba(66, 133, 244, 0.12) 0%, 
+                rgba(52, 168, 83, 0.08) 25%, 
+                rgba(251, 188, 5, 0.07) 50%, 
+                rgba(234, 67, 53, 0.08) 75%,
+                rgba(66, 133, 244, 0.12) 100%);
+            background-size: 400% 400%;
+        }
+        
+        /* 点击涟漪效果 */
+        .click-ripple {
+            position: fixed;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 9997;
+            animation: rippleExpand 0.6s ease-out forwards;
+        }
+        
+        @keyframes rippleExpand {
+            0% {
+                transform: scale(0);
+                opacity: 0.6;
+            }
+            100% {
+                transform: scale(4);
+                opacity: 0;
+            }
+        }
+        
+        /* 登录卡片包装器 - 用于边框动画 */
+        .login-card-wrapper {
+            position: relative;
+            border-radius: 24px;
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        /* 光晕边框动画 - 在包装器外围显示 */
+        .login-card-wrapper::before {
+            content: '';
+            position: absolute;
+            top: -3px;
+            left: -3px;
+            right: -3px;
+            bottom: -3px;
+            background: linear-gradient(45deg, 
+                #4285f4, #34a853, #fbbc05, #ea4335, 
+                #4285f4, #34a853, #fbbc05, #ea4335);
+            background-size: 400% 400%;
+            border-radius: 27px;
+            z-index: -1;
+            opacity: 0;
+            animation: glowBorder 8s ease infinite;
+            transition: opacity 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .login-card-wrapper:hover::before {
+            opacity: 1;
+        }
+        
+        .login-card-wrapper:hover {
+            transform: translateY(-8px);
+        }
+        
+        @keyframes glowBorder {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+        
+        /* 登录卡片悬浮效果增强 */
+        .login-card-wrapper:hover .login-card {
+            box-shadow: 0 30px 100px rgba(0, 0, 0, 0.12),
+                        0 0 60px rgba(66, 133, 244, 0.15);
+        }
+        
+        [data-theme="dark"] .login-card-wrapper:hover .login-card {
+            box-shadow: 0 30px 100px rgba(0, 0, 0, 0.5),
+                        0 0 60px rgba(66, 133, 244, 0.25);
+        }
+        
+        /* 浮动光点动画（全局显示） */
+        .floating-orb {
+            position: fixed;
+            border-radius: 50%;
+            pointer-events: none;
+            filter: blur(1px);
+            z-index: 4;
+            animation: floatOrb 6s ease-in-out infinite;
+        }
+        
+        @keyframes floatOrb {
+            0%, 100% { 
+                transform: translateY(0) translateX(0) scale(1);
+                opacity: 0.6;
+            }
+            25% { 
+                transform: translateY(-20px) translateX(10px) scale(1.1);
+                opacity: 0.8;
+            }
+            50% { 
+                transform: translateY(-10px) translateX(-15px) scale(0.9);
+                opacity: 0.5;
+            }
+            75% { 
+                transform: translateY(-25px) translateX(5px) scale(1.05);
+                opacity: 0.7;
+            }
+        }
+        
+        /* 鼠标跟随光晕 */
+        .mouse-glow {
+            position: fixed;
+            width: 400px;
+            height: 400px;
+            border-radius: 50%;
+            background: radial-gradient(ellipse, rgba(66, 133, 244, 0.12) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 3;
+            transform: translate(-50%, -50%);
+            transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+            opacity: 0;
+        }
+        
+        [data-theme="dark"] .mouse-glow {
+            background: radial-gradient(ellipse, rgba(66, 133, 244, 0.18) 0%, transparent 70%);
+        }
+        
+        /* 星星闪烁效果（全局显示） */
+        .twinkle-star {
+            position: fixed;
+            width: 4px;
+            height: 4px;
+            background: rgba(100, 100, 100, 0.3);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 4;
+            animation: twinkle 2s ease-in-out infinite;
+        }
+        
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.2; transform: scale(0.8); }
+            50% { opacity: 0.8; transform: scale(1.2); }
+        }
+        
+        [data-theme="dark"] .twinkle-star {
+            background: rgba(255, 255, 255, 0.8);
+            box-shadow: 0 0 6px rgba(255, 255, 255, 0.5);
         }
 
         /* 状态消息样式 */
@@ -4233,41 +4445,69 @@
 
     <div class="container">
 
+        <!-- 粒子背景画布 -->
+        <canvas id="particleCanvas"></canvas>
+        <!-- 渐变背景层 - 持久浸染效果 -->
+        <div id="gradientOverlay"></div>
+        <!-- 涟漪画布 - 不规则椭圆波浪 -->
+        <canvas id="rippleCanvas"></canvas>
+        <!-- 彩带/五彩纸屑画布 -->
+        <canvas id="confettiCanvas"></canvas>
+        <!-- 鼠标跟随光晕 -->
+        <div class="mouse-glow" id="mouseGlow"></div>
+        
+        <!-- 浮动光点（全局显示） -->
+        <div class="floating-orb" style="width: 8px; height: 8px; background: rgba(66, 133, 244, 0.6); top: 20%; left: 15%; animation-delay: 0s;"></div>
+        <div class="floating-orb" style="width: 6px; height: 6px; background: rgba(52, 168, 83, 0.5); top: 30%; right: 20%; animation-delay: 1s;"></div>
+        <div class="floating-orb" style="width: 10px; height: 10px; background: rgba(251, 188, 5, 0.4); bottom: 25%; left: 25%; animation-delay: 2s;"></div>
+        <div class="floating-orb" style="width: 5px; height: 5px; background: rgba(234, 67, 53, 0.5); top: 60%; right: 15%; animation-delay: 3s;"></div>
+        <div class="floating-orb" style="width: 7px; height: 7px; background: rgba(66, 133, 244, 0.5); bottom: 40%; right: 30%; animation-delay: 4s;"></div>
+        
+        <!-- 星星闪烁（全局显示） -->
+        <div class="twinkle-star" style="top: 15%; left: 10%; animation-delay: 0s;"></div>
+        <div class="twinkle-star" style="top: 25%; right: 12%; animation-delay: 0.5s;"></div>
+        <div class="twinkle-star" style="bottom: 30%; left: 8%; animation-delay: 1s;"></div>
+        <div class="twinkle-star" style="top: 45%; left: 5%; animation-delay: 1.5s;"></div>
+        <div class="twinkle-star" style="bottom: 20%; right: 8%; animation-delay: 2s;"></div>
+        <div class="twinkle-star" style="top: 70%; left: 15%; animation-delay: 2.5s;"></div>
+        
         <!-- 登录界面 -->
         <div id="loginSection" class="login-form">
             <!-- 背景装饰 -->
             <div class="login-bg-decoration circle-1"></div>
             <div class="login-bg-decoration circle-2"></div>
             
-            <!-- 登录卡片 -->
-            <div class="login-card">
-                <!-- Logo -->
-                <div class="login-logo">⛵️</div>
-                
-                <!-- 标题 -->
-                <h1>AMB2API</h1>
-                <p class="login-subtitle">
-                    <span class="lock-icon">🔐</span>
-                    请输入访问密码以继续
-                </p>
-                
-                <!-- 密码输入 -->
-                <div class="login-input-wrapper">
-                    <input type="password" id="loginPassword" placeholder="输入访问密码" onkeypress="handlePasswordEnter(event)" autocomplete="current-password" />
-                    <span class="input-icon">🔒</span>
-                </div>
-                
-                <!-- 登录按钮 -->
-                <button class="btn" id="loginBtn" onclick="login()">
-                    <span>登录</span>
-                </button>
-                
-                <!-- 状态消息 -->
-                <div id="loginStatus"></div>
-                
-                <!-- 底部信息 -->
-                <div class="login-footer">
-                    <p>安全访问 · 数据加密传输</p>
+            <!-- 登录卡片包装器（用于边框动画） -->
+            <div class="login-card-wrapper">
+                <div class="login-card">
+                    <!-- Logo -->
+                    <div class="login-logo">⛵️</div>
+                    
+                    <!-- 标题 -->
+                    <h1>AMB2API</h1>
+                    <p class="login-subtitle">
+                        <span class="lock-icon">⛩️</span>
+                        请输入访问密码以继续
+                    </p>
+                    
+                    <!-- 密码输入 -->
+                    <div class="login-input-wrapper">
+                        <input type="password" id="loginPassword" placeholder="输入访问密码" onkeypress="handlePasswordEnter(event)" autocomplete="current-password" />
+                        <span class="input-icon">👁️‍🗨️</span>
+                    </div>
+                    
+                    <!-- 登录按钮 -->
+                    <button class="btn" id="loginBtn" onclick="login()">
+                        <span>登录</span>
+                    </button>
+                    
+                    <!-- 状态消息 -->
+                    <div id="loginStatus"></div>
+                    
+                    <!-- 底部信息 -->
+                    <div class="login-footer">
+                        <p><a href="https://github.com/GolovinElics/amb2api" target="_blank" rel="noopener noreferrer">项目地址🪴 GolovinElics·Amb2api</a></p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -5654,6 +5894,31 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                             loginEl.style.opacity = '';
                             loginEl.style.transform = '';
                             loginEl.style.transition = '';
+                            
+                            // 缓慢隐藏登录专属特效（涟漪、渐变背景），保留通用特效
+                            const rippleCanvas = document.getElementById('rippleCanvas');
+                            const gradientOverlay = document.getElementById('gradientOverlay');
+                            
+                            // 涟漪和渐变背景缓慢淡出
+                            if (rippleCanvas) {
+                                rippleCanvas.style.transition = 'opacity 1.5s ease';
+                                rippleCanvas.style.opacity = '0';
+                                setTimeout(() => {
+                                    rippleCanvas.style.display = 'none';
+                                    rippleCanvas.style.transition = '';
+                                    rippleCanvas.style.opacity = '';
+                                }, 1500);
+                            }
+                            if (gradientOverlay) {
+                                gradientOverlay.style.transition = 'opacity 2s ease';
+                                gradientOverlay.style.opacity = '0';
+                                setTimeout(() => {
+                                    gradientOverlay.style.display = 'none';
+                                    gradientOverlay.style.transition = '';
+                                }, 2000);
+                            }
+                            
+                            // 粒子、彩带、光晕保留在主页面，不隐藏
                             
                             // 显示主界面
                             mainEl.classList.remove('hidden');
@@ -7582,6 +7847,20 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                         document.getElementById('mainSection').classList.add('hidden');
                         document.getElementById('loginSection').classList.remove('hidden');
                         document.getElementById('loginPassword').value = '';
+                        
+                        // 恢复登录页面专属特效（涟漪、渐变背景）
+                        const rippleCanvas = document.getElementById('rippleCanvas');
+                        const gradientOverlay = document.getElementById('gradientOverlay');
+                        if (rippleCanvas) {
+                            rippleCanvas.style.display = '';
+                            rippleCanvas.style.opacity = '1';
+                        }
+                        if (gradientOverlay) {
+                            gradientOverlay.style.display = '';
+                            gradientOverlay.style.opacity = '0';
+                            gradientActivated = false;
+                        }
+                        
                         showStatus('密码已更新，请重新登录', 'info');
                     } else {
                         // 如果没有显示密钥相关的提示，才显示通用成功提示
@@ -8297,11 +8576,528 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             }
         }
 
+        // =====================================================================
+        // 登录页面动态特效
+        // =====================================================================
+        
+        // 粒子系统
+        class ParticleSystem {
+            constructor(canvas) {
+                this.canvas = canvas;
+                this.ctx = canvas.getContext('2d');
+                this.particles = [];
+                this.mouseX = 0;
+                this.mouseY = 0;
+                this.resize();
+                window.addEventListener('resize', () => this.resize());
+            }
+            
+            resize() {
+                this.canvas.width = window.innerWidth;
+                this.canvas.height = window.innerHeight;
+            }
+            
+            createParticle() {
+                const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+                const colors = isDark 
+                    ? ['rgba(66, 133, 244, 0.6)', 'rgba(52, 168, 83, 0.5)', 'rgba(251, 188, 5, 0.5)', 'rgba(234, 67, 53, 0.4)']
+                    : ['rgba(66, 133, 244, 0.3)', 'rgba(52, 168, 83, 0.25)', 'rgba(251, 188, 5, 0.25)', 'rgba(234, 67, 53, 0.2)'];
+                
+                return {
+                    x: Math.random() * this.canvas.width,
+                    y: Math.random() * this.canvas.height,
+                    size: Math.random() * 3 + 1,
+                    speedX: (Math.random() - 0.5) * 0.5,
+                    speedY: (Math.random() - 0.5) * 0.5,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    opacity: Math.random() * 0.5 + 0.2
+                };
+            }
+            
+            init(count = 50) {
+                this.particles = [];
+                for (let i = 0; i < count; i++) {
+                    this.particles.push(this.createParticle());
+                }
+            }
+            
+            update() {
+                this.particles.forEach(p => {
+                    p.x += p.speedX;
+                    p.y += p.speedY;
+                    
+                    // 鼠标吸引效果
+                    const dx = this.mouseX - p.x;
+                    const dy = this.mouseY - p.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < 150) {
+                        p.x += dx * 0.01;
+                        p.y += dy * 0.01;
+                    }
+                    
+                    // 边界处理
+                    if (p.x < 0) p.x = this.canvas.width;
+                    if (p.x > this.canvas.width) p.x = 0;
+                    if (p.y < 0) p.y = this.canvas.height;
+                    if (p.y > this.canvas.height) p.y = 0;
+                });
+            }
+            
+            draw() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                this.particles.forEach(p => {
+                    this.ctx.beginPath();
+                    this.ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    this.ctx.fillStyle = p.color;
+                    this.ctx.fill();
+                });
+                
+                // 绘制连线
+                this.particles.forEach((p1, i) => {
+                    this.particles.slice(i + 1).forEach(p2 => {
+                        const dx = p1.x - p2.x;
+                        const dy = p1.y - p2.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        if (dist < 100) {
+                            this.ctx.beginPath();
+                            this.ctx.moveTo(p1.x, p1.y);
+                            this.ctx.lineTo(p2.x, p2.y);
+                            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+                            this.ctx.strokeStyle = isDark 
+                                ? `rgba(66, 133, 244, ${0.15 * (1 - dist / 100)})`
+                                : `rgba(66, 133, 244, ${0.08 * (1 - dist / 100)})`;
+                            this.ctx.stroke();
+                        }
+                    });
+                });
+            }
+            
+            animate() {
+                this.update();
+                this.draw();
+                requestAnimationFrame(() => this.animate());
+            }
+        }
+        
+        // 彩带/五彩纸屑系统
+        class ConfettiSystem {
+            constructor(canvas) {
+                this.canvas = canvas;
+                this.ctx = canvas.getContext('2d');
+                this.confetti = [];
+                this.resize();
+                window.addEventListener('resize', () => this.resize());
+            }
+            
+            resize() {
+                this.canvas.width = window.innerWidth;
+                this.canvas.height = window.innerHeight;
+            }
+            
+            createConfetti(x, y, count = 5) {
+                const colors = ['#4285f4', '#34a853', '#fbbc05', '#ea4335', '#9c27b0', '#00bcd4'];
+                for (let i = 0; i < count; i++) {
+                    this.confetti.push({
+                        x: x,
+                        y: y,
+                        width: Math.random() * 10 + 5,
+                        height: Math.random() * 6 + 3,
+                        color: colors[Math.floor(Math.random() * colors.length)],
+                        speedX: (Math.random() - 0.5) * 4,
+                        speedY: Math.random() * 2 + 1,
+                        rotation: Math.random() * 360,
+                        rotationSpeed: (Math.random() - 0.5) * 10,
+                        opacity: 1,
+                        gravity: 0.1
+                    });
+                }
+            }
+            
+            update() {
+                this.confetti = this.confetti.filter(c => {
+                    c.x += c.speedX;
+                    c.y += c.speedY;
+                    c.speedY += c.gravity;
+                    c.rotation += c.rotationSpeed;
+                    c.opacity -= 0.008;
+                    return c.opacity > 0 && c.y < this.canvas.height + 50;
+                });
+            }
+            
+            draw() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                this.confetti.forEach(c => {
+                    this.ctx.save();
+                    this.ctx.translate(c.x, c.y);
+                    this.ctx.rotate(c.rotation * Math.PI / 180);
+                    this.ctx.globalAlpha = c.opacity;
+                    this.ctx.fillStyle = c.color;
+                    this.ctx.fillRect(-c.width / 2, -c.height / 2, c.width, c.height);
+                    this.ctx.restore();
+                });
+            }
+            
+            animate() {
+                this.update();
+                this.draw();
+                requestAnimationFrame(() => this.animate());
+            }
+        }
+        
+        // 熔岩蔓延涟漪系统 - 三层台阶：登录框 → 登录框底框 → 屏幕幕布
+        class RippleSystem {
+            constructor(canvas) {
+                this.canvas = canvas;
+                this.ctx = canvas.getContext('2d');
+                this.ripples = [];
+                this.loginCardRect = null;
+                this.resize();
+                window.addEventListener('resize', () => this.resize());
+            }
+            
+            resize() {
+                this.canvas.width = window.innerWidth;
+                this.canvas.height = window.innerHeight;
+                this.updateLoginCardRect();
+            }
+            
+            updateLoginCardRect() {
+                const loginCard = document.querySelector('.login-card');
+                if (loginCard) {
+                    this.loginCardRect = loginCard.getBoundingClientRect();
+                }
+            }
+            
+            createRipple(x, y) {
+                this.updateLoginCardRect();
+                
+                const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+                const colors = [
+                    isDark ? 'rgba(66, 133, 244, 0.3)' : 'rgba(66, 133, 244, 0.18)',
+                    isDark ? 'rgba(52, 168, 83, 0.28)' : 'rgba(52, 168, 83, 0.15)',
+                    isDark ? 'rgba(251, 188, 5, 0.25)' : 'rgba(251, 188, 5, 0.12)',
+                    isDark ? 'rgba(234, 67, 53, 0.28)' : 'rgba(234, 67, 53, 0.15)'
+                ];
+                
+                const maxDist = Math.max(
+                    Math.sqrt(x * x + y * y),
+                    Math.sqrt((this.canvas.width - x) ** 2 + y * y),
+                    Math.sqrt(x * x + (this.canvas.height - y) ** 2),
+                    Math.sqrt((this.canvas.width - x) ** 2 + (this.canvas.height - y) ** 2)
+                );
+                
+                const baseColor = colors[Math.floor(Math.random() * colors.length)];
+                
+                // 三层台阶：登录框内 → 登录框底框（阴影区域） → 整个屏幕
+                // 第一层：登录框内，立即开始
+                this.ripples.push({
+                    x: x,
+                    y: y,
+                    radius: 0,
+                    maxRadius: maxDist * 1.8,
+                    color: baseColor,
+                    opacity: 0.5,
+                    speed: 0.42,  // 再慢三成，像熔岩缓慢流动
+                    layer: 0,
+                    wavePhase: Math.random() * Math.PI * 2,
+                    // 熔岩的不规则边缘参数
+                    noiseSeeds: Array.from({length: 8}, () => Math.random() * 100),
+                    filled: true  // 熔岩是填充的
+                });
+                
+                // 第二层：登录框底框，延迟开始
+                setTimeout(() => {
+                    this.ripples.push({
+                        x: x,
+                        y: y,
+                        radius: 0,
+                        maxRadius: maxDist * 1.8,
+                        color: baseColor,
+                        opacity: 0.35,
+                        speed: 0.35,  // 再慢三成
+                        layer: 1,
+                        wavePhase: Math.random() * Math.PI * 2,
+                        noiseSeeds: Array.from({length: 8}, () => Math.random() * 100),
+                        filled: true
+                    });
+                }, 800);
+                
+                // 第三层：整个屏幕，更晚开始
+                setTimeout(() => {
+                    this.ripples.push({
+                        x: x,
+                        y: y,
+                        radius: 0,
+                        maxRadius: maxDist * 1.8,
+                        color: baseColor,
+                        opacity: 0.2,
+                        speed: 0.28,  // 再慢三成
+                        layer: 2,
+                        wavePhase: Math.random() * Math.PI * 2,
+                        noiseSeeds: Array.from({length: 8}, () => Math.random() * 100),
+                        filled: true
+                    });
+                }, 1600);
+            }
+            
+            // 简单的噪声函数，模拟熔岩不规则边缘
+            noise(angle, seeds, phase) {
+                let result = 0;
+                for (let i = 0; i < seeds.length; i++) {
+                    const freq = (i + 1) * 2;
+                    const amp = 15 / (i + 1);
+                    result += Math.sin(angle * freq + seeds[i] + phase * 0.5) * amp;
+                }
+                return result;
+            }
+            
+            update() {
+                this.ripples.forEach(r => {
+                    r.radius += r.speed;
+                    r.wavePhase += 0.008;  // 非常缓慢的波动
+                    
+                    // 熔岩蔓延后逐渐变淡但保持很久
+                    if (r.radius > r.maxRadius * 0.5) {
+                        r.opacity = Math.max(0.02, r.opacity - 0.0005);
+                    }
+                });
+                this.ripples = this.ripples.filter(r => r.opacity > 0.015);
+            }
+            
+            draw() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                this.updateLoginCardRect();
+                
+                // 按层级排序绘制（底层先绘制，这样上层会覆盖）
+                const sortedRipples = [...this.ripples].sort((a, b) => b.layer - a.layer);
+                
+                sortedRipples.forEach(r => {
+                    if (r.radius < 5) return;
+                    
+                    this.ctx.save();
+                    
+                    // 创建裁剪区域：整个画布减去登录框区域
+                    // 这样熔岩只会在登录框外部渲染，不会遮挡登录框
+                    // 每帧都实时获取位置，所以会跟着登录框一起浮动
+                    if (this.loginCardRect) {
+                        const rect = this.loginCardRect;
+                        // 稍微扩大裁剪区域，确保完全覆盖登录框
+                        const padding = -3;
+                        const cornerRadius = 26;
+                        
+                        // 绘制整个画布区域
+                        this.ctx.beginPath();
+                        this.ctx.rect(0, 0, this.canvas.width, this.canvas.height);
+                        
+                        // 减去登录框区域（使用圆角矩形，稍微扩大以确保完全覆盖）
+                        const left = rect.left + padding;
+                        const right = rect.right - padding;
+                        const top = rect.top + padding;
+                        const bottom = rect.bottom - padding;
+                        
+                        this.ctx.moveTo(left + cornerRadius, top);
+                        this.ctx.lineTo(right - cornerRadius, top);
+                        this.ctx.arcTo(right, top, right, top + cornerRadius, cornerRadius);
+                        this.ctx.lineTo(right, bottom - cornerRadius);
+                        this.ctx.arcTo(right, bottom, right - cornerRadius, bottom, cornerRadius);
+                        this.ctx.lineTo(left + cornerRadius, bottom);
+                        this.ctx.arcTo(left, bottom, left, bottom - cornerRadius, cornerRadius);
+                        this.ctx.lineTo(left, top + cornerRadius);
+                        this.ctx.arcTo(left, top, left + cornerRadius, top, cornerRadius);
+                        this.ctx.closePath();
+                        
+                        this.ctx.clip('evenodd'); // evenodd规则：外部区域被填充，内部（登录框）被排除
+                    }
+                    
+                    this.ctx.translate(r.x, r.y);
+                    
+                    // 绘制熔岩形状 - 不规则的有机边缘
+                    this.ctx.beginPath();
+                    const points = 100;
+                    for (let i = 0; i <= points; i++) {
+                        const angle = (i / points) * Math.PI * 2;
+                        // 使用噪声函数创建不规则边缘，像熔岩流动
+                        const noiseVal = this.noise(angle, r.noiseSeeds, r.wavePhase);
+                        const currentRadius = r.radius + noiseVal;
+                        const px = Math.cos(angle) * currentRadius;
+                        const py = Math.sin(angle) * currentRadius;
+                        
+                        if (i === 0) {
+                            this.ctx.moveTo(px, py);
+                        } else {
+                            this.ctx.lineTo(px, py);
+                        }
+                    }
+                    this.ctx.closePath();
+                    
+                    // 熔岩填充 - 从中心到边缘的渐变
+                    const gradient = this.ctx.createRadialGradient(0, 0, 0, 0, 0, r.radius + 20);
+                    const baseOpacity = r.opacity;
+                    
+                    // 中心较淡，边缘较浓（像熔岩边缘凝固）
+                    gradient.addColorStop(0, r.color.replace(/[\d.]+\)$/, (baseOpacity * 0.3) + ')'));
+                    gradient.addColorStop(0.6, r.color.replace(/[\d.]+\)$/, (baseOpacity * 0.5) + ')'));
+                    gradient.addColorStop(0.85, r.color.replace(/[\d.]+\)$/, (baseOpacity * 0.8) + ')'));
+                    gradient.addColorStop(1, r.color.replace(/[\d.]+\)$/, (baseOpacity * 0.4) + ')'));
+                    
+                    this.ctx.fillStyle = gradient;
+                    this.ctx.fill();
+                    
+                    // 边缘线条 - 熔岩边缘的高亮
+                    this.ctx.strokeStyle = r.color.replace(/[\d.]+\)$/, (baseOpacity * 0.6) + ')');
+                    this.ctx.lineWidth = 2;
+                    this.ctx.stroke();
+                    
+                    this.ctx.restore();
+                });
+            }
+            
+            animate() {
+                this.update();
+                this.draw();
+                requestAnimationFrame(() => this.animate());
+            }
+        }
+        
+        // 点击涟漪效果
+        function createClickRipple(x, y) {
+            const ripple = document.createElement('div');
+            ripple.className = 'click-ripple';
+            const colors = ['rgba(66, 133, 244, 0.4)', 'rgba(52, 168, 83, 0.4)', 'rgba(251, 188, 5, 0.4)', 'rgba(234, 67, 53, 0.4)'];
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            ripple.style.cssText = `
+                left: ${x}px;
+                top: ${y}px;
+                width: 20px;
+                height: 20px;
+                background: ${color};
+                box-shadow: 0 0 20px ${color};
+            `;
+            document.body.appendChild(ripple);
+            setTimeout(() => ripple.remove(), 600);
+        }
+        
+        // 初始化动态特效
+        let particleSystem = null;
+        let confettiSystem = null;
+        let rippleSystem = null;
+        let isMouseInLoginCard = false;
+        let gradientActivated = false;
+        
+        function initLoginEffects() {
+            const particleCanvas = document.getElementById('particleCanvas');
+            const confettiCanvas = document.getElementById('confettiCanvas');
+            const rippleCanvas = document.getElementById('rippleCanvas');
+            const mouseGlow = document.getElementById('mouseGlow');
+            const gradientOverlay = document.getElementById('gradientOverlay');
+            const loginSection = document.getElementById('loginSection');
+            const loginCard = document.querySelector('.login-card');
+            
+            if (!particleCanvas || !confettiCanvas || !rippleCanvas) return;
+            
+            // 初始化粒子系统
+            particleSystem = new ParticleSystem(particleCanvas);
+            particleSystem.init(40);
+            particleSystem.animate();
+            
+            // 初始化涟漪系统
+            rippleSystem = new RippleSystem(rippleCanvas);
+            rippleSystem.animate();
+            
+            // 初始化彩带系统
+            confettiSystem = new ConfettiSystem(confettiCanvas);
+            confettiSystem.animate();
+            
+            // 登录卡片鼠标进入事件 - 触发渐变浸染
+            if (loginCard) {
+                loginCard.addEventListener('mouseenter', () => {
+                    isMouseInLoginCard = true;
+                    if (gradientOverlay && !gradientActivated) {
+                        gradientOverlay.style.opacity = '1';
+                        gradientActivated = true;
+                    }
+                });
+                
+                loginCard.addEventListener('mouseleave', () => {
+                    isMouseInLoginCard = false;
+                });
+            }
+            
+            // 鼠标移动事件 - 涟漪 + 彩带掉落 + 光晕跟随（全局生效）
+            let lastConfettiTime = 0;
+            let lastRippleTime = 0;
+            document.addEventListener('mousemove', (e) => {
+                // 更新粒子系统鼠标位置（全局生效）
+                if (particleSystem) {
+                    particleSystem.mouseX = e.clientX;
+                    particleSystem.mouseY = e.clientY;
+                }
+                
+                // 更新鼠标光晕位置（全局生效）
+                if (mouseGlow) {
+                    mouseGlow.style.left = e.clientX + 'px';
+                    mouseGlow.style.top = e.clientY + 'px';
+                    // 登录页面时根据是否在卡片内调整透明度，主页面时保持较低透明度
+                    const isLoginPage = loginSection && !loginSection.classList.contains('hidden');
+                    if (isLoginPage) {
+                        mouseGlow.style.opacity = isMouseInLoginCard ? '1' : '0.4';
+                    } else {
+                        mouseGlow.style.opacity = '0.3';
+                    }
+                }
+                
+                const now = Date.now();
+                
+                // 在登录卡片内时，产生缓慢的水波涟漪效果（仅登录页面）
+                if (isMouseInLoginCard && rippleSystem && now - lastRippleTime > 800) {
+                    rippleSystem.createRipple(e.clientX, e.clientY);
+                    lastRippleTime = now;
+                }
+                
+                // 彩带掉落效果（全局生效，主页面频率降低）
+                const isLoginPage = loginSection && !loginSection.classList.contains('hidden');
+                const confettiInterval = isLoginPage ? 100 : 300;
+                const confettiCount = isLoginPage ? 2 : 1;
+                if (now - lastConfettiTime > confettiInterval && confettiSystem) {
+                    confettiSystem.createConfetti(e.clientX, e.clientY, confettiCount);
+                    lastConfettiTime = now;
+                }
+            });
+            
+            // 鼠标离开时隐藏光晕
+            document.addEventListener('mouseleave', () => {
+                if (mouseGlow) mouseGlow.style.opacity = '0';
+            });
+            
+            // 点击事件 - 涟漪 + 爆炸彩带（全局生效）
+            document.addEventListener('click', (e) => {
+                const isLoginPage = loginSection && !loginSection.classList.contains('hidden');
+                
+                // 点击涟漪效果（全局生效）
+                createClickRipple(e.clientX, e.clientY);
+                
+                // 爆炸彩带（全局生效，主页面数量减少）
+                if (confettiSystem) {
+                    confettiSystem.createConfetti(e.clientX, e.clientY, isLoginPage ? 15 : 8);
+                }
+                
+                // 水波涟漪仅在登录页面生效
+                if (isLoginPage && rippleSystem) {
+                    rippleSystem.createRipple(e.clientX, e.clientY);
+                }
+            });
+        }
+        
         // 页面加载时检查状态
         window.onload = function () {
             console.log('Page loaded');
             console.log('Login section exists:', !!document.getElementById('loginSection'));
             console.log('Main section exists:', !!document.getElementById('mainSection'));
+            
+            // 初始化登录页面动态特效
+            initLoginEffects();
 
             // 添加勾选框事件监听器
             const checkbox = document.getElementById('getAllProjectsCreds');
