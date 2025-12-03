@@ -289,15 +289,22 @@ def assembly_response_to_openai(
     for idx, choice in enumerate(_choices_raw):
         msg = choice.get("message", {})
         role = msg.get("role", "assistant")
-        content = msg.get("content", "")
-        if isinstance(content, list):
+        content = msg.get("content")
+        
+        # 处理 content 为 None 的情况
+        if content is None:
+            content = ""
+        elif isinstance(content, list):
             parts_text = []
             for part in content:
                 if isinstance(part, dict):
                     t = part.get("type")
                     if t in ("text", "output_text") and part.get("text"):
                         parts_text.append(part["text"])
-            content = "".join(parts_text) if parts_text else ("" if not content else str(content))
+            content = "".join(parts_text) if parts_text else ""
+        elif not isinstance(content, str):
+            content = str(content)
+            
         message = {"role": role, "content": content}
         # 透传工具调用（若存在）
         tool_calls = msg.get("tool_calls") or []
@@ -307,22 +314,36 @@ def assembly_response_to_openai(
         function_call = msg.get("function_call")
         if function_call:
             message["function_call"] = function_call
+        
+        # 获取 finish_reason，默认为 stop
+        finish_reason = choice.get("finish_reason", "stop")
+        
         choices.append({
             "index": idx,
             "message": message,
-            "finish_reason": "stop"
+            "finish_reason": finish_reason
         })
 
-    # usage
+    # usage - 兼容多种格式
     usage_raw = assembly_response.get("usage", {})
-    usage = {
-        "prompt_tokens": usage_raw.get("input_tokens", 0),
-        "completion_tokens": usage_raw.get("output_tokens", 0),
-        "total_tokens": usage_raw.get("total_tokens", 0),
-    } if usage_raw else None
+    if usage_raw:
+        # 兼容 OpenAI 格式 (prompt_tokens/completion_tokens) 和 AssemblyAI 格式 (input_tokens/output_tokens)
+        prompt_tokens = usage_raw.get("prompt_tokens") or usage_raw.get("input_tokens", 0)
+        completion_tokens = usage_raw.get("completion_tokens") or usage_raw.get("output_tokens", 0)
+        total_tokens = usage_raw.get("total_tokens", prompt_tokens + completion_tokens)
+        usage = {
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "total_tokens": total_tokens,
+        }
+    else:
+        usage = None
+
+    # 获取响应 ID，兼容多种格式
+    response_id = assembly_response.get("id") or assembly_response.get("request_id") or str(uuid.uuid4())
 
     response_data = {
-        "id": str(assembly_response.get("request_id", uuid.uuid4())),
+        "id": str(response_id),
         "object": "chat.completion",
         "created": int(time.time()),
         "model": model,

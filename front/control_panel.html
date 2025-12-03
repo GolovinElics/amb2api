@@ -3,9 +3,18 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>AMB2API 管理面板</title>
     <style>
+        /* 全局溢出修复 */
+        html, body {
+            overflow-x: hidden;
+            max-width: 100vw;
+        }
+        
+        * {
+            box-sizing: border-box;
+        }
         /* CSS 变量 - 亮色模式 */
         :root {
             --bg-color: #f5f5f5;
@@ -816,6 +825,8 @@
             .container { 
                 padding: 20px 16px; 
                 border-radius: 8px;
+                overflow-x: hidden;
+                max-width: 100%;
             }
         }
         
@@ -823,6 +834,8 @@
             .container { 
                 padding: 16px 12px; 
                 border-radius: 6px;
+                overflow-x: hidden;
+                max-width: 100%;
             }
         }
 
@@ -1797,10 +1810,19 @@
 
         .tab-content {
             display: none;
+            overflow-x: hidden;
+            max-width: 100%;
         }
 
         .tab-content.active {
             display: block;
+        }
+        
+        @media (max-width: 768px) {
+            .tab-content {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
         }
 
         @media (max-width: 768px) {
@@ -5135,6 +5157,26 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                                 <input type="text" id="autoBanErrorCodes" class="config-input"
                                     placeholder="例如: 400,403" />
                                 <small class="config-note">用逗号分隔的错误码列表</small>
+                            </div>
+                        </div>
+
+                        <div class="config-group">
+                            <h4>界面特效配置</h4>
+
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="confettiEnabled" class="config-checkbox" />
+                                    主页面彩带效果
+                                </label>
+                                <small class="config-note">登录后的页面是否显示鼠标彩带掉落效果</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="confettiProbability">彩带掉落概率: <span id="confettiProbabilityValue">10</span>%</label>
+                                <input type="range" id="confettiProbability" min="1" max="100" value="10" 
+                                    oninput="document.getElementById('confettiProbabilityValue').textContent = this.value; this.style.background = 'linear-gradient(to right, #4285f4 0%, #4285f4 ' + this.value + '%, #ddd ' + this.value + '%, #ddd 100%)';"
+                                    style="background: linear-gradient(to right, #4285f4 0%, #4285f4 10%, #ddd 10%, #ddd 100%);" />
+                                <small class="config-note">鼠标移动时彩带掉落的概率（1-100%）</small>
                             </div>
                         </div>
 
@@ -9205,13 +9247,22 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     lastRippleTime = now;
                 }
                 
-                // 彩带掉落效果（全局生效，主页面频率降低）
+                // 彩带掉落效果
                 const isLoginPage = loginSection && !loginSection.classList.contains('hidden');
-                const confettiInterval = isLoginPage ? 100 : 300;
-                const confettiCount = isLoginPage ? 2 : 1;
-                if (now - lastConfettiTime > confettiInterval && confettiSystem) {
-                    confettiSystem.createConfetti(e.clientX, e.clientY, confettiCount);
-                    lastConfettiTime = now;
+                if (confettiSystem) {
+                    if (isLoginPage && now - lastConfettiTime > 100) {
+                        // 登录页面：固定掉落
+                        confettiSystem.createConfetti(e.clientX, e.clientY, 2);
+                        lastConfettiTime = now;
+                    } else if (!isLoginPage) {
+                        // 主页面：根据配置决定是否掉落
+                        const confettiEnabled = document.getElementById('confettiEnabled')?.checked;
+                        const confettiProbability = parseInt(document.getElementById('confettiProbability')?.value || 10);
+                        if (confettiEnabled && now - lastConfettiTime > 200 && Math.random() * 100 < confettiProbability) {
+                            confettiSystem.createConfetti(e.clientX, e.clientY, 1);
+                            lastConfettiTime = now;
+                        }
+                    }
                 }
             });
             
@@ -9220,16 +9271,24 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 if (mouseGlow) mouseGlow.style.opacity = '0';
             });
             
-            // 点击事件 - 涟漪 + 爆炸彩带（全局生效）
+            // 点击事件 - 涟漪 + 爆炸彩带
             document.addEventListener('click', (e) => {
                 const isLoginPage = loginSection && !loginSection.classList.contains('hidden');
                 
                 // 点击涟漪效果（全局生效）
                 createClickRipple(e.clientX, e.clientY);
                 
-                // 爆炸彩带（全局生效，主页面数量减少）
+                // 爆炸彩带
                 if (confettiSystem) {
-                    confettiSystem.createConfetti(e.clientX, e.clientY, isLoginPage ? 15 : 8);
+                    if (isLoginPage) {
+                        confettiSystem.createConfetti(e.clientX, e.clientY, 15);
+                    } else {
+                        // 主页面：根据配置决定是否掉落
+                        const confettiEnabled = document.getElementById('confettiEnabled')?.checked;
+                        if (confettiEnabled) {
+                            confettiSystem.createConfetti(e.clientX, e.clientY, 5);
+                        }
+                    }
                 }
                 
                 // 水波涟漪仅在登录页面生效
@@ -9267,7 +9326,52 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             window.addEventListener('resize', () => {
                 setTimeout(syncToolsCardHeight, 50);
             });
+            
+            // 加载彩带配置
+            loadConfettiConfig();
         };
+        
+        // 加载彩带配置
+        function loadConfettiConfig() {
+            const savedEnabled = localStorage.getItem('confettiEnabled');
+            const savedProbability = localStorage.getItem('confettiProbability');
+            
+            const enabledEl = document.getElementById('confettiEnabled');
+            const probabilityEl = document.getElementById('confettiProbability');
+            const probabilityValueEl = document.getElementById('confettiProbabilityValue');
+            
+            if (enabledEl && savedEnabled !== null) {
+                enabledEl.checked = savedEnabled === 'true';
+            }
+            
+            if (probabilityEl && savedProbability !== null) {
+                const val = parseInt(savedProbability) || 10;
+                probabilityEl.value = val;
+                if (probabilityValueEl) probabilityValueEl.textContent = val;
+                probabilityEl.style.background = `linear-gradient(to right, #4285f4 0%, #4285f4 ${val}%, #ddd ${val}%, #ddd 100%)`;
+            }
+            
+            // 添加事件监听器保存配置
+            if (enabledEl) {
+                enabledEl.addEventListener('change', saveConfettiConfig);
+            }
+            if (probabilityEl) {
+                probabilityEl.addEventListener('input', saveConfettiConfig);
+            }
+        }
+        
+        // 保存彩带配置
+        function saveConfettiConfig() {
+            const enabledEl = document.getElementById('confettiEnabled');
+            const probabilityEl = document.getElementById('confettiProbability');
+            
+            if (enabledEl) {
+                localStorage.setItem('confettiEnabled', enabledEl.checked);
+            }
+            if (probabilityEl) {
+                localStorage.setItem('confettiProbability', probabilityEl.value);
+            }
+        }
 
         // =====================================================================
         // 使用统计相关函数

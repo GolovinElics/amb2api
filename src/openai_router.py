@@ -404,7 +404,7 @@ async def fake_stream_response_for_assembly(openai_request: ChatCompletionReques
                 
                 if "choices" in response_data and response_data["choices"]:
                     message = response_data["choices"][0].get("message", {})
-                    content = message.get("content", "")
+                    content = message.get("content") or ""  # 处理 None 的情况
                     tool_calls = message.get("tool_calls")
   
                 # 如果没有正常内容但有思维内容，给出警告
@@ -442,12 +442,14 @@ async def fake_stream_response_for_assembly(openai_request: ChatCompletionReques
                             formatted_tool_calls.append(formatted_call)
                         delta["tool_calls"] = formatted_tool_calls
 
-                    # 转换usageMetadata为OpenAI格式
+                    # 转换usageMetadata为OpenAI格式（兼容多种格式）
                     usage_raw = response_data.get("usage") or {}
+                    prompt_tokens = usage_raw.get("prompt_tokens") or usage_raw.get("input_tokens", 0)
+                    completion_tokens = usage_raw.get("completion_tokens") or usage_raw.get("output_tokens", 0)
                     usage = {
-                        "prompt_tokens": usage_raw.get("input_tokens", 0),
-                        "completion_tokens": usage_raw.get("output_tokens", 0),
-                        "total_tokens": usage_raw.get("total_tokens", 0)
+                        "prompt_tokens": prompt_tokens,
+                        "completion_tokens": completion_tokens,
+                        "total_tokens": usage_raw.get("total_tokens", prompt_tokens + completion_tokens)
                     } if usage_raw else None
 
                     # 构建完整的OpenAI格式的流式响应块
