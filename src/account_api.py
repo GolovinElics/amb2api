@@ -11,7 +11,7 @@ import time
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi import APIRouter, HTTPException, Depends, Request, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -1120,25 +1120,32 @@ async def get_usage_data(
 
 @router.get("/cost")
 async def get_cost_data(
+    request: Request,
     window_size: str = "month",
     starting_on: Optional[str] = None,
     ending_before: Optional[str] = None,
     group_by: str = "model",
     regions: Optional[str] = None,
     services: Optional[str] = None,
+    models: Optional[List[str]] = Query(default=None),
+    api_token: Optional[str] = None,
     force: bool = False,
     account_email: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    获取成本数据
+    获取成本数据（支持完整筛选参数）
     
     Args:
-        window_size: 时间窗口 (day, week, month)
+        window_size: 时间窗口 (day, week, month, hour)
         starting_on: 开始日期 (YYYY-MM-DD)
         ending_before: 结束日期 (YYYY-MM-DD)
         group_by: 分组方式 (model, date, region)
-        regions: 区域列表 (逗号分隔)
-        services: 服务列表 (逗号分隔)
+        regions: 区域列表 (逗号分隔，如 US,Europe)
+        services: 服务列表 (逗号分隔，如 API,Playground)
+        models: 模型列表 (多个models参数，如 models=GPT+4.1+(Output)&models=Claude+3+Haiku+(Output))
+        api_token: API Token ID (用于按项目筛选)
+        force: 是否强制刷新
+        account_email: 账户邮箱
     
     Returns:
         成本数据，包括总成本、按服务/模型分类的成本等
@@ -1147,8 +1154,12 @@ async def get_cost_data(
     session = await _get_session(account_email)
     session_email = (session.get("email") if session else None) or account_email or "default"
     
-    # 使用账户邮箱作为缓存键的一部分，确保不同账户有独立的缓存
-    cache_key = f"cost:summary:{session_email}"
+    # 构建缓存键（包含所有筛选参数）
+    filter_key = f"{window_size}:{starting_on}:{ending_before}:{regions}:{services}:{api_token}"
+    if models:
+        filter_key += f":{','.join(sorted(models))}"
+    cache_key = f"cost:{session_email}:{filter_key}"
+    
     cached = None if force else _cache_get(cache_key)
     if cached:
         return cached
@@ -1159,13 +1170,57 @@ async def get_cost_data(
         "by_service": [],
         "by_model": [],
         "spend_trend": [],
+        "daily_by_model": [],
+        "filters_applied": {},
         "debug_info": {}
     }
     
     try:
-        # 只发一个请求，使用最可靠的参数
+        # 构建请求参数
         params = {"_rsc": "1mzsd"}
-        rsc_data = await _make_dashboard_request("GET", "/dashboard/cost", params=params, account_email=account_email)
+        
+        # 时间窗口参数
+        if starting_on and ending_before:
+            params["window_size"] = window_size if window_size in ["day", "hour"] else "day"
+            params["starting_on"] = starting_on
+            params["ending_before"] = ending_before
+            result["filters_applied"]["date_range"] = f"{starting_on} ~ {ending_before}"
+            result["filters_applied"]["window_size"] = params["window_size"]
+        elif window_size and window_size != "month":
+            params["window_size"] = window_size
+            result["filters_applied"]["window_size"] = window_size
+        
+        # 区域筛选
+        if regions:
+            params["regions"] = regions
+            result["filters_applied"]["regions"] = regions
+        
+        # 服务筛选
+        if services:
+            params["services"] = services
+            result["filters_applied"]["services"] = services
+        
+        # API Token 筛选（按项目）
+        if api_token:
+            params["api_token"] = api_token
+            result["filters_applied"]["api_token"] = api_token
+        
+        # 模型筛选（支持多个）
+        # FastAPI 的 Query(default=None) 会自动处理多个同名参数为列表
+        models_list = models if models else []
+        
+        if models_list:
+            result["filters_applied"]["models"] = models_list
+        
+        log.info(f"Cost request params: {params}, models: {models_list}")
+        
+        # 发送请求到 AssemblyAI Dashboard
+        rsc_data = await _make_dashboard_request(
+            "GET", 
+            "/dashboard/cost", 
+            params=params,
+            account_email=account_email
+        )
         
         final_result = None
         if rsc_data and "raw" in rsc_data:
@@ -1180,7 +1235,33 @@ async def get_cost_data(
             result["by_service"] = final_result.get("by_service", [])
             result["by_model"] = final_result.get("by_model", [])
             result["spend_trend"] = final_result.get("spend_trend", [])
+            result["daily_by_model"] = final_result.get("daily_by_model", [])
             result["debug_info"]["source"] = final_result.get("_source", "unknown")
+            
+            # 如果指定了模型筛选，在客户端进行过滤（因为 RSC 可能不支持完整的模型筛选）
+            if models_list and result["by_model"]:
+                # 将模型名称标准化用于匹配
+                def normalize_model_name(name: str) -> str:
+                    return name.lower().replace(" ", "").replace("-", "").replace("_", "")
+                
+                normalized_filters = set(normalize_model_name(m) for m in models_list)
+                
+                # 过滤模型数据
+                filtered_models = []
+                for model_data in result["by_model"]:
+                    model_name = model_data.get("model", "")
+                    # 检查是否匹配任何筛选条件
+                    normalized_name = normalize_model_name(model_name)
+                    for filter_name in normalized_filters:
+                        # 支持部分匹配（去掉 Input/Output 后缀进行匹配）
+                        base_filter = filter_name.replace("(input)", "").replace("(output)", "").strip()
+                        if base_filter in normalized_name or normalized_name in base_filter:
+                            filtered_models.append(model_data)
+                            break
+                
+                if filtered_models:
+                    result["by_model"] = filtered_models
+                    result["total_cost"] = sum(m.get("cost", 0.0) for m in filtered_models)
             
             log.info(f"Parsed cost from RSC: ${result['total_cost']}, {len(result['by_model'])} models (source: {final_result.get('_source', 'unknown')})")
         else:
@@ -1189,6 +1270,82 @@ async def get_cost_data(
     except Exception as e:
         log.error(f"Failed to fetch cost data: {e}")
         result["error"] = str(e)
+    
+    _cache_set(cache_key, result)
+    return result
+
+
+@router.get("/cost/filters")
+async def get_cost_filters(account_email: Optional[str] = None) -> Dict[str, Any]:
+    """
+    获取成本筛选器的可用选项
+    
+    返回可用的服务、区域、模型列表，用于前端筛选器
+    """
+    session = await _get_session(account_email)
+    if not session:
+        raise HTTPException(status_code=401, detail="Not logged in. Please login first.")
+    
+    session_email = session.get("email") or account_email or "default"
+    cache_key = f"cost_filters:{session_email}"
+    
+    cached = _cache_get(cache_key)
+    if cached:
+        return cached
+    
+    result = {
+        "services": ["API", "Playground"],
+        "regions": ["US", "Europe"],
+        "window_sizes": [
+            {"value": "hour", "label": "按小时"},
+            {"value": "day", "label": "按天"},
+            {"value": "week", "label": "按周"},
+            {"value": "month", "label": "按月"},
+        ],
+        "model_categories": {
+            "LLM Gateway (Input)": [],
+            "LLM Gateway (Output)": [],
+            "Speech-to-Text": ["Universal", "Slam-1", "Nano", "Best", "Conformer-2"],
+            "Streaming Speech-to-Text": ["Universal-Streaming", "Nano Streaming", "Best Streaming"],
+            "Speech Understanding": ["Summarization", "Sentiment Analysis", "Entity Detection", "Topic Detection", "Content Moderation", "PII Redaction", "Auto Chapters", "Translation"],
+        },
+        "models": []
+    }
+    
+    # 尝试从成本数据中获取实际使用的模型列表
+    try:
+        params = {"_rsc": "1mzsd"}
+        rsc_data = await _make_dashboard_request("GET", "/dashboard/cost", params=params, account_email=account_email)
+        
+        if rsc_data and "raw" in rsc_data:
+            raw_text = rsc_data["raw"]
+            if "chartExportData" in raw_text:
+                parsed = _parse_cost_rsc_data(rsc_data)
+                if parsed.get("by_model"):
+                    # 提取所有模型名称
+                    models_set = set()
+                    input_models = []
+                    output_models = []
+                    
+                    for model_data in parsed["by_model"]:
+                        model_name = model_data.get("model", "")
+                        if model_name:
+                            models_set.add(model_name)
+                            # 分类输入/输出模型
+                            if model_data.get("input_cost", 0) > 0:
+                                base_name = model_name
+                                if base_name not in input_models:
+                                    input_models.append(base_name)
+                            if model_data.get("output_cost", 0) > 0:
+                                base_name = model_name
+                                if base_name not in output_models:
+                                    output_models.append(base_name)
+                    
+                    result["models"] = sorted(list(models_set))
+                    result["model_categories"]["LLM Gateway (Input)"] = sorted(input_models)
+                    result["model_categories"]["LLM Gateway (Output)"] = sorted(output_models)
+    except Exception as e:
+        log.warning(f"Failed to fetch model list for filters: {e}")
     
     _cache_set(cache_key, result)
     return result
@@ -1871,6 +2028,7 @@ def _parse_cost_rsc_data(data: Dict[str, Any]) -> Dict[str, Any]:
         "by_service": [],
         "by_model": [],
         "spend_trend": [],
+        "daily_by_model": [],  # 按日期分组的模型数据
     }
     
     try:
@@ -1989,53 +2147,195 @@ def _parse_cost_rsc_data(data: Dict[str, Any]) -> Dict[str, Any]:
             pass
         
         # 2. 提取按模型分类的成本（CostChart data 映射）
-        # 只有在chartExportData没有提供by_model数据时才使用这个方法
-        if not result["by_model"]:
-            log.debug("chartExportData didn't provide by_model, trying alternative parsing")
-            data_matches = re.findall(r'"data":\s*\[((?:\{[^}]+\},?\s*)+)\]', raw_text)
-            log.debug(f"Found {len(data_matches)} data matches")
-            for match in data_matches:
-                try:
-                    import json
-                    json_str = '[' + match + ']'
-                    arr = json.loads(json_str)
-                    if arr and isinstance(arr, list):
-                        # 跳过趋势数据（包含 name/value 键的对象）
-                        first_obj = arr[0] if len(arr) > 0 else {}
-                        if isinstance(first_obj, dict) and ("name" in first_obj and "value" in first_obj):
-                            pass
-                        else:
-                            agg: Dict[str, Dict[str, float]] = {}
-                            for obj in arr:
-                                if isinstance(obj, dict):
-                                    for name, val in obj.items():
-                                        # 过滤无关键
-                                        if name in ("name", "value"):
-                                            continue
-                                        base = name
-                                        dir_in = False
-                                        dir_out = False
-                                        if base.endswith(" (Input)"):
-                                            dir_in = True
-                                            base = base[:-8]
-                                        elif base.endswith(" (Output)"):
-                                            dir_out = True
-                                            base = base[:-9]
-                                        if not base or base == "name":
-                                            continue
-                                        if base not in agg:
-                                            agg[base] = {"input_cost": 0.0, "output_cost": 0.0, "extra_cost": 0.0}
-                                        try:
-                                            amount = float(val)
-                                        except Exception:
-                                            amount = 0.0
+        # 同时提取按日期分组的模型数据用于图表tooltip
+        data_matches = re.findall(r'"data":\s*\[((?:\{[^}]+\},?\s*)+)\]', raw_text)
+        log.debug(f"Found {len(data_matches)} data matches")
+        daily_by_model = []  # 按日期分组的模型数据
+        spend_trend_data = []  # 趋势数据
+        
+        for match in data_matches:
+            try:
+                import json
+                json_str = '[' + match + ']'
+                arr = json.loads(json_str)
+                if arr and isinstance(arr, list):
+                    first_obj = arr[0] if len(arr) > 0 else {}
+                    
+                    # 检查数据类型：
+                    # 1. 如果只有 name 和 value，是简单趋势数据
+                    # 2. 如果有 name 和其他模型键，是按日期分组的模型数据
+                    # 3. 如果只有 name，是空数据（筛选条件导致无数据）
+                    
+                    has_name = "name" in first_obj
+                    has_value = "value" in first_obj
+                    has_model_keys = any(k not in ("name", "value") for k in first_obj.keys())
+                    
+                    if has_name and has_value and not has_model_keys:
+                        # 简单趋势数据（name + value）
+                        if not spend_trend_data:
+                            for item in arr:
+                                try:
+                                    amount = float(item.get("value", 0))
+                                except Exception:
+                                    amount = 0.0
+                                spend_trend_data.append({
+                                    "date": item.get("name", ""),
+                                    "amount": amount
+                                })
+                            total = sum(s.get("amount", 0.0) for s in spend_trend_data)
+                            if total > 20:
+                                for s in spend_trend_data:
+                                    s["amount"] = round(s["amount"] / 100.0, 8)
+                            log.info(f"Parsed {len(spend_trend_data)} simple trend data points")
+                    elif has_name and has_model_keys:
+                        # 按日期分组的模型数据（name + 模型键）
+                        # 同时提取趋势数据
+                        agg: Dict[str, Dict[str, float]] = {}
+                        
+                        for idx, obj in enumerate(arr):
+                            if isinstance(obj, dict):
+                                date_str = obj.get("name", "")
+                                day_total = 0.0
+                                day_models = {}
+                                
+                                for name, val in obj.items():
+                                    if name in ("name", "value"):
+                                        continue
+                                    base = name
+                                    dir_in = False
+                                    dir_out = False
+                                    if base.endswith(" (Input)"):
+                                        dir_in = True
+                                        base = base[:-8]
+                                    elif base.endswith(" (Output)"):
+                                        dir_out = True
+                                        base = base[:-9]
+                                    if not base or base == "name":
+                                        continue
+                                    
+                                    if base not in agg:
+                                        agg[base] = {"input_cost": 0.0, "output_cost": 0.0, "extra_cost": 0.0}
+                                    try:
+                                        amount = float(val)
+                                    except Exception:
+                                        amount = 0.0
+                                    
+                                    day_total += amount
+                                    
+                                    if dir_in:
+                                        agg[base]["input_cost"] += amount
+                                    elif dir_out:
+                                        agg[base]["output_cost"] += amount
+                                    else:
+                                        agg[base]["extra_cost"] += amount
+                                    
+                                    if amount > 0:
+                                        if base not in day_models:
+                                            day_models[base] = {"input": 0.0, "output": 0.0}
                                         if dir_in:
-                                            agg[base]["input_cost"] += amount
+                                            day_models[base]["input"] += amount
                                         elif dir_out:
-                                            agg[base]["output_cost"] += amount
+                                            day_models[base]["output"] += amount
                                         else:
-                                            # 未标注方向的值累加到额外成本，再合并到总额
-                                            agg[base]["extra_cost"] += amount
+                                            day_models[base]["output"] += amount
+                                
+                                # 保存趋势数据
+                                spend_trend_data.append({
+                                    "date": date_str,
+                                    "amount": day_total
+                                })
+                                
+                                if day_models:
+                                    daily_by_model.append({
+                                        "index": idx,
+                                        "models": day_models
+                                    })
+                        
+                        # 生成 by_model 汇总
+                        if not result["by_model"] and agg:
+                            by_model = []
+                            for model, costs in agg.items():
+                                total = float(costs.get("input_cost", 0.0)) + float(costs.get("output_cost", 0.0)) + float(costs.get("extra_cost", 0.0))
+                                by_model.append({
+                                    "model": model,
+                                    "input_cost": float(costs.get("input_cost", 0.0)),
+                                    "output_cost": float(costs.get("output_cost", 0.0)),
+                                    "cost": total,
+                                })
+                            if by_model:
+                                by_model.sort(key=lambda x: x.get("cost", 0.0), reverse=True)
+                                result["by_model"] = by_model
+                                if result["total_cost"] == 0.0:
+                                    result["total_cost"] = sum(m.get("cost", 0.0) for m in by_model)
+                                log.info(f"Parsed {len(by_model)} models from data array")
+                        
+                        log.info(f"Parsed {len(spend_trend_data)} trend points and {len(daily_by_model)} daily model data")
+                        break
+                    elif has_name and not has_model_keys:
+                        # 只有 name，没有数据（筛选条件导致无数据）
+                        # 仍然提取日期用于X轴
+                        for item in arr:
+                            spend_trend_data.append({
+                                "date": item.get("name", ""),
+                                "amount": 0.0
+                            })
+                        log.info(f"Parsed {len(spend_trend_data)} empty trend data points (no model data)")
+                    else:
+                        # 旧格式：对象的键是模型名，值是金额（没有 name 键）
+                        agg: Dict[str, Dict[str, float]] = {}
+                        
+                        for idx, obj in enumerate(arr):
+                            if isinstance(obj, dict):
+                                day_models = {}
+                                for name, val in obj.items():
+                                    if name in ("name", "value"):
+                                        continue
+                                    base = name
+                                    dir_in = False
+                                    dir_out = False
+                                    if base.endswith(" (Input)"):
+                                        dir_in = True
+                                        base = base[:-8]
+                                    elif base.endswith(" (Output)"):
+                                        dir_out = True
+                                        base = base[:-9]
+                                    if not base or base == "name":
+                                        continue
+                                    
+                                    # 聚合到总计
+                                    if base not in agg:
+                                        agg[base] = {"input_cost": 0.0, "output_cost": 0.0, "extra_cost": 0.0}
+                                    try:
+                                        amount = float(val)
+                                    except Exception:
+                                        amount = 0.0
+                                    if dir_in:
+                                        agg[base]["input_cost"] += amount
+                                    elif dir_out:
+                                        agg[base]["output_cost"] += amount
+                                    else:
+                                        agg[base]["extra_cost"] += amount
+                                    
+                                    # 记录当天的模型数据（只记录有值的）
+                                    if amount > 0:
+                                        if base not in day_models:
+                                            day_models[base] = {"input": 0.0, "output": 0.0}
+                                        if dir_in:
+                                            day_models[base]["input"] += amount
+                                        elif dir_out:
+                                            day_models[base]["output"] += amount
+                                        else:
+                                            day_models[base]["output"] += amount
+                                
+                                # 保存当天的数据
+                                if day_models:
+                                    daily_by_model.append({
+                                        "index": idx,
+                                        "models": day_models
+                                    })
+                        
+                        # 生成 by_model 汇总
+                        if not result["by_model"]:
                             by_model = []
                             for model, costs in agg.items():
                                 total = float(costs.get("input_cost", 0.0)) + float(costs.get("output_cost", 0.0)) + float(costs.get("extra_cost", 0.0))
@@ -2051,38 +2351,19 @@ def _parse_cost_rsc_data(data: Dict[str, Any]) -> Dict[str, Any]:
                                 if result["total_cost"] == 0.0:
                                     result["total_cost"] = sum(m.get("cost", 0.0) for m in by_model)
                                 log.info(f"Parsed {len(by_model)} models from alternative data source")
-                                break
-                except Exception as e:
-                    log.debug(f"Failed to parse alternative data source: {e}")
-                    continue
-        
-        # 3. 提取消费趋势数据
-        chart_matches = re.findall(r'"data":\s*\[((?:\{[^}]+\},?\s*)+)\]', raw_text)
-        for match in chart_matches:
-            try:
-                json_str = f"[{match}]"
-                chart_data = json.loads(json_str)
-                if chart_data and isinstance(chart_data, list):
-                    first_item = chart_data[0] if chart_data else {}
-                    if "name" in first_item and "value" in first_item:
-                        spend = []
-                        for item in chart_data:
-                            try:
-                                amount = float(item.get("value", 0))
-                            except Exception:
-                                amount = 0.0
-                            spend.append({
-                                "date": item.get("name", ""),
-                                "amount": amount
-                            })
-                        total = sum(s.get("amount", 0.0) for s in spend)
-                        if total > 20:
-                            for s in spend:
-                                s["amount"] = round(s["amount"] / 100.0, 8)
-                        result["spend_trend"] = spend
                         break
-            except (json.JSONDecodeError, ValueError):
+            except Exception as e:
+                log.debug(f"Failed to parse alternative data source: {e}")
                 continue
+        
+        # 保存按日期分组的模型数据
+        if daily_by_model:
+            result["daily_by_model"] = daily_by_model
+            log.info(f"Parsed {len(daily_by_model)} days of model data")
+        
+        # 保存趋势数据
+        if spend_trend_data:
+            result["spend_trend"] = spend_trend_data
         # 如果 by_model 仍为空，尝试从文本提取模型名（兜底）
         if not result["by_model"]:
             models = _extract_model_names_from_rsc(raw_text)

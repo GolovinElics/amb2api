@@ -285,6 +285,47 @@
             border-color: var(--border-color) !important;
             color: var(--text-color) !important;
         }
+        
+        /* 暗黑模式下的成本筛选器样式 */
+        [data-theme="dark"] .cost-filter-tag {
+            background: var(--card-bg) !important;
+            border-color: var(--border-color) !important;
+            color: var(--text-color) !important;
+        }
+        [data-theme="dark"] .cost-filter-tag:hover {
+            background: var(--hover-bg) !important;
+        }
+        [data-theme="dark"] .cost-filter-tag.active {
+            background: rgba(66, 133, 244, 0.2) !important;
+            border-color: #4285f4 !important;
+            color: #6ea8fe !important;
+        }
+        [data-theme="dark"] .cost-filter-panel {
+            background: var(--card-bg) !important;
+            border-color: var(--border-color) !important;
+        }
+        [data-theme="dark"] .cost-window-btn {
+            background: var(--card-bg) !important;
+            border-color: var(--border-color) !important;
+            color: var(--text-color) !important;
+        }
+        [data-theme="dark"] .cost-window-btn:hover {
+            background: var(--hover-bg) !important;
+        }
+        [data-theme="dark"] .cost-window-btn.active {
+            background: #4285f4 !important;
+            color: white !important;
+        }
+        [data-theme="dark"] .cost-model-category-title {
+            color: var(--text-secondary) !important;
+            border-color: var(--border-color) !important;
+        }
+        [data-theme="dark"] .cost-model-item:hover {
+            background: var(--hover-bg) !important;
+        }
+        [data-theme="dark"] #costActiveFilters {
+            background: rgba(66, 133, 244, 0.15) !important;
+        }
 
         /* 暗黑模式下的 status 样式 */
         [data-theme="dark"] .status.info {
@@ -1898,6 +1939,107 @@
             }
         }
 
+        /* 成本筛选器样式 */
+        .cost-filter-tag {
+            transition: all 0.2s ease;
+        }
+        .cost-filter-tag:hover {
+            background: var(--hover-bg) !important;
+            border-color: #4285f4 !important;
+        }
+        .cost-filter-tag.active {
+            background: rgba(66, 133, 244, 0.1) !important;
+            border-color: #4285f4 !important;
+            color: #4285f4 !important;
+        }
+        
+        /* 成本视图切换按钮样式 */
+        .cost-view-btn {
+            transition: all 0.2s ease;
+            color: var(--text-secondary);
+        }
+        .cost-view-btn:hover {
+            background: var(--hover-bg) !important;
+            border-color: #4285f4 !important;
+            color: var(--text-color);
+        }
+        .cost-view-btn.active {
+            background: #4285f4 !important;
+            border-color: #4285f4 !important;
+            color: white !important;
+        }
+        .cost-filter-panel {
+            animation: slideDown 0.2s ease;
+        }
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .cost-window-btn {
+            transition: all 0.2s ease;
+            color: var(--text-color);
+        }
+        .cost-window-btn:hover {
+            background: var(--hover-bg) !important;
+        }
+        .cost-window-btn.active {
+            background: #4285f4 !important;
+            color: white !important;
+            border-color: #4285f4 !important;
+        }
+        .cost-model-category {
+            margin-bottom: 12px;
+        }
+        .cost-model-category-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .cost-model-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background 0.15s;
+        }
+        .cost-model-item:hover {
+            background: var(--hover-bg);
+        }
+        .cost-model-item input[type="checkbox"] {
+            width: 14px;
+            height: 14px;
+            cursor: pointer;
+        }
+        .cost-active-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            background: #4285f4;
+            color: white;
+            border-radius: 12px;
+            font-size: 11px;
+        }
+        .cost-active-tag button {
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            padding: 0;
+            font-size: 14px;
+            line-height: 1;
+            opacity: 0.8;
+        }
+        .cost-active-tag button:hover {
+            opacity: 1;
+        }
+        
         /* 成本页移动端响应式 */
         .responsive-grid {
             display: grid;
@@ -2312,6 +2454,24 @@
             #accountRatesContent h5 {
                 font-size: 15px;
                 word-break: break-word;
+            }
+            
+            /* 移动端筛选器优化 */
+            .cost-filter-tags {
+                gap: 6px !important;
+            }
+            .cost-filter-tag {
+                padding: 5px 10px !important;
+                font-size: 12px !important;
+            }
+            .cost-filter-panel {
+                padding: 12px !important;
+            }
+            #costModelList {
+                grid-template-columns: 1fr !important;
+            }
+            .cost-model-item {
+                font-size: 11px !important;
             }
             
             /* ========== 费率和成本表格等比例缩小 ========== */
@@ -5558,33 +5718,154 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     <!-- 成本子页面 -->
                     <div id="accountSubCost" class="hidden">
                         <div class="config-group">
-                            <h4>成本分析</h4>
-                            <div style="display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; align-items: center;">
-                                <button class="btn btn-sm" onclick="loadAccountCost(true)">刷新</button>
-                                <button class="btn btn-sm" onclick="exportAccountCost('json')" style="background: #17a2b8;">导出 JSON</button>
-                                <button class="btn btn-sm" onclick="exportAccountCost('csv')" style="background: #17a2b8;">导出 CSV</button>
-                            </div>
-                            <div id="accountCostContent">
+                            <h4>成本分析 <button class="btn btn-sm" onclick="console.log('Refresh clicked'); loadAccountCost(true)" style="margin-left: 12px; padding: 6px 16px; font-size: 13px;">刷新</button></h4>
+                            
+                            <!-- 总览区域（固定，不受筛选影响） -->
+                            <div id="accountCostSummarySection">
                                 <div class="skeleton-loader">
                                     <div class="skeleton-card" style="text-align: center;">
                                         <div class="skeleton-line short" style="margin: 0 auto 8px;"></div>
-                                        <div class="skeleton-line short" style="margin: 0 auto 12px;"></div>
                                         <div class="skeleton-big-number"></div>
-                                    </div>
-                                    <div class="skeleton-card">
-                                        <div class="skeleton-line medium" style="margin-bottom: 16px;"></div>
-                                        <div style="height: 8px; background: var(--border-color); border-radius: 4px; margin-bottom: 16px;"></div>
-                                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
-                                            <div class="skeleton-card" style="margin: 0;"><div class="skeleton-line short"></div><div class="skeleton-line medium"></div></div>
-                                            <div class="skeleton-card" style="margin: 0;"><div class="skeleton-line short"></div><div class="skeleton-line medium"></div></div>
-                                        </div>
-                                    </div>
-                                    <div class="loading-spinner" style="padding: 20px 0;">
-                                        <div class="spinner"></div>
-                                        <div class="spinner-text">正在加载成本数据...</div>
                                     </div>
                                 </div>
                             </div>
+                            
+                            <!-- 详情区域（受筛选影响） -->
+                            <div style="margin-top: 24px; padding: 16px; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color);">
+                                <!-- 标题：按模型分类 + 日期范围 -->
+                                <h4 style="margin: 0 0 12px 0; font-size: 14px; color: var(--text-color);">Cost Details <span id="costDetailDateRange" style="font-weight: normal; color: var(--text-secondary);"></span></h4>
+                                
+                                <!-- 筛选器标签栏 -->
+                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;">
+                                    <span style="font-size: 12px; color: var(--text-secondary);">Filter by:</span>
+                                    <button class="cost-filter-tag" id="costFilterDateBtn" onclick="toggleCostFilterPanel('date')" style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 16px; border: 1px solid var(--border-color); background: var(--container-bg); color: var(--text-color); cursor: pointer; font-size: 12px;">
+                                        <span id="costFilterDateLabel">Date: Last 7 days</span>
+                                    </button>
+                                    <button class="cost-filter-tag" id="costFilterServiceBtn" onclick="toggleCostFilterPanel('service')" style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 16px; border: 1px solid var(--border-color); background: var(--container-bg); color: var(--text-color); cursor: pointer; font-size: 12px;">
+                                        <span id="costFilterServiceLabel">Service: All</span>
+                                    </button>
+                                    <button class="cost-filter-tag" id="costFilterRegionBtn" onclick="toggleCostFilterPanel('region')" style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 16px; border: 1px solid var(--border-color); background: var(--container-bg); color: var(--text-color); cursor: pointer; font-size: 12px;">
+                                        <span id="costFilterRegionLabel">Region: All</span>
+                                    </button>
+                                    <button class="cost-filter-tag" id="costFilterModelBtn" onclick="toggleCostFilterPanel('model')" style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 16px; border: 1px solid var(--border-color); background: var(--container-bg); color: var(--text-color); cursor: pointer; font-size: 12px;">
+                                        <span id="costFilterModelLabel">Models: All</span>
+                                    </button>
+                                    <!-- 视图切换 -->
+                                    <div style="margin-left: auto; display: flex; gap: 4px;">
+                                        <button id="costViewChart" onclick="setCostViewMode('chart')" class="cost-view-btn active" style="padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg); cursor: pointer; font-size: 12px;">图表</button>
+                                        <button id="costViewTable" onclick="setCostViewMode('table')" class="cost-view-btn" style="padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg); cursor: pointer; font-size: 12px;">列表</button>
+                                    </div>
+                                </div>
+                                
+                                <!-- 日期筛选面板 -->
+                                <div id="costFilterDatePanel" class="cost-filter-panel hidden" style="padding: 12px; background: var(--container-bg); border: 1px solid var(--border-color); border-radius: 6px; margin-bottom: 12px;">
+                                    <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+                                        <div style="display: flex; gap: 4px;">
+                                            <button class="cost-window-btn active" data-window="day" onclick="setCostWindow('day')" style="padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg); cursor: pointer; font-size: 11px;">day</button>
+                                            <button class="cost-window-btn" data-window="hour" onclick="setCostWindow('hour')" style="padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg); cursor: pointer; font-size: 11px;">hour</button>
+                                        </div>
+                                        <div style="display: flex; gap: 6px; align-items: center;">
+                                            <input type="date" id="costStartDate" class="config-input" style="width: auto; padding: 4px 8px; font-size: 12px;" onchange="validateCostDateRange()">
+                                            <span style="color: var(--text-secondary); font-size: 12px;">-</span>
+                                            <input type="date" id="costEndDate" class="config-input" style="width: auto; padding: 4px 8px; font-size: 12px;" onchange="validateCostDateRange()">
+                                        </div>
+                                        <div id="costDateError" style="color: #dc3545; font-size: 11px; display: none;">Invalid date range</div>
+                                        <div style="margin-left: auto; display: flex; gap: 6px;">
+                                            <button class="btn btn-sm" onclick="resetCostDateFilter()" style="background: #6c757d; padding: 4px 10px; font-size: 11px;">Reset</button>
+                                            <button class="btn btn-sm" id="costDateApplyBtn" onclick="applyCostFilters()" style="padding: 4px 10px; font-size: 11px;">Apply</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- 服务筛选面板 -->
+                                <div id="costFilterServicePanel" class="cost-filter-panel hidden" style="padding: 12px; background: var(--container-bg); border: 1px solid var(--border-color); border-radius: 6px; margin-bottom: 12px;">
+                                    <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                                        <label style="display: flex; align-items: center; gap: 4px; cursor: pointer; font-size: 12px;">
+                                            <input type="checkbox" id="costServiceAPI" value="API" checked onchange="updateCostServiceLabel()"> API
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 4px; cursor: pointer; font-size: 12px;">
+                                            <input type="checkbox" id="costServicePlayground" value="Playground" checked onchange="updateCostServiceLabel()"> Playground
+                                        </label>
+                                        <div style="margin-left: auto; display: flex; gap: 6px;">
+                                            <button class="btn btn-sm" onclick="resetCostServiceFilter()" style="background: #6c757d; padding: 4px 10px; font-size: 11px;">Reset</button>
+                                            <button class="btn btn-sm" onclick="applyCostFilters()" style="padding: 4px 10px; font-size: 11px;">Apply</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- 区域筛选面板 -->
+                                <div id="costFilterRegionPanel" class="cost-filter-panel hidden" style="padding: 12px; background: var(--container-bg); border: 1px solid var(--border-color); border-radius: 6px; margin-bottom: 12px;">
+                                    <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                                        <label style="display: flex; align-items: center; gap: 4px; cursor: pointer; font-size: 12px;">
+                                            <input type="checkbox" id="costRegionUS" value="US" checked onchange="updateCostRegionLabel()"> US
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 4px; cursor: pointer; font-size: 12px;">
+                                            <input type="checkbox" id="costRegionEurope" value="Europe" checked onchange="updateCostRegionLabel()"> Europe
+                                        </label>
+                                        <div style="margin-left: auto; display: flex; gap: 6px;">
+                                            <button class="btn btn-sm" onclick="resetCostRegionFilter()" style="background: #6c757d; padding: 4px 10px; font-size: 11px;">Reset</button>
+                                            <button class="btn btn-sm" onclick="applyCostFilters()" style="padding: 4px 10px; font-size: 11px;">Apply</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- 模型筛选面板 -->
+                                <div id="costFilterModelPanel" class="cost-filter-panel hidden" style="padding: 12px; background: var(--container-bg); border: 1px solid var(--border-color); border-radius: 6px; margin-bottom: 12px; max-height: 300px; overflow-y: auto;">
+                                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                        <label style="display: flex; align-items: center; gap: 4px; cursor: pointer; font-size: 12px; font-weight: 500;">
+                                            <input type="checkbox" id="costModelSelectAll" checked onchange="toggleAllCostModels(this.checked)"> Select all
+                                        </label>
+                                        <span style="color: var(--text-muted); font-size: 11px;" id="costModelCountLabel"></span>
+                                        <div style="margin-left: auto; display: flex; gap: 6px;">
+                                            <button class="btn btn-sm" onclick="resetCostModelFilter()" style="background: #6c757d; padding: 4px 10px; font-size: 11px;">Reset</button>
+                                            <button class="btn btn-sm" onclick="applyCostFilters()" style="padding: 4px 10px; font-size: 11px;">Apply</button>
+                                        </div>
+                                    </div>
+                                    <div id="costModelList" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 4px; font-size: 11px;"></div>
+                                </div>
+                                
+                                <!-- 详情总额 -->
+                                <div style="margin-bottom: 12px; padding: 8px 0; border-bottom: 1px solid var(--border-color);">
+                                    <div style="font-size: 14px; color: var(--text-color);">
+                                        Total spend: <strong id="costDetailTotal">$0.00</strong>
+                                    </div>
+                                </div>
+                                
+                                <!-- 详情内容区域 -->
+                                <div id="accountCostDetails">
+                                    <div class="skeleton-loader" style="padding: 0;">
+                                        <!-- 模拟图表区域 -->
+                                        <div class="skeleton-card" style="margin: 0; padding: 16px;">
+                                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                                                <div class="skeleton-line short" style="width: 80px; margin: 0;"></div>
+                                                <div style="display: flex; gap: 8px;">
+                                                    <div class="skeleton-line" style="width: 60px; height: 12px; margin: 0;"></div>
+                                                    <div class="skeleton-line" style="width: 60px; height: 12px; margin: 0;"></div>
+                                                    <div class="skeleton-line" style="width: 60px; height: 12px; margin: 0;"></div>
+                                                </div>
+                                            </div>
+                                            <!-- 模拟曲线图区域 -->
+                                            <div style="height: 200px; background: linear-gradient(180deg, var(--card-bg) 0%, var(--border-color) 100%); border-radius: 8px; position: relative; overflow: hidden;">
+                                                <div style="position: absolute; bottom: 0; left: 0; right: 0; height: 60%; background: linear-gradient(90deg, var(--border-color) 25%, var(--card-bg) 50%, var(--border-color) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; opacity: 0.5;"></div>
+                                            </div>
+                                            <!-- 模拟X轴标签 -->
+                                            <div style="display: flex; justify-content: space-between; margin-top: 8px;">
+                                                <div class="skeleton-line" style="width: 40px; height: 10px; margin: 0;"></div>
+                                                <div class="skeleton-line" style="width: 40px; height: 10px; margin: 0;"></div>
+                                                <div class="skeleton-line" style="width: 40px; height: 10px; margin: 0;"></div>
+                                                <div class="skeleton-line" style="width: 40px; height: 10px; margin: 0;"></div>
+                                            </div>
+                                        </div>
+                                        <div class="loading-spinner" style="padding: 16px 0;">
+                                            <div class="spinner"></div>
+                                            <div class="spinner-text">正在加载成本详情...</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 兼容旧的accountCostContent -->
+                            <div id="accountCostContent" style="display: none;"></div>
                         </div>
                     </div>
 
@@ -11505,6 +11786,9 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 if (data.success) {
                     currentAccountEmail = email;
                     
+                    // 重置成本筛选器状态
+                    costFilterState.initialized = false;
+                    
                     // 显示账户详情并切换到概览（但不触发数据加载，由下面的并发加载统一处理）
                     document.getElementById('accountDetailsSection').classList.remove('hidden');
                     
@@ -11888,23 +12172,14 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     loadAccountUsage();
                 }
             } else if (tabName === 'cost') {
-                // 优先使用缓存，即使不完整也先显示
-                const el = document.getElementById('accountCostContent');
-                const cacheKey = 'summary';
-                const cached = accountCache.cost[cacheKey];
-                console.log('Switching to cost tab, cache:', cached ? { ts: cached.ts, complete: cached.complete, hasHtml: !!cached.html } : 'none');
-                if (el && cached && cached.html && isFresh(cached.ts)) {
-                    // 先显示缓存内容（即使不完整）
-                    console.log('Using cached cost data');
-                    el.innerHTML = cached.html;
-                    // 如果数据不完整，在后台静默刷新
-                    if (!cached.complete) {
-                        loadAccountCost(true, true); // force=true, silent=true
-                    }
-                } else {
-                    console.log('No valid cache, loading cost data');
-                    loadAccountCost();
+                // 初始化筛选器（如果尚未初始化）
+                if (!costFilterState.initialized) {
+                    initCostFilters();
+                    costFilterState.initialized = true;
                 }
+                
+                // 加载成本数据（总览 + 详情）
+                loadAccountCost();
             } else if (tabName === 'rates') {
                 const el = document.getElementById('accountRatesContent');
                 console.log('Switching to rates tab, cache:', accountCache.rates ? { ts: accountCache.rates.ts, hasHtml: !!accountCache.rates.html } : 'none');
@@ -12229,6 +12504,40 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             `;
         }
 
+        // 生成Cost Details详情区域的加载动画HTML
+        function getCostDetailLoadingHTML() {
+            return `
+                <div class="skeleton-loader" style="padding: 0;">
+                    <!-- 模拟图表区域 -->
+                    <div class="skeleton-card" style="margin: 0; padding: 16px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                            <div class="skeleton-line short" style="width: 80px; margin: 0;"></div>
+                            <div style="display: flex; gap: 8px;">
+                                <div class="skeleton-line" style="width: 60px; height: 12px; margin: 0;"></div>
+                                <div class="skeleton-line" style="width: 60px; height: 12px; margin: 0;"></div>
+                                <div class="skeleton-line" style="width: 60px; height: 12px; margin: 0;"></div>
+                            </div>
+                        </div>
+                        <!-- 模拟曲线图区域 -->
+                        <div style="height: 200px; background: linear-gradient(180deg, var(--card-bg) 0%, var(--border-color) 100%); border-radius: 8px; position: relative; overflow: hidden;">
+                            <div style="position: absolute; bottom: 0; left: 0; right: 0; height: 60%; background: linear-gradient(90deg, var(--border-color) 25%, var(--card-bg) 50%, var(--border-color) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; opacity: 0.5;"></div>
+                        </div>
+                        <!-- 模拟X轴标签 -->
+                        <div style="display: flex; justify-content: space-between; margin-top: 8px;">
+                            <div class="skeleton-line" style="width: 40px; height: 10px; margin: 0;"></div>
+                            <div class="skeleton-line" style="width: 40px; height: 10px; margin: 0;"></div>
+                            <div class="skeleton-line" style="width: 40px; height: 10px; margin: 0;"></div>
+                            <div class="skeleton-line" style="width: 40px; height: 10px; margin: 0;"></div>
+                        </div>
+                    </div>
+                    <div class="loading-spinner" style="padding: 16px 0;">
+                        <div class="spinner"></div>
+                        <div class="spinner-text">正在加载成本详情...</div>
+                    </div>
+                </div>
+            `;
+        }
+
         // 生成费率页面的加载动画HTML
         function getRatesLoadingHTML() {
             return `
@@ -12332,17 +12641,28 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 const hasItemsData = data.items && Array.isArray(data.items) && data.items.length > 0;
                 const totalTokens = data.total_tokens || 0;
                 
-                // 如果没有详细数据，显示加载中状态（带动画）
+                // 如果没有详细数据，显示加载中状态（带动画）并快速重试
                 if (!hasModelData && !hasItemsData) {
-                    el.innerHTML = getUsageLoadingHTML();
-                    // 5秒后自动重试
-                    setTimeout(() => {
-                        if (currentAccountSubTab === 'usage') {
+                    if (!silent) {
+                        el.innerHTML = getUsageLoadingHTML();
+                    }
+                    // 1秒后自动重试（最多重试3次）
+                    const retryCount = window.usageRetryCount || 0;
+                    if (retryCount < 3) {
+                        window.usageRetryCount = retryCount + 1;
+                        setTimeout(() => {
                             loadAccountUsage(true, true);
-                        }
-                    }, 5000);
+                        }, 1000);
+                    } else {
+                        // 重试次数用完，显示空状态
+                        window.usageRetryCount = 0;
+                        el.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-secondary);">暂无使用量数据</div>';
+                    }
                     return;
                 }
+                
+                // 成功获取数据，重置重试计数
+                window.usageRetryCount = 0;
                 
                 let html = '<div style="display: grid; gap: 16px;">';
                 
@@ -12444,177 +12764,1119 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             }
         }
 
-        // 加载成本数据
-        async function loadAccountCost(force = false, silent = false) {
-            if (!currentAccountEmail) {
-                const el = document.getElementById('accountCostContent');
-                if (el) el.innerHTML = '<p style="color: var(--text-secondary);">请先选择账户</p>';
-                return;
-            }
-            const el = document.getElementById('accountCostContent');
-            if (!el) return;
-            const key = 'summary';
+        // ========== 成本筛选器相关函数 ==========
+        
+        // HTML转义函数
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // 成本筛选器状态
+        const costFilterState = {
+            windowSize: 'day',
+            startDate: null,
+            endDate: null,
+            services: ['API', 'Playground'],
+            models: [],  // 空数组表示全部
+            allModels: [],  // 所有可用模型
+            regions: ['US', 'Europe'],
+            activePanel: null,
+            initialized: false
+        };
+        
+        // 初始化成本筛选器
+        async function initCostFilters() {
+            // 设置默认日期范围（最近7天）
+            const today = new Date();
+            const sevenDaysAgo = new Date(today);
+            sevenDaysAgo.setDate(today.getDate() - 7);
             
-            // 强制刷新时清除缓存（无论是否静默）
-            if (force) {
-                delete accountCache.cost[key];
+            const endDateEl = document.getElementById('costEndDate');
+            const startDateEl = document.getElementById('costStartDate');
+            
+            if (endDateEl) {
+                endDateEl.value = today.toISOString().split('T')[0];
+                // 设置最大日期为今天
+                endDateEl.max = today.toISOString().split('T')[0];
+            }
+            if (startDateEl) {
+                startDateEl.value = sevenDaysAgo.toISOString().split('T')[0];
+                // 设置最大日期为今天
+                startDateEl.max = today.toISOString().split('T')[0];
             }
             
-            if (!force) {
-                const cached = accountCache.cost[key];
-                if (cached && cached.html && isFresh(cached.ts)) {
-                    el.innerHTML = cached.html;
-                    return;
+            costFilterState.endDate = today.toISOString().split('T')[0];
+            costFilterState.startDate = sevenDaysAgo.toISOString().split('T')[0];
+            
+            // 加载可用的模型列表
+            await loadCostFilterModels();
+        }
+        
+        // 验证日期范围
+        function validateCostDateRange() {
+            const startDateEl = document.getElementById('costStartDate');
+            const endDateEl = document.getElementById('costEndDate');
+            const errorEl = document.getElementById('costDateError');
+            const applyBtn = document.getElementById('costDateApplyBtn');
+            
+            if (!startDateEl || !endDateEl) return true;
+            
+            const startDate = startDateEl.value;
+            const endDate = endDateEl.value;
+            
+            if (startDate && endDate) {
+                const start = new Date(startDate);
+                const end = new Date(endDate);
+                
+                if (end < start) {
+                    // 显示错误
+                    if (errorEl) {
+                        errorEl.style.display = 'block';
+                        errorEl.textContent = '结束日期不能早于开始日期';
+                    }
+                    if (applyBtn) {
+                        applyBtn.disabled = true;
+                        applyBtn.style.opacity = '0.5';
+                    }
+                    return false;
                 }
             }
-            // 静默模式不显示加载中
-            if (!silent) {
-                el.innerHTML = getCostLoadingHTML();
+            
+            // 隐藏错误
+            if (errorEl) errorEl.style.display = 'none';
+            if (applyBtn) {
+                applyBtn.disabled = false;
+                applyBtn.style.opacity = '1';
             }
+            return true;
+        }
+        
+        // 加载可用的模型列表
+        async function loadCostFilterModels() {
+            if (!currentAccountEmail) return;
+            
             try {
-                // 强制刷新时添加force参数和时间戳防止缓存
-                const timestamp = Date.now();
-                const params = new URLSearchParams();
-                params.append('force', '1');
-                params.append('_t', timestamp);
-                if (currentAccountEmail) params.append('account_email', currentAccountEmail);
-                console.log('Fetching cost data for:', currentAccountEmail);
-                const res = await fetch('/api/account/cost?' + params.toString(), { headers: getAuthHeaders() });
-                if (!res.ok) throw new Error('加载失败');
+                const res = await fetch('/api/account/cost/filters?account_email=' + encodeURIComponent(currentAccountEmail), { headers: getAuthHeaders() });
+                if (!res.ok) return;
+                
                 const data = await res.json();
-                console.log('Cost data (force=' + force + '):', data);
+                costFilterState.allModels = data.models || [];
+                
+                // 渲染模型列表
+                renderCostModelList(data);
+            } catch (e) {
+                console.error('Failed to load cost filters:', e);
+            }
+        }
+        
+        // 渲染模型列表
+        function renderCostModelList(data) {
+            const container = document.getElementById('costModelList');
+            if (!container) return;
+            
+            const categories = data.model_categories || {};
+            let html = '';
+            
+            // LLM Gateway 模型（按输入/输出分组）
+            if (categories['LLM Gateway (Input)'] && categories['LLM Gateway (Input)'].length > 0) {
+                html += '<div class="cost-model-category" style="grid-column: 1 / -1;">';
+                html += '<div class="cost-model-category-title">🤖 LLM Gateway (Input)</div>';
+                html += '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 4px;">';
+                categories['LLM Gateway (Input)'].forEach(model => {
+                    const modelValue = model + ' (Input)';
+                    html += '<label class="cost-model-item"><input type="checkbox" value="' + escapeHtml(modelValue) + '" checked onchange="updateCostModelLabel()"><span>' + escapeHtml(model) + '</span></label>';
+                });
+                html += '</div></div>';
+            }
+            
+            if (categories['LLM Gateway (Output)'] && categories['LLM Gateway (Output)'].length > 0) {
+                html += '<div class="cost-model-category" style="grid-column: 1 / -1;">';
+                html += '<div class="cost-model-category-title">🤖 LLM Gateway (Output)</div>';
+                html += '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 4px;">';
+                categories['LLM Gateway (Output)'].forEach(model => {
+                    const modelValue = model + ' (Output)';
+                    html += '<label class="cost-model-item"><input type="checkbox" value="' + escapeHtml(modelValue) + '" checked onchange="updateCostModelLabel()"><span>' + escapeHtml(model) + '</span></label>';
+                });
+                html += '</div></div>';
+            }
+            
+            // 其他服务类别
+            const otherCategories = ['Speech-to-Text', 'Streaming Speech-to-Text', 'Speech Understanding'];
+            otherCategories.forEach(catName => {
+                const models = categories[catName];
+                if (models && models.length > 0) {
+                    html += '<div class="cost-model-category" style="grid-column: 1 / -1;">';
+                    html += '<div class="cost-model-category-title">🎤 ' + catName + '</div>';
+                    html += '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 4px;">';
+                    models.forEach(model => {
+                        html += '<label class="cost-model-item"><input type="checkbox" value="' + escapeHtml(model) + '" checked onchange="updateCostModelLabel()"><span>' + escapeHtml(model) + '</span></label>';
+                    });
+                    html += '</div></div>';
+                }
+            });
+            
+            // 如果没有分类数据，显示简单列表
+            if (!html && data.models && data.models.length > 0) {
+                html = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 4px;">';
+                data.models.forEach(model => {
+                    html += '<label class="cost-model-item"><input type="checkbox" value="' + escapeHtml(model) + '" checked onchange="updateCostModelLabel()"><span>' + escapeHtml(model) + '</span></label>';
+                });
+                html += '</div>';
+            }
+            
+            if (!html) {
+                html = '<div style="color: var(--text-secondary); font-size: 13px;">暂无模型数据，请先加载成本数据</div>';
+            }
+            
+            container.innerHTML = html;
+            updateCostModelLabel();
+        }
+        
+        // 切换筛选面板
+        function toggleCostFilterPanel(panelType) {
+            console.log('toggleCostFilterPanel called with:', panelType);
+            const panels = ['Date', 'Service', 'Model', 'Region'];
+            const panelTypeCapitalized = panelType.charAt(0).toUpperCase() + panelType.slice(1);
+            
+            panels.forEach(p => {
+                // ID 格式: costFilter{Type}Panel, costFilter{Type}Btn
+                const pId = 'costFilter' + p + 'Panel';
+                const bId = 'costFilter' + p + 'Btn';
+                const panel = document.getElementById(pId);
+                const btn = document.getElementById(bId);
+                
+                if (!panel || !btn) {
+                    console.error('Missing element:', pId, 'or', bId);
+                    return;
+                }
+                
+                if (p === panelTypeCapitalized) {
+                    // 切换当前面板
+                    const isHidden = panel.classList.contains('hidden');
+                    if (isHidden) {
+                        panel.classList.remove('hidden');
+                        btn.classList.add('active');
+                        costFilterState.activePanel = panelType;
+                    } else {
+                        panel.classList.add('hidden');
+                        btn.classList.remove('active');
+                        costFilterState.activePanel = null;
+                    }
+                } else {
+                    // 关闭其他面板
+                    panel.classList.add('hidden');
+                    btn.classList.remove('active');
+                }
+            });
+        }
+        
+        // 设置时间窗口
+        function setCostWindow(windowSize) {
+            costFilterState.windowSize = windowSize;
+            document.querySelectorAll('.cost-window-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.window === windowSize);
+            });
+        }
+        
+        // 更新日期标签
+        function updateCostDateLabel() {
+            const startDate = document.getElementById('costStartDate').value;
+            const endDate = document.getElementById('costEndDate').value;
+            const label = document.getElementById('costFilterDateLabel');
+            
+            if (startDate && endDate) {
+                const start = new Date(startDate);
+                const end = new Date(endDate);
+                label.textContent = '日期: ' + (start.getMonth() + 1) + '/' + start.getDate() + ' - ' + (end.getMonth() + 1) + '/' + end.getDate();
+            } else {
+                label.textContent = '日期: 最近7天';
+            }
+        }
+        
+        // 更新服务标签
+        function updateCostServiceLabel() {
+            const api = document.getElementById('costServiceAPI').checked;
+            const playground = document.getElementById('costServicePlayground').checked;
+            const label = document.getElementById('costFilterServiceLabel');
+            
+            if (api && playground) {
+                label.textContent = '服务: 全部';
+            } else if (api) {
+                label.textContent = '服务: API';
+            } else if (playground) {
+                label.textContent = '服务: Playground';
+            } else {
+                label.textContent = '服务: 无';
+            }
+        }
+        
+        // 更新模型标签
+        function updateCostModelLabel() {
+            const checkboxes = document.querySelectorAll('#costModelList input[type="checkbox"]');
+            const checked = document.querySelectorAll('#costModelList input[type="checkbox"]:checked');
+            const label = document.getElementById('costFilterModelLabel');
+            const countLabel = document.getElementById('costModelCountLabel');
+            const selectAll = document.getElementById('costModelSelectAll');
+            
+            if (checkboxes.length === 0) {
+                label.textContent = '模型: 全部';
+                countLabel.textContent = '已选: 全部';
+                return;
+            }
+            
+            if (checked.length === checkboxes.length) {
+                label.textContent = '模型: 全部';
+                countLabel.textContent = '已选: 全部 (' + checkboxes.length + ')';
+                selectAll.checked = true;
+                selectAll.indeterminate = false;
+            } else if (checked.length === 0) {
+                label.textContent = '模型: 无';
+                countLabel.textContent = '已选: 0';
+                selectAll.checked = false;
+                selectAll.indeterminate = false;
+            } else {
+                label.textContent = '模型: ' + checked.length + '个';
+                countLabel.textContent = '已选: ' + checked.length + '/' + checkboxes.length;
+                selectAll.indeterminate = true;
+            }
+        }
+        
+        // 更新区域标签
+        function updateCostRegionLabel() {
+            const us = document.getElementById('costRegionUS').checked;
+            const europe = document.getElementById('costRegionEurope').checked;
+            const label = document.getElementById('costFilterRegionLabel');
+            
+            if (us && europe) {
+                label.textContent = '区域: 全部';
+            } else if (us) {
+                label.textContent = '区域: US';
+            } else if (europe) {
+                label.textContent = '区域: Europe';
+            } else {
+                label.textContent = '区域: 无';
+            }
+        }
+        
+        // 全选/取消全选模型
+        function toggleAllCostModels(checked) {
+            document.querySelectorAll('#costModelList input[type="checkbox"]').forEach(cb => {
+                cb.checked = checked;
+            });
+            updateCostModelLabel();
+        }
+        
+        // 重置日期筛选
+        function resetCostDateFilter() {
+            const today = new Date();
+            const sevenDaysAgo = new Date(today);
+            sevenDaysAgo.setDate(today.getDate() - 7);
+            
+            document.getElementById('costEndDate').value = today.toISOString().split('T')[0];
+            document.getElementById('costStartDate').value = sevenDaysAgo.toISOString().split('T')[0];
+            setCostWindow('day');
+            updateCostDateLabel();
+        }
+        
+        // 重置服务筛选
+        function resetCostServiceFilter() {
+            document.getElementById('costServiceAPI').checked = true;
+            document.getElementById('costServicePlayground').checked = true;
+            updateCostServiceLabel();
+        }
+        
+        // 重置模型筛选
+        function resetCostModelFilter() {
+            toggleAllCostModels(true);
+        }
+        
+        // 重置区域筛选
+        function resetCostRegionFilter() {
+            document.getElementById('costRegionUS').checked = true;
+            document.getElementById('costRegionEurope').checked = true;
+            updateCostRegionLabel();
+        }
+        
+        // 清除所有筛选
+        function clearAllCostFilters() {
+            resetCostDateFilter();
+            resetCostServiceFilter();
+            resetCostModelFilter();
+            resetCostRegionFilter();
+            applyCostFilters();
+        }
+        
+        // 构建筛选参数
+        function buildCostFilterParams() {
+            const params = new URLSearchParams();
+            
+            // 日期参数
+            const startDate = document.getElementById('costStartDate').value;
+            const endDate = document.getElementById('costEndDate').value;
+            if (startDate && endDate) {
+                params.append('window_size', costFilterState.windowSize);
+                params.append('starting_on', startDate);
+                // ending_before 需要是结束日期的第二天（exclusive）
+                const endDateObj = new Date(endDate);
+                endDateObj.setDate(endDateObj.getDate() + 1);
+                params.append('ending_before', endDateObj.toISOString().split('T')[0]);
+            }
+            
+            // 服务参数
+            const services = [];
+            if (document.getElementById('costServiceAPI').checked) services.push('API');
+            if (document.getElementById('costServicePlayground').checked) services.push('Playground');
+            if (services.length > 0 && services.length < 2) {
+                params.append('services', services.join(','));
+            }
+            
+            // 区域参数
+            const regions = [];
+            if (document.getElementById('costRegionUS').checked) regions.push('US');
+            if (document.getElementById('costRegionEurope').checked) regions.push('Europe');
+            if (regions.length > 0 && regions.length < 2) {
+                params.append('regions', regions.join(','));
+            }
+            
+            // 模型参数
+            const allCheckboxes = document.querySelectorAll('#costModelList input[type="checkbox"]');
+            const checkedModels = document.querySelectorAll('#costModelList input[type="checkbox"]:checked');
+            if (allCheckboxes.length > 0 && checkedModels.length < allCheckboxes.length && checkedModels.length > 0) {
+                checkedModels.forEach(cb => {
+                    params.append('models', cb.value);
+                });
+            }
+            
+            return params;
+        }
+        
+        // 更新已应用筛选显示
+        function updateActiveFiltersDisplay() {
+            const container = document.getElementById('costActiveFilters');
+            const tagsContainer = document.getElementById('costActiveFilterTags');
+            if (!container || !tagsContainer) return;
+            
+            const tags = [];
+            
+            // 日期
+            const startDate = document.getElementById('costStartDate').value;
+            const endDate = document.getElementById('costEndDate').value;
+            if (startDate && endDate) {
+                const start = new Date(startDate);
+                const end = new Date(endDate);
+                const today = new Date();
+                const sevenDaysAgo = new Date(today);
+                sevenDaysAgo.setDate(today.getDate() - 7);
+                
+                // 检查是否是默认的7天范围
+                const isDefault = Math.abs(start - sevenDaysAgo) < 86400000 && Math.abs(end - today) < 86400000;
+                if (!isDefault) {
+                    tags.push({ type: 'date', label: (start.getMonth() + 1) + '/' + start.getDate() + ' - ' + (end.getMonth() + 1) + '/' + end.getDate() });
+                }
+            }
+            
+            // 服务
+            const api = document.getElementById('costServiceAPI').checked;
+            const playground = document.getElementById('costServicePlayground').checked;
+            if (!api || !playground) {
+                if (api) tags.push({ type: 'service', label: 'API' });
+                if (playground) tags.push({ type: 'service', label: 'Playground' });
+            }
+            
+            // 区域
+            const us = document.getElementById('costRegionUS').checked;
+            const europe = document.getElementById('costRegionEurope').checked;
+            if (!us || !europe) {
+                if (us) tags.push({ type: 'region', label: 'US' });
+                if (europe) tags.push({ type: 'region', label: 'Europe' });
+            }
+            
+            // 模型
+            const allCheckboxes = document.querySelectorAll('#costModelList input[type="checkbox"]');
+            const checkedModels = document.querySelectorAll('#costModelList input[type="checkbox"]:checked');
+            if (allCheckboxes.length > 0 && checkedModels.length < allCheckboxes.length) {
+                tags.push({ type: 'model', label: checkedModels.length + '个模型' });
+            }
+            
+            if (tags.length === 0) {
+                container.classList.add('hidden');
+                return;
+            }
+            
+            container.classList.remove('hidden');
+            tagsContainer.innerHTML = tags.map(tag => 
+                '<span class="cost-active-tag">' + tag.label + '</span>'
+            ).join('');
+        }
+        
+        // 应用筛选
+        function applyCostFilters() {
+            // 验证日期范围
+            if (!validateCostDateRange()) {
+                return;
+            }
+            
+            // 关闭所有面板
+            ['Date', 'Service', 'Model', 'Region'].forEach(p => {
+                const panel = document.getElementById('costFilter' + p + 'Panel');
+                const btn = document.getElementById('costFilter' + p + 'Btn');
+                if (panel) panel.classList.add('hidden');
+                if (btn) btn.classList.remove('active');
+            });
+            
+            // 更新标签
+            updateCostDateLabel();
+            updateActiveFiltersDisplay();
+            
+            // 只重新加载详情数据（不重新加载总览）
+            loadAccountCostDetails(true);
+        }
+        
+        // ========== 成本筛选器相关函数结束 ==========
+        
+        // 成本视图模式
+        let costViewMode = 'chart';  // 'chart' 或 'table'
+        
+        function setCostViewMode(mode) {
+            costViewMode = mode;
+            document.getElementById('costViewChart')?.classList.toggle('active', mode === 'chart');
+            document.getElementById('costViewTable')?.classList.toggle('active', mode === 'table');
+            // 重新渲染详情
+            if (window.lastCostDetailData) {
+                renderCostDetails(window.lastCostDetailData);
+            }
+        }
+        
+        // 加载总览数据（不受筛选影响）
+        async function loadAccountCostSummary(force = false) {
+            if (!currentAccountEmail) return;
+            
+            const el = document.getElementById('accountCostSummarySection');
+            if (!el) return;
+            
+            try {
+                const params = new URLSearchParams();
+                params.append('force', force ? '1' : '0');
+                params.append('_t', Date.now());
+                params.append('account_email', currentAccountEmail);
+                
+                const res = await fetch('/api/account/cost?' + params.toString(), { headers: getAuthHeaders() });
+                if (!res.ok) throw new Error('Failed to load summary');
+                
+                const data = await res.json();
+                
+                // 计算总额：优先从 by_service 累加，否则使用 total_cost
+                let totalCost = 0;
+                if (data.by_service && data.by_service.length > 0) {
+                    totalCost = data.by_service.reduce((sum, item) => sum + (item.cost || 0), 0);
+                } else {
+                    totalCost = data.total_cost || 0;
+                }
                 
                 let html = '<div style="display: grid; gap: 16px;">';
-                let hasAnyData = false;
                 
-                // 总成本显示
-                const totalCost = data.total_cost || 0;
+                // Summary 卡片
                 html += '<div class="summary-card">';
                 html += '<div class="summary-title" style="margin-bottom: 8px;">Summary (Last 30 days)</div>';
                 html += '<div class="summary-sub">Total spend across account</div>';
                 html += '<div class="summary-value">$' + totalCost.toFixed(5) + '</div>';
                 html += '</div>';
-                if (totalCost > 0) hasAnyData = true;
                 
-                // 按服务分类的成本
+                // Cost Breakdown
                 if (data.by_service && data.by_service.length > 0) {
-                    hasAnyData = true;
                     html += '<div style="padding: 16px; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color);">';
                     html += '<h4 style="margin-bottom: 12px; color: var(--text-color);">Cost Breakdown (Last 30 days)</h4>';
-                    
-                    // 进度条
-                    html += '<div style="height: 8px; background: #e0e0e0; border-radius: 4px; overflow: hidden; display: flex; margin-bottom: 16px; width: 100%;">';
+                    html += '<div style="height: 8px; background: #e0e0e0; border-radius: 4px; overflow: hidden; display: flex; margin-bottom: 16px;">';
                     const colors = ['#4caf50', '#2196f3', '#ff9800', '#9c27b0'];
-                    data.by_service.forEach(function(item, index) {
-                        const percentage = totalCost > 0 ? (item.cost / totalCost) * 100 : 0;
-                        html += '<div style="width: ' + percentage + '%; background: ' + colors[index % colors.length] + ';"></div>';
+                    data.by_service.forEach((item, index) => {
+                        const pct = totalCost > 0 ? (item.cost / totalCost) * 100 : 0;
+                        html += '<div style="width: ' + pct + '%; background: ' + colors[index % colors.length] + ';"></div>';
                     });
                     html += '</div>';
-                    
-                    // 服务列表
                     html += '<div class="responsive-grid">';
-                    data.by_service.forEach(function(item, index) {
+                    data.by_service.forEach((item, index) => {
                         html += '<div class="responsive-item" style="padding: 12px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--card-bg);">';
-                        html += '<div class="cost-label" style="font-size: 12px; color: var(--text-secondary);">' + item.service + '</div>';
+                        html += '<div style="font-size: 12px; color: var(--text-secondary);">' + item.service + '</div>';
                         html += '<div style="font-size: 20px; font-weight: bold; color: ' + colors[index % colors.length] + ';">$' + item.cost.toFixed(2) + '</div>';
                         html += '</div>';
                     });
-                    html += '</div>';
-                    html += '</div>';
-                }
-                
-                // 消费趋势
-                if (data.spend_trend && data.spend_trend.length > 0) {
-                    hasAnyData = true;
-                    html += '<div style="padding: 16px; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color);">';
-                    html += '<h4 style="margin-bottom: 12px; color: var(--text-color);">消费趋势</h4>';
-                    const max = Math.max.apply(null, data.spend_trend.map(function(s){ return (s.amount || 0); }));
-                    html += '<div>';
-                    data.spend_trend.forEach(function(item){
-                        const pct = max > 0 ? (item.amount || 0) / max * 100 : 0;
-                        html += '<div style="display: flex; align-items: center; gap: 10px; margin: 6px 0;">';
-                        html += '<div style="width: 90px; color: var(--text-secondary); font-size: 12px;">' + (item.date || '-') + '</div>';
-                        html += '<div style="flex: 1; height: 8px; background: #e0e0e0; border-radius: 4px; overflow: hidden;">';
-                        html += '<div style="width: ' + pct + '%; height: 100%; background: #4caf50;"></div>';
-                        html += '</div>';
-                        html += '<div style="width: 80px; text-align: right; font-size: 12px; color: var(--text-color);">$' + (item.amount || 0).toFixed(5) + '</div>';
-                        html += '</div>';
-                    });
-                    html += '</div>';
-                    html += '</div>';
-                }
-                
-                // 按模型分类的成本 - 确保数据始终显示
-                const hasModelCostData = data.by_model && Array.isArray(data.by_model) && data.by_model.length > 0;
-                const hasItemsCostData = data.items && Array.isArray(data.items) && data.items.length > 0;
-                
-                if (hasModelCostData) {
-                    hasAnyData = true;
-                    html += '<div class="cost-card" style="padding: 16px; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color);">';
-                    html += '<h4 style="margin-bottom: 12px; color: var(--text-color);">按模型分类</h4>';
-                    html += '<div class="cost-table-wrap">';
-                    html += '<table class="table cost-model-table"><thead><tr><th style="color: var(--text-color);">模型</th><th style="color: var(--text-color);">输入成本</th><th style="color: var(--text-color);">输出成本</th><th style="color: var(--text-color);">总成本</th></tr></thead><tbody>';
-                    data.by_model.forEach(function(item) {
-                        html += '<tr><td style="color: var(--text-color);">' + (item.model || '-') + '</td><td style="color: var(--text-color);">$' + (item.input_cost || 0).toFixed(5) + '</td><td style="color: var(--text-color);">$' + (item.output_cost || 0).toFixed(5) + '</td><td style="color: var(--text-color);">$' + (item.cost || 0).toFixed(5) + '</td></tr>';
-                    });
-                    html += '</tbody></table>';
-                    html += '</div>';
-                    html += '</div>';
-                }
-                if (hasItemsCostData) {
-                    hasAnyData = true;
-                    html += '<div class="cost-card" style="padding: 16px; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color);">';
-                    html += '<div class="cost-table-wrap">';
-                    html += '<table class="table cost-items-table"><thead><tr><th style="color: var(--text-color);">日期</th><th style="color: var(--text-color);">模型</th><th style="color: var(--text-color);">输入成本</th><th style="color: var(--text-color);">输出成本</th><th style="color: var(--text-color);">总成本</th></tr></thead><tbody>';
-                    data.items.forEach(function(item) {
-                        html += '<tr><td style="color: var(--text-color);">' + (item.date || '-') + '</td><td style="color: var(--text-color);">' + (item.model || '-') + '</td><td style="color: var(--text-color);">$' + (item.input_cost || 0).toFixed(5) + '</td><td style="color: var(--text-color);">$' + (item.output_cost || 0).toFixed(5) + '</td><td style="color: var(--text-color);">$' + (item.cost || 0).toFixed(5) + '</td></tr>';
-                    });
-                    html += '</tbody></table>';
-                    html += '</div>';
-                    html += '</div>';
-                }
-                
-                if (!hasAnyData) {
-                    html += '<div class="status info">暂无成本数据</div>';
-                }
-                
-                // 显示调试信息（如果有）- 仅在控制台输出，不显示给用户
-                if (data.debug_info && Object.keys(data.debug_info).length > 0) {
-                    console.log('Cost debug info:', data.debug_info);
-                    // 调试信息仅用于开发，不在界面显示
-                }
-                
-                if (data.error) {
-                    html += '<div class="status warning" style="margin-top: 12px;">注意: ' + data.error + '</div>';
+                    html += '</div></div>';
                 }
                 
                 html += '</div>';
-                
-                // 只有在数据完整时才缓存（必须有by_model或by_service详细数据）
-                const isComplete = hasModelCostData || (data.by_service && data.by_service.length > 0);
-                if (isComplete) {
-                    accountCache.cost[key] = { ts: Date.now(), html, complete: true };
-                    console.log('Cost data cached successfully (complete), by_model count:', data.by_model ? data.by_model.length : 0);
-                } else if (totalCost > 0) {
-                    // 有总成本但没有详细数据，缓存但标记为不完整
-                    accountCache.cost[key] = { ts: Date.now(), html, complete: false };
-                    console.warn('Cost data incomplete (only total), will retry');
-                    // 30秒后自动重试
-                    setTimeout(() => {
-                        if (currentAccountSubTab === 'cost') {
-                            loadAccountCost(true);
-                        }
-                    }, 30000);
-                } else {
-                    console.warn('Cost data empty, not caching');
-                }
-                
                 el.innerHTML = html;
             } catch (e) {
-                console.error('Failed to load cost:', e);
-                el.innerHTML = '<div class="status error">加载失败: ' + e.message + '<br><button class="btn btn-sm" onclick="loadAccountCost(true)" style="margin-top: 8px;">重试</button></div>';
+                console.error('Failed to load cost summary:', e);
+                el.innerHTML = '<div class="status error">加载失败</div>';
             }
         }
+        
+        // 加载详情数据（受筛选影响）
+        async function loadAccountCostDetails(force = false) {
+            if (!currentAccountEmail) return;
+            
+            const el = document.getElementById('accountCostDetails');
+            const totalEl = document.getElementById('costDetailTotal');
+            const dateRangeEl = document.getElementById('costDetailDateRange');
+            if (!el) return;
+            
+            // 骨架屏加载动画
+            el.innerHTML = getCostDetailLoadingHTML();
+            
+            try {
+                const params = buildCostFilterParams();
+                params.append('force', force ? '1' : '0');
+                params.append('_t', Date.now());
+                params.append('account_email', currentAccountEmail);
+                
+                const res = await fetch('/api/account/cost?' + params.toString(), { headers: getAuthHeaders() });
+                if (!res.ok) throw new Error('Failed to load details');
+                
+                const data = await res.json();
+                window.lastCostDetailData = data;
+                
+                console.log('Cost details data:', {
+                    total_cost: data.total_cost,
+                    by_model_count: (data.by_model || []).length,
+                    spend_trend_count: (data.spend_trend || []).length,
+                    daily_by_model_count: (data.daily_by_model || []).length,
+                    by_service: data.by_service
+                });
+                
+                // 更新总额：优先从 by_model 累加
+                let detailTotal = 0;
+                if (data.by_model && data.by_model.length > 0) {
+                    detailTotal = data.by_model.reduce((sum, item) => sum + (item.cost || 0), 0);
+                } else {
+                    detailTotal = data.total_cost || 0;
+                }
+                if (totalEl) totalEl.textContent = '$' + detailTotal.toFixed(2);
+                
+                // 更新日期范围显示
+                if (dateRangeEl) {
+                    const startDate = document.getElementById('costStartDate').value;
+                    const endDate = document.getElementById('costEndDate').value;
+                    if (startDate && endDate) {
+                        const start = new Date(startDate);
+                        const end = new Date(endDate);
+                        dateRangeEl.textContent = '(' + (start.getMonth() + 1) + '/' + start.getDate() + ' - ' + (end.getMonth() + 1) + '/' + end.getDate() + ')';
+                    } else {
+                        // 从 spend_trend 获取日期范围
+                        const trend = data.spend_trend || [];
+                        if (trend.length > 0) {
+                            const firstDate = new Date(trend[0].date);
+                            const lastDate = new Date(trend[trend.length - 1].date);
+                            dateRangeEl.textContent = '(' + (firstDate.getMonth() + 1) + '/' + firstDate.getDate() + ' - ' + (lastDate.getMonth() + 1) + '/' + lastDate.getDate() + ')';
+                        } else {
+                            dateRangeEl.textContent = '';
+                        }
+                    }
+                }
+                
+                renderCostDetails(data);
+            } catch (e) {
+                console.error('Failed to load cost details:', e);
+                el.innerHTML = '<div class="status error">加载失败</div>';
+            }
+        }
+        
+        // 渲染详情内容
+        function renderCostDetails(data) {
+            const el = document.getElementById('accountCostDetails');
+            if (!el) return;
+            
+            const hasData = data.by_model && data.by_model.length > 0;
+            
+            if (!hasData) {
+                // 没有数据时，更新总额为 $0.00
+                const totalEl = document.getElementById('costDetailTotal');
+                if (totalEl) totalEl.textContent = '$0.00';
+                
+                el.innerHTML = '<div style="text-align: center; padding: 60px 20px; color: var(--text-secondary);"><div style="font-size: 14px;">You don\'t have any spend activity in this timeframe.</div></div>';
+                return;
+            }
+            
+            if (costViewMode === 'chart') {
+                renderCostChart(el, data);
+            } else {
+                renderCostTable(el, data);
+            }
+        }
+        
+        // 生成平滑贝塞尔曲线路径（限制控制点不超出边界）
+        function generateSmoothPath(points, tension = 0.25, maxY = 180) {
+            if (points.length < 2) return '';
+            if (points.length === 2) {
+                return 'M' + points[0].x + ',' + points[0].y + ' L' + points[1].x + ',' + points[1].y;
+            }
+            
+            // 限制Y坐标在有效范围内
+            const clampY = (y) => Math.max(0, Math.min(maxY, y));
+            
+            let path = 'M' + points[0].x + ',' + clampY(points[0].y);
+            
+            for (let i = 0; i < points.length - 1; i++) {
+                const p0 = points[Math.max(0, i - 1)];
+                const p1 = points[i];
+                const p2 = points[i + 1];
+                const p3 = points[Math.min(points.length - 1, i + 2)];
+                
+                const cp1x = p1.x + (p2.x - p0.x) * tension;
+                const cp1y = clampY(p1.y + (p2.y - p0.y) * tension);
+                const cp2x = p2.x - (p3.x - p1.x) * tension;
+                const cp2y = clampY(p2.y - (p3.y - p1.y) * tension);
+                
+                path += ' C' + cp1x + ',' + cp1y + ' ' + cp2x + ',' + cp2y + ' ' + p2.x + ',' + clampY(p2.y);
+            }
+            
+            return path;
+        }
+        
+        // 渲染热力曲线图
+        function renderCostChart(el, data) {
+            try {
+            const colorPalette = ['#4285f4', '#ea4335', '#fbbc04', '#34a853', '#ff6d01', '#46bdc6', '#7baaf7', '#f07b72', '#fcd04f', '#81c995', '#ff9e80', '#78d9ec', '#a8c7fa', '#f6aea9', '#fde293', '#a8dab5', '#ffccbc', '#b2ebf2'];
+            
+            // 为每个模型分配颜色
+            const modelColors = {};
+            if (data.by_model) {
+                data.by_model.forEach((item, idx) => {
+                    modelColors[item.model] = colorPalette[idx % colorPalette.length];
+                });
+            }
+            
+            const trendData = data.spend_trend || [];
+            const dailyByModel = data.daily_by_model || [];
+            const dates = trendData.map(t => t.date);
+            
+            // 计算每个模型在每天的数据
+            const modelDailyData = {};
+            let dataPointCount = trendData.length;
+            if (dataPointCount === 0 && dailyByModel.length > 0) {
+                dataPointCount = Math.max(...dailyByModel.map(d => d.index || 0)) + 1;
+            }
+            
+            dailyByModel.forEach(day => {
+                if (day.models) {
+                    Object.entries(day.models).forEach(([model, costs]) => {
+                        if (!modelDailyData[model]) {
+                            modelDailyData[model] = new Array(dataPointCount).fill(0);
+                        }
+                        if (day.index < dataPointCount) {
+                            modelDailyData[model][day.index] = (costs.input || 0) + (costs.output || 0);
+                        }
+                    });
+                }
+            });
+            
+            // 计算单个模型的最大值（不是总和）
+            let maxAmount = 0;
+            Object.values(modelDailyData).forEach(arr => {
+                arr.forEach(val => {
+                    if (val > maxAmount) maxAmount = val;
+                });
+            });
+            // 也检查 trendData
+            trendData.forEach(t => {
+                if ((t.amount || 0) > maxAmount) maxAmount = t.amount;
+            });
+            maxAmount = maxAmount || 0.01;
+            
+            // 增加10%的余量，避免曲线顶到边缘
+            maxAmount = maxAmount * 1.1;
+            
+            // 计算合适的Y轴刻度（4-5个刻度）
+            let yMax = maxAmount;
+            let yStep = yMax / 4;
+            const yTicks = [];
+            
+            try {
+                if (maxAmount > 0.0001) {
+                    const yTickCount = 4;
+                    const rawStep = maxAmount / yTickCount;
+                    if (rawStep > 0 && isFinite(rawStep)) {
+                        const logVal = Math.log10(rawStep);
+                        if (isFinite(logVal)) {
+                            const magnitude = Math.pow(10, Math.floor(logVal));
+                            const normalizedStep = rawStep / magnitude;
+                            let niceStep;
+                            if (normalizedStep <= 1) niceStep = 1;
+                            else if (normalizedStep <= 2) niceStep = 2;
+                            else if (normalizedStep <= 5) niceStep = 5;
+                            else niceStep = 10;
+                            yStep = niceStep * magnitude;
+                            yMax = Math.ceil(maxAmount / yStep) * yStep;
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('Y-axis calculation error:', e);
+            }
+            
+            if (!isFinite(yMax) || yMax <= 0) yMax = 0.01;
+            if (!isFinite(yStep) || yStep <= 0) yStep = yMax / 4;
+            
+            // 生成刻度（从0开始）
+            for (let v = 0; v <= yMax * 1.001; v += yStep) {
+                yTicks.push(Math.round(v * 10000) / 10000);
+                if (yTicks.length > 10) break;
+            }
+            if (yTicks.length === 0) yTicks.push(0, yMax);
+            
+            console.log('Y-axis:', { maxAmount, yMax, yStep, yTicks });
+            
+            const chartHeight = 200;
+            const chartWidth = 100; // SVG viewBox width
+            
+            let html = '<div style="position: relative;">';
+            
+            // Y轴标签
+            html += '<div style="position: absolute; left: 0; top: 0; bottom: 30px; width: 50px; display: flex; flex-direction: column; justify-content: space-between; font-size: 10px; color: var(--text-secondary); text-align: right; padding-right: 8px;">';
+            for (let i = yTicks.length - 1; i >= 0; i--) {
+                html += '<div>$' + yTicks[i].toFixed(2) + '</div>';
+            }
+            html += '</div>';
+            
+            // 图表区域
+            html += '<div id="costChartContainer" style="margin-left: 55px; position: relative; height: ' + chartHeight + 'px; border-bottom: 1px solid var(--border-color);">';
+            
+            // 渲染曲线图
+            if (trendData.length > 0 || Object.keys(modelDailyData).length > 0 || (data.by_model && data.by_model.length > 0)) {
+                const width = chartWidth;
+                const height = chartHeight - 20; // 留出底部空间
+                
+                html += '<svg viewBox="0 0 ' + width + ' ' + height + '" preserveAspectRatio="none" style="width: 100%; height: 100%; overflow: visible;">';
+                html += '<defs>';
+                
+                // 为每个模型创建渐变
+                Object.entries(modelColors).forEach(([model, color], idx) => {
+                    html += '<linearGradient id="grad' + idx + '" x1="0%" y1="0%" x2="0%" y2="100%">';
+                    html += '<stop offset="0%" style="stop-color:' + color + ';stop-opacity:0.3"/>';
+                    html += '<stop offset="100%" style="stop-color:' + color + ';stop-opacity:0.02"/>';
+                    html += '</linearGradient>';
+                });
+                html += '</defs>';
+                
+                // 绘制Y轴网格线（使用百分比避免变形）
+                yTicks.forEach((tick, i) => {
+                    if (i > 0) { // 跳过0刻度
+                        const yPct = (1 - tick / yMax) * 100;
+                        html += '<line x1="0%" y1="' + yPct + '%" x2="100%" y2="' + yPct + '%" stroke="#e0e0e0" stroke-width="1" vector-effect="non-scaling-stroke" opacity="0.6"/>';
+                    }
+                });
+                
+                // 绘制每个模型的曲线（按成本从小到大绘制，大的在前面）
+                const sortedModels = Object.entries(modelDailyData)
+                    .map(([model, arr]) => ({ model, arr, total: arr.reduce((a, b) => a + b, 0) }))
+                    .sort((a, b) => a.total - b.total);
+                
+                // 存储所有模型的点数据用于tooltip
+                const allModelPoints = {};
+                
+                sortedModels.forEach(({ model, arr }, sortIdx) => {
+                    const color = modelColors[model] || colorPalette[sortIdx % colorPalette.length];
+                    const gradIdx = Object.keys(modelColors).indexOf(model);
+                    
+                    // 计算点坐标（确保Y不低于0，不高于height）
+                    const points = arr.map((val, i) => {
+                        const yVal = Math.max(0, Math.min(height, height - (val / yMax) * height));
+                        return {
+                            x: (i / Math.max(arr.length - 1, 1)) * width,
+                            y: yVal,
+                            value: val
+                        };
+                    });
+                    allModelPoints[model] = points;
+                    
+                    // 生成平滑曲线路径
+                    const curvePath = generateSmoothPath(points, 0.2, height);
+                    
+                    // 填充区域（使用平滑曲线）
+                    if (curvePath) {
+                        const fillPath = curvePath + ' L' + width + ',' + height + ' L0,' + height + ' Z';
+                        html += '<path d="' + fillPath + '" fill="url(#grad' + (gradIdx >= 0 ? gradIdx : sortIdx) + ')" opacity="0.5"/>';
+                        // 曲线
+                        html += '<path d="' + curvePath + '" fill="none" stroke="' + color + '" stroke-width="1.5" vector-effect="non-scaling-stroke" opacity="0.8"/>';
+                    }
+                });
+                
+                // 如果没有按模型的数据，使用总趋势
+                if (sortedModels.length === 0 && trendData.length > 0) {
+                    const points = trendData.map((t, i) => {
+                        const yVal = Math.max(0, Math.min(height, height - ((t.amount || 0) / yMax) * height));
+                        return {
+                            x: (i / Math.max(trendData.length - 1, 1)) * width,
+                            y: yVal,
+                            value: t.amount || 0
+                        };
+                    });
+                    
+                    const curvePath = generateSmoothPath(points, 0.2, height);
+                    if (curvePath) {
+                        html += '<defs><linearGradient id="gradDefault" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" style="stop-color:#4285f4;stop-opacity:0.3"/><stop offset="100%" style="stop-color:#4285f4;stop-opacity:0.02"/></linearGradient></defs>';
+                        const fillPath = curvePath + ' L' + width + ',' + height + ' L0,' + height + ' Z';
+                        html += '<path d="' + fillPath + '" fill="url(#gradDefault)" opacity="0.5"/>';
+                        html += '<path d="' + curvePath + '" fill="none" stroke="#4285f4" stroke-width="1.5" vector-effect="non-scaling-stroke"/>';
+                    }
+                }
+                
+                html += '</svg>';
+                
+                // 垂直指示线（初始隐藏）
+                html += '<div id="costChartIndicator" style="display: none; position: absolute; top: 0; bottom: 0; width: 1px; background: var(--text-secondary); pointer-events: none; opacity: 0.5;"></div>';
+                
+                // 数据点圆点容器
+                html += '<div id="costChartDots" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none;"></div>';
+                
+                // 交互层
+                html += '<div id="costChartOverlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; cursor: crosshair;" onmousemove="showCostTooltip(event)" onmouseleave="hideCostTooltip()"></div>';
+                
+                // 存储点数据
+                window.costChartPoints = allModelPoints;
+            }
+            
+            html += '</div>';
+            
+            // X轴标签
+            if (dates.length > 0) {
+                html += '<div style="margin-left: 55px; display: flex; justify-content: space-between; font-size: 10px; color: var(--text-secondary); padding-top: 4px;">';
+                const step = Math.max(1, Math.floor(dates.length / 8));
+                for (let i = 0; i < dates.length; i += step) {
+                    const d = new Date(dates[i]);
+                    html += '<div>' + (d.getMonth() + 1) + '/' + d.getDate() + '</div>';
+                }
+                html += '</div>';
+            }
+            
+            html += '</div>';
+            
+            // Tooltip（在图表容器外部，避免被裁剪，移动端自适应）
+            html += '<div id="costChartTooltip" style="display: none; position: fixed; background: var(--container-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; font-size: 11px; box-shadow: 0 4px 16px rgba(0,0,0,0.15); z-index: 99999; max-width: calc(100vw - 20px); overflow: hidden;"></div>';
+            
+            // 存储数据供tooltip使用
+            window.costChartData = { 
+                trend: trendData, 
+                byModel: data.by_model,
+                dailyByModel: data.daily_by_model || [],
+                modelColors: modelColors,
+                yMax: yMax,
+                chartHeight: chartHeight - 20
+            };
+            
+            el.innerHTML = html;
+            } catch (e) {
+                console.error('renderCostChart error:', e);
+                el.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-secondary);">图表渲染失败: ' + e.message + '</div>';
+            }
+        }
+        
+        // 显示tooltip
+        function showCostTooltip(event) {
+            const tooltip = document.getElementById('costChartTooltip');
+            const overlay = document.getElementById('costChartOverlay');
+            const indicator = document.getElementById('costChartIndicator');
+            const dotsContainer = document.getElementById('costChartDots');
+            if (!tooltip || !overlay || !window.costChartData) return;
+            
+            const rect = overlay.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const pct = x / rect.width;
+            const trend = window.costChartData.trend || [];
+            const idx = Math.min(Math.floor(pct * trend.length), trend.length - 1);
+            
+            if (idx < 0 || !trend[idx]) return;
+            
+            // 显示垂直指示线
+            if (indicator) {
+                const indicatorX = (idx / Math.max(trend.length - 1, 1)) * rect.width;
+                indicator.style.display = 'block';
+                indicator.style.left = indicatorX + 'px';
+            }
+            
+            // 显示数据点圆点
+            if (dotsContainer && window.costChartPoints) {
+                const modelColors = window.costChartData.modelColors || {};
+                const yMax = window.costChartData.yMax || 1;
+                const chartHeight = rect.height;
+                let dotsHtml = '';
+                
+                Object.entries(window.costChartPoints).forEach(([model, points]) => {
+                    if (points[idx] && points[idx].value > 0) {
+                        const color = modelColors[model] || '#4285f4';
+                        const dotX = (idx / Math.max(points.length - 1, 1)) * rect.width;
+                        const dotY = chartHeight - (points[idx].value / yMax) * chartHeight;
+                        dotsHtml += '<div style="position: absolute; left: ' + (dotX - 4) + 'px; top: ' + (dotY - 4) + 'px; width: 8px; height: 8px; border-radius: 50%; background: ' + color + '; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.3);"></div>';
+                    }
+                });
+                dotsContainer.innerHTML = dotsHtml;
+            }
+            
+            const item = trend[idx];
+            const date = new Date(item.date);
+            const dateStr = date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' }) + ' (UTC)';
+            
+            // 获取当天有数据的模型（从 daily_by_model 中查找）
+            const dailyByModel = window.costChartData.dailyByModel || [];
+            const dayData = dailyByModel.find(d => d.index === idx);
+            const modelColors = window.costChartData.modelColors || {};
+            const defaultColors = ['#4285f4', '#ea4335', '#fbbc04', '#34a853', '#ff6d01', '#46bdc6', '#7baaf7', '#f07b72', '#fcd04f', '#81c995', '#ff9e80', '#78d9ec'];
+            
+            let html = '<div style="font-weight: 600; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--border-color);">' + dateStr + '</div>';
+            
+            if (dayData && dayData.models && Object.keys(dayData.models).length > 0) {
+                // 按金额排序，只显示当天有数据的模型
+                const sortedModels = Object.entries(dayData.models)
+                    .map(([model, costs]) => ({
+                        model,
+                        input: costs.input || 0,
+                        output: costs.output || 0,
+                        total: (costs.input || 0) + (costs.output || 0)
+                    }))
+                    .filter(m => m.total > 0)
+                    .sort((a, b) => b.total - a.total);
+                
+                // 检测是否为移动端（宽度小于 500px）
+                const isMobile = window.innerWidth < 500;
+                
+                if (isMobile) {
+                    // 移动端：单列紧凑布局，显示模型名和总额
+                    sortedModels.forEach((m, i) => {
+                        const color = modelColors[m.model] || defaultColors[i % defaultColors.length];
+                        html += '<div style="color: ' + color + '; font-size: 11px; padding: 2px 0; display: flex; justify-content: space-between; gap: 8px;">';
+                        html += '<span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 120px;">' + m.model + '</span>';
+                        html += '<strong>$' + m.total.toFixed(4) + '</strong>';
+                        html += '</div>';
+                    });
+                } else {
+                    // 桌面端：两列布局，左边 Input，右边 Output，中间有分隔线
+                    html += '<div style="display: flex; gap: 0; align-items: stretch;">';
+                    // 左列 - Input
+                    html += '<div style="flex: 1; padding-right: 12px;">';
+                    html += '<div style="font-size: 10px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">Input</div>';
+                    sortedModels.forEach((m, i) => {
+                        const color = modelColors[m.model] || defaultColors[i % defaultColors.length];
+                        html += '<div style="color: ' + color + '; white-space: nowrap; font-size: 11px; padding: 2px 0;">' + m.model + ': <strong>$' + m.input.toFixed(4) + '</strong></div>';
+                    });
+                    html += '</div>';
+                    // 分隔线
+                    html += '<div style="width: 1px; background: linear-gradient(to bottom, transparent, var(--border-color) 10%, var(--border-color) 90%, transparent); margin: 0 12px; min-height: 100%;"></div>';
+                    // 右列 - Output
+                    html += '<div style="flex: 1; padding-left: 0;">';
+                    html += '<div style="font-size: 10px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">Output</div>';
+                    sortedModels.forEach((m, i) => {
+                        const color = modelColors[m.model] || defaultColors[i % defaultColors.length];
+                        html += '<div style="color: ' + color + '; white-space: nowrap; font-size: 11px; padding: 2px 0;">' + m.model + ': <strong>$' + m.output.toFixed(4) + '</strong></div>';
+                    });
+                    html += '</div>';
+                    html += '</div>';
+                }
+            } else {
+                // 如果没有 daily_by_model 数据，显示当天总额
+                html += '<div style="color: var(--text-secondary);">Total: $' + (item.amount || 0).toFixed(4) + '</div>';
+            }
+            
+            tooltip.innerHTML = html;
+            tooltip.style.display = 'block';
+            
+            // 智能定位：优先右侧，空间不够则左侧，再不够则上下布局
+            const tooltipRect = tooltip.getBoundingClientRect();
+            const margin = 15;
+            const viewW = window.innerWidth;
+            const viewH = window.innerHeight;
+            const tipW = tooltipRect.width;
+            const tipH = tooltipRect.height;
+            const mouseX = event.clientX;
+            const mouseY = event.clientY;
+            
+            let left, top;
+            
+            // 移动端检测
+            const isMobile = viewW < 500;
+            
+            if (isMobile) {
+                // 移动端：固定在屏幕底部中央
+                left = Math.max(10, (viewW - tipW) / 2);
+                top = viewH - tipH - 20;
+            } else {
+                // 桌面端：智能定位
+                // 水平定位：优先右侧 -> 左侧 -> 居中
+                if (mouseX + margin + tipW < viewW - 10) {
+                    left = mouseX + margin;
+                } else if (mouseX - margin - tipW > 10) {
+                    left = mouseX - margin - tipW;
+                } else {
+                    left = Math.max(10, Math.min(viewW - tipW - 10, mouseX - tipW / 2));
+                }
+                
+                // 垂直定位：优先垂直居中于鼠标位置
+                top = mouseY - tipH / 2;
+                
+                // 如果左右都放不下，尝试上下布局
+                if (tipW > viewW - 40) {
+                    left = 10;
+                    if (mouseY + margin + tipH < viewH - 10) {
+                        top = mouseY + margin;
+                    } else if (mouseY - margin - tipH > 10) {
+                        top = mouseY - margin - tipH;
+                    }
+                }
+            }
+            
+            // 边界检查
+            if (left < 10) left = 10;
+            if (left + tipW > viewW - 10) left = viewW - tipW - 10;
+            if (top < 10) top = 10;
+            if (top + tipH > viewH - 10) top = viewH - tipH - 10;
+            
+            tooltip.style.left = left + 'px';
+            tooltip.style.top = top + 'px';
+        }
+        
+        function hideCostTooltip() {
+            const tooltip = document.getElementById('costChartTooltip');
+            const indicator = document.getElementById('costChartIndicator');
+            const dotsContainer = document.getElementById('costChartDots');
+            if (tooltip) tooltip.style.display = 'none';
+            if (indicator) indicator.style.display = 'none';
+            if (dotsContainer) dotsContainer.innerHTML = '';
+        }
+        
+        // 渲染表格视图
+        function renderCostTable(el, data) {
+            let html = '<div class="cost-table-wrap">';
+            html += '<table class="table cost-model-table"><thead><tr>';
+            html += '<th style="color: var(--text-color);">Model</th>';
+            html += '<th style="color: var(--text-color);">Input Cost</th>';
+            html += '<th style="color: var(--text-color);">Output Cost</th>';
+            html += '<th style="color: var(--text-color);">Total</th>';
+            html += '</tr></thead><tbody>';
+            
+            (data.by_model || []).forEach(item => {
+                html += '<tr>';
+                html += '<td style="color: var(--text-color);">' + (item.model || '-') + '</td>';
+                html += '<td style="color: var(--text-color);">$' + (item.input_cost || 0).toFixed(5) + '</td>';
+                html += '<td style="color: var(--text-color);">$' + (item.output_cost || 0).toFixed(5) + '</td>';
+                html += '<td style="color: var(--text-color);">$' + (item.cost || 0).toFixed(5) + '</td>';
+                html += '</tr>';
+            });
+            
+            html += '</tbody></table></div>';
+            el.innerHTML = html;
+        }
+
+        // 加载成本数据（总览 + 详情）
+        async function loadAccountCost(force = false, silent = false) {
+            if (!currentAccountEmail) return;
+            
+            // 并发加载总览和详情
+            await Promise.all([
+                loadAccountCostSummary(force),
+                loadAccountCostDetails(force)
+            ]);
+        }
+        
         // 导出成本数据
         async function exportAccountCost(format) {
             if (!currentAccountEmail) {
@@ -12622,7 +13884,8 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 return;
             }
             try {
-                const params = new URLSearchParams();
+                // 使用当前筛选参数
+                const params = buildCostFilterParams();
                 params.append('format', format);
                 params.append('account_email', currentAccountEmail);
                 const res = await fetch(`/api/account/export/cost?${params.toString()}`, { headers: getAuthHeaders() });
