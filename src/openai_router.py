@@ -51,7 +51,10 @@ async def chat_completions(
     # 获取原始请求数据
     try:
         raw_data = await request.json()
-        log.debug(f"Received chat completion request: {json.dumps(raw_data, ensure_ascii=False)[:500]}...")
+        # 记录请求中的所有参数（排除 messages 内容以减少日志量）
+        params_to_log = {k: v for k, v in raw_data.items() if k != 'messages'}
+        log.info(f"Request params: model={raw_data.get('model')}, stream={raw_data.get('stream')}, extra_keys={list(params_to_log.keys())}")
+        log.debug(f"Full request params (excluding messages): {json.dumps(params_to_log, ensure_ascii=False)[:500]}...")
     except Exception as e:
         log.error(f"Failed to parse JSON request: {e}")
         raise HTTPException(status_code=400, detail=f"Invalid JSON: {str(e)}")
@@ -360,19 +363,32 @@ async def fake_stream_response_for_assembly(openai_request: ChatCompletionReques
                 response_data = json.loads(body_str)
                 log.debug(f"Parsed response data: {json.dumps(response_data, ensure_ascii=False)[:500]}...")
 
-                # 检查是否是错误响应
+                # 检查是否是错误响应（支持多种错误格式）
+                error_message = None
+                error_type = "error"
+                error_code = ""
+                
+                # 格式1: {"error": {"message": "...", "type": "...", "code": "..."}}
                 if "error" in response_data:
                     error_info = response_data["error"]
                     error_message = error_info.get("message", "Unknown error")
                     error_type = error_info.get("type", "error")
                     error_code = error_info.get("code", "")
-                    
+                # 格式2: {"code": 400, "message": "..."} (AssemblyAI 格式)
+                elif "code" in response_data and response_data.get("code") != 200:
+                    error_message = response_data.get("message", "Unknown error")
+                    error_code = response_data.get("code", "")
+                    error_type = "api_error"
+                
+                if error_message:
                     log.warning(f"Error response in fake stream: {error_message} (type: {error_type}, code: {error_code})")
                     
                     # 构建用户友好的错误消息
                     user_message = error_message
                     if error_code == "no_available_keys":
                         user_message = "所有 API 密钥已被禁用，无法处理请求。请在管理面板中启用至少一个密钥。"
+                    elif "processing error" in str(error_message).lower():
+                        user_message = f"模型处理错误: {error_message}。请检查请求格式或尝试其他模型。"
                     elif error_type == "invalid_request_error":
                         user_message = f"请求错误: {error_message}"
                     elif error_type == "api_error":

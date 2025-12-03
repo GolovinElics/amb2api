@@ -491,15 +491,17 @@ async def send_assembly_request(
         "model": openai_request.model,
         "messages": sanitized_messages,
     }
+    
+    # 检测模型类型
+    model_lower = openai_request.model.lower()
+    is_claude = "claude" in model_lower
+    # Claude 4.5 系列模型对参数更严格
+    is_claude_45 = is_claude and ("4-5" in model_lower or "4.5" in model_lower or "45" in model_lower)
+    
     # 透传常用参数
     for key in [
-        "temperature",
-        "top_p",
         "max_tokens",
         "stop",
-        "frequency_penalty",
-        "presence_penalty",
-        "n",
         "seed",
         "response_format",
         "tools",
@@ -508,6 +510,47 @@ async def send_assembly_request(
         val = getattr(openai_request, key, None)
         if val is not None:
             payload[key] = val
+    
+    # temperature 和 top_p 处理
+    temp = getattr(openai_request, "temperature", None)
+    top_p = getattr(openai_request, "top_p", None)
+    
+    if is_claude_45:
+        # Claude 4.5 特殊处理：
+        # 1. temperature=0 改为 0.01（Claude 不支持 0）
+        # 2. 不同时传递 temperature 和 top_p（可能冲突）
+        if temp is not None:
+            if temp == 0:
+                temp = 0.01
+            payload["temperature"] = temp
+            # 如果设置了 temperature，不传递 top_p
+        elif top_p is not None:
+            payload["top_p"] = top_p
+    else:
+        # 其他模型：正常传递
+        if temp is not None:
+            payload["temperature"] = temp
+        if top_p is not None:
+            payload["top_p"] = top_p
+    
+    # n 参数：Claude 可能不支持
+    n_val = getattr(openai_request, "n", None)
+    if n_val is not None and n_val != 1 and not is_claude:
+        payload["n"] = n_val
+    
+    # frequency_penalty 和 presence_penalty：Claude 不支持
+    if not is_claude:
+        for penalty_key in ["frequency_penalty", "presence_penalty"]:
+            val = getattr(openai_request, penalty_key, None)
+            if val is not None and val != 0:
+                log.debug(f"Including {penalty_key}={val} in request")
+                payload[penalty_key] = val
+    else:
+        log.debug(f"Skipping unsupported params for Claude model: {openai_request.model}")
+    
+    # 记录完整的 payload（用于调试）
+    payload_debug = {k: v for k, v in payload.items() if k != 'messages'}
+    log.info(f"Final payload for {openai_request.model}: {payload_debug}")
 
     endpoint = await get_assembly_endpoint()
     keys = await get_assembly_api_keys()
@@ -537,6 +580,10 @@ async def send_assembly_request(
         )
 
     post_data = json.dumps(payload)
+    
+    # 对于 Claude 4.5，记录完整的请求以便调试
+    if is_claude_45:
+        log.info(f"Claude 4.5 request payload (first 500 chars): {post_data[:500]}")
 
     for attempt in range(max_retries + 1):
         try:
@@ -609,43 +656,42 @@ async def send_assembly_request(
                     retry_reason = "429 Too Many Requests"
                     _mark_key_failed(idx)
                 elif resp.status_code == 400:
-                    # 优先检查响应头中的速率限制信息
-                    ratelimit_remaining = resp.headers.get('x-ratelimit-remaining')
-                    ratelimit_limit = resp.headers.get('x-ratelimit-limit')
+                    # 先解析错误消息，判断是真正的速率限制还是请求错误
+                    error_body = None
+                    error_msg = ""
+                    try:
+                        error_body = resp.json() if hasattr(resp, 'json') else json.loads(resp.text)
+                        error_msg = error_body.get("message", "").lower()
+                    except Exception:
+                        pass
                     
-                    # 如果响应头显示速率限制耗尽，则认为是速率限制错误
-                    if ratelimit_remaining is not None and ratelimit_limit is not None:
-                        try:
-                            remaining = int(ratelimit_remaining)
-                            limit = int(ratelimit_limit)
-                            # 剩余次数很少（<= 10%）或为0时，认为是速率限制
-                            if remaining == 0 or (limit > 0 and remaining <= limit * 0.1):
-                                should_retry = True
-                                retry_reason = f"400 Rate Limit Exhausted (remaining: {remaining}/{limit})"
-                                _mark_key_failed(idx)
-                                log.warning(f"Key {_mask_key(api_key)} rate limit exhausted: {remaining}/{limit} remaining")
-                        except (ValueError, TypeError):
-                            pass
-                    
-                    # 如果响应头没有速率限制信息，检查错误消息
-                    if not should_retry:
-                        try:
-                            error_body = resp.json() if hasattr(resp, 'json') else json.loads(resp.text)
-                            error_msg = error_body.get("message", "").lower()
-                            # 常见的速率限制错误消息
-                            if any(keyword in error_msg for keyword in ["rate", "limit", "quota", "too many"]):
-                                should_retry = True
-                                retry_reason = f"400 Rate Limit: {error_body.get('message', 'Unknown')}"
-                                _mark_key_failed(idx)
-                            # 检查是否是请求过大的错误（不标记 key 失败）
-                            elif any(keyword in error_msg for keyword in ["too large", "too long", "token", "context", "length", "processing error"]):
-                                log.warning(f"Request may be too large or invalid: {error_msg}")
-                                # 这是请求问题而非 key 问题，不标记失败
-                                # 但如果是最后一次尝试，就不重试了
-                                if attempt < max_retries - 1:
-                                    should_retry = False  # 不重试，直接返回错误让上层处理
-                        except Exception:
-                            pass
+                    # 如果是 "LLM processing error" 或类似的请求错误，不要重试，直接返回
+                    # 这类错误通常是请求格式问题，重试没有意义
+                    if any(keyword in error_msg for keyword in ["processing error", "invalid", "unsupported", "not supported"]):
+                        log.warning(f"Request error (not rate limit): {error_msg}")
+                        # 不标记 key 失败，不重试，直接返回让上层处理
+                        should_retry = False
+                    # 检查是否是真正的速率限制错误（消息中明确包含 rate/limit/quota）
+                    elif any(keyword in error_msg for keyword in ["rate limit", "rate_limit", "quota exceeded", "too many requests"]):
+                        should_retry = True
+                        retry_reason = f"400 Rate Limit: {error_body.get('message', 'Unknown') if error_body else 'Unknown'}"
+                        _mark_key_failed(idx)
+                        log.warning(f"Key {_mask_key(api_key)} hit rate limit: {error_msg}")
+                    # 只有当响应头显示 remaining=0 时才认为是速率限制
+                    else:
+                        ratelimit_remaining = resp.headers.get('x-ratelimit-remaining')
+                        if ratelimit_remaining is not None:
+                            try:
+                                remaining = int(ratelimit_remaining)
+                                # 只有 remaining=0 才是真正的速率限制耗尽
+                                if remaining == 0:
+                                    ratelimit_limit = resp.headers.get('x-ratelimit-limit', '?')
+                                    should_retry = True
+                                    retry_reason = f"400 Rate Limit Exhausted (remaining: 0/{ratelimit_limit})"
+                                    _mark_key_failed(idx)
+                                    log.warning(f"Key {_mask_key(api_key)} rate limit exhausted: 0/{ratelimit_limit} remaining")
+                            except (ValueError, TypeError):
+                                pass
                 
                 if should_retry and retry_enabled and attempt < max_retries:
                     log.warning(f"[RETRY] {retry_reason}, switching to next key ({attempt + 1}/{max_retries})")
