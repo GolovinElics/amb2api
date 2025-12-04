@@ -545,11 +545,83 @@ async def login(payload: Dict[str, Any]):
     password = str(payload.get("password", ""))
     panel_pwd = await get_panel_password()
     if password == panel_pwd:
+        # 登录成功后触发预加载（非阻塞）
+        log.info("[Preload] Panel login successful, scheduling preload task")
+        task = asyncio.create_task(_trigger_preload_on_panel_login())
+        task.add_done_callback(_preload_task_done_callback)
         return JSONResponse(content={"token": password})
     api_pwd = await get_api_password()
     if password == api_pwd:
+        # 登录成功后触发预加载（非阻塞）
+        log.info("[Preload] Panel login successful (api_pwd), scheduling preload task")
+        task = asyncio.create_task(_trigger_preload_on_panel_login())
+        task.add_done_callback(_preload_task_done_callback)
         return JSONResponse(content={"token": password})
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="密码错误")
+
+
+def _preload_task_done_callback(task: asyncio.Task):
+    """预加载任务完成回调，用于捕获异常"""
+    try:
+        exc = task.exception()
+        if exc:
+            log.error(f"[Preload] Task failed with exception: {exc}")
+    except asyncio.CancelledError:
+        log.warning("[Preload] Task was cancelled")
+    except asyncio.InvalidStateError:
+        pass  # Task not done yet
+
+
+async def _trigger_preload_on_panel_login():
+    """控制面板登录后触发预加载所有已保存的 AssemblyAI 账户"""
+    try:
+        log.info("[Preload] _trigger_preload_on_panel_login started")
+        
+        # 获取已保存的账户列表
+        adapter = await get_storage_adapter()
+        accounts_data = await adapter.get_config("assembly_accounts_list")
+        
+        log.info(f"[Preload] Got accounts_data: {type(accounts_data)}, count={len(accounts_data) if accounts_data else 0}")
+        
+        if not accounts_data or not isinstance(accounts_data, list) or len(accounts_data) == 0:
+            log.info("[Preload] No saved accounts found, skipping preload")
+            return
+        
+        # 获取当前选中的账户
+        current_account = await adapter.get_config("assembly_current_account")
+        current_email = current_account.get("email") if current_account else None
+        
+        log.info(f"[Preload] Current account: {current_email}")
+        
+        # 如果没有当前账户，使用第一个账户
+        if not current_email and accounts_data:
+            current_email = accounts_data[0].get("email")
+            log.info(f"[Preload] Using first account as current: {current_email}")
+        
+        log.info(f"[Preload] Panel login detected, triggering preload for {len(accounts_data)} accounts")
+        
+        # 获取预加载队列并启动
+        from .account_preload import get_preload_queue
+        queue = await get_preload_queue()
+        
+        log.info(f"[Preload] Got queue, started={queue._started}")
+        
+        if not queue._started:
+            log.info("[Preload] Starting queue...")
+            await queue.start()
+            log.info("[Preload] Queue started")
+        
+        # 将所有账户加入队列
+        accounts = [acc.get("email") for acc in accounts_data if acc.get("email")]
+        log.info(f"[Preload] Enqueueing accounts: {accounts}")
+        await queue.enqueue_all_accounts(current_account=current_email, accounts=accounts)
+        
+        log.info(f"[Preload] Preload triggered for {len(accounts)} accounts after panel login")
+        
+    except Exception as e:
+        import traceback
+        log.error(f"[Preload] Failed to trigger preload on panel login: {e}")
+        log.error(f"[Preload] Traceback: {traceback.format_exc()}")
 
 
 @router.get("/rate-limits")

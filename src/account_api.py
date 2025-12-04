@@ -59,6 +59,86 @@ def _cache_clear_for_account(account_email: str) -> None:
         log.info(f"Cleared {len(keys_to_remove)} cache entries for account {account_email}")
 
 
+# ============================================================================
+# 预加载队列集成
+# ============================================================================
+
+async def _trigger_preload_after_login(email: str) -> None:
+    """登录后触发后台预加载（非阻塞）"""
+    try:
+        log.info(f"[Preload] Starting preload trigger for {email}")
+        from .account_preload import get_preload_queue
+        queue = await get_preload_queue()
+        log.info(f"[Preload] Got queue instance, started={queue._started}")
+        
+        # 如果队列未启动，先启动
+        if not queue._started:
+            log.info(f"[Preload] Starting queue...")
+            await queue.start()
+            log.info(f"[Preload] Queue started successfully")
+        
+        # 将所有账户加入队列，当前账户优先
+        log.info(f"[Preload] Enqueueing all accounts with current={email}")
+        task_ids = await queue.enqueue_all_accounts(current_account=email)
+        log.info(f"[Preload] Triggered preload after login for {email}, {len(task_ids)} tasks enqueued")
+    except Exception as e:
+        import traceback
+        log.warning(f"[Preload] Failed to trigger preload after login: {e}")
+        log.debug(f"[Preload] Traceback: {traceback.format_exc()}")
+
+
+async def _reprioritize_preload(email: str) -> None:
+    """切换账户时重新排序预加载队列"""
+    try:
+        from .account_preload import get_preload_queue
+        queue = await get_preload_queue()
+        
+        if queue._started:
+            await queue.reprioritize(email)
+            log.debug(f"Reprioritized preload queue for {email}")
+    except Exception as e:
+        log.warning(f"Failed to reprioritize preload: {e}")
+
+
+async def _clear_preload_cache(account_email: Optional[str] = None) -> None:
+    """清除预加载缓存"""
+    try:
+        from .account_preload import get_preload_queue
+        queue = await get_preload_queue()
+        
+        if account_email:
+            await queue.cache.clear_account(account_email)
+            await queue.cancel_account(account_email)
+        else:
+            # 获取当前账户
+            adapter = await get_storage_adapter()
+            current = await adapter.get_config(CURRENT_ACCOUNT_KEY)
+            if current and current.get("email"):
+                await queue.cache.clear_account(current["email"])
+                await queue.cancel_account(current["email"])
+    except Exception as e:
+        log.warning(f"Failed to clear preload cache: {e}")
+
+
+async def _get_preload_cache(account_email: str, data_type: str) -> Optional[Dict[str, Any]]:
+    """从预加载缓存获取数据"""
+    try:
+        from .account_preload import get_preload_queue
+        queue = await get_preload_queue()
+        
+        # 检查缓存状态
+        freshness = await queue.cache.get_freshness_info(account_email)
+        log.debug(f"[Preload] Cache freshness for {account_email}: {freshness.get(data_type, {})}")
+        
+        data = await queue.cache.get_account_data(account_email, data_type)
+        if data:
+            log.info(f"[Preload] Cache HIT for {account_email}:{data_type}")
+            return data
+        else:
+            log.info(f"[Preload] Cache MISS for {account_email}:{data_type}")
+    except Exception as e:
+        log.warning(f"Failed to get preload cache: {e}")
+    return None
 
 
 
@@ -523,6 +603,9 @@ async def login(request: LoginRequest) -> Dict[str, Any]:
                         }
                         
                         if await _save_session(session_data):
+                            # 触发后台预加载（非阻塞）
+                            await _trigger_preload_after_login(user.get("email", request.email))
+                            
                             return {
                                 "success": True,
                                 "message": "Login successful",
@@ -569,6 +652,9 @@ async def logout(account_email: Optional[str] = None) -> Dict[str, Any]:
     Args:
         account_email: 账户邮箱，如果为None则登出当前账户
     """
+    # 清除预加载缓存
+    await _clear_preload_cache(account_email)
+    
     await _clear_session(account_email)
     return {"success": True, "message": "Logged out successfully"}
 
@@ -628,6 +714,9 @@ async def switch_account(request: SwitchAccountRequest) -> Dict[str, Any]:
         
         # 清除新账户的缓存，确保切换后获取最新数据
         _cache_clear_for_account(email)
+        
+        # 重新排序预加载队列，将新账户提升到最高优先级
+        await _reprioritize_preload(email)
         
         return {
             "success": True,
@@ -737,6 +826,7 @@ async def get_account_overview(force: bool = False, account_email: Optional[str]
     获取账户概览数据（合并 info + billing + api-keys）
     
     一次请求返回概览页面需要的所有数据，减少请求数量，提高加载速度。
+    支持预加载缓存优先模式。
     """
     session = await _get_session(account_email)
     if not session:
@@ -744,11 +834,21 @@ async def get_account_overview(force: bool = False, account_email: Optional[str]
     
     session_email = session.get("email") or account_email or "default"
     
-    # 检查缓存
+    # 优先检查预加载缓存
+    if not force:
+        preload_cached = await _get_preload_cache(session_email, "overview")
+        if preload_cached:
+            preload_cached["_cache_source"] = "preload"
+            preload_cached["_cached"] = True
+            return preload_cached
+    
+    # 检查传统缓存
     cache_key = f"overview:{session_email}"
     if not force:
         cached = _cache_get(cache_key)
         if cached:
+            cached["_cache_source"] = "legacy"
+            cached["_cached"] = True
             return cached
     
     # 并发获取所有数据
@@ -1067,11 +1167,31 @@ async def get_usage_data(
     session = await _get_session(account_email)
     session_email = (session.get("email") if session else None) or account_email or "default"
     
+    # 检查是否使用默认参数（无筛选）
+    is_default_params = (
+        window_size == "month" and
+        starting_on is None and
+        ending_before is None and
+        product is None and
+        regions is None and
+        services is None
+    )
+    
+    # 优先检查预加载缓存（仅在默认参数且非强制刷新时）
+    if not force and is_default_params:
+        preload_cached = await _get_preload_cache(session_email, "usage")
+        if preload_cached:
+            preload_cached["_cache_source"] = "preload"
+            preload_cached["_cached"] = True
+            return preload_cached
+    
     # 构建缓存键（包含所有筛选参数）
     filter_key = f"{window_size}:{starting_on}:{ending_before}:{product}:{regions}:{services}"
     cache_key = f"usage:{session_email}:{filter_key}"
     cached = None if force else _cache_get(cache_key)
     if cached:
+        cached["_cache_source"] = "legacy"
+        cached["_cached"] = True
         return cached
 
     result = {
@@ -1152,6 +1272,68 @@ async def get_usage_data(
     return result
 
 
+async def _fetch_cost_data_internal(
+    account_email: str,
+    window_size: str = "month",
+    force: bool = True
+) -> Dict[str, Any]:
+    """
+    内部函数：获取成本数据（用于预加载，不需要 Request 对象）
+    """
+    session = await _get_session(account_email)
+    session_email = (session.get("email") if session else None) or account_email or "default"
+    
+    cache_key = f"cost:{session_email}:{window_size}:None:None:None:None:None"
+    
+    cached = None if force else _cache_get(cache_key)
+    if cached:
+        return cached
+
+    result = {
+        "total_cost": 0.0,
+        "items": [],
+        "by_service": [],
+        "by_model": [],
+        "spend_trend": [],
+        "daily_by_model": [],
+        "filters_applied": {},
+        "debug_info": {}
+    }
+    
+    try:
+        params = {"_rsc": "1mzsd"}
+        if window_size and window_size != "month":
+            params["window_size"] = window_size
+            result["filters_applied"]["window_size"] = window_size
+        
+        rsc_data = await _make_dashboard_request(
+            "GET", 
+            "/dashboard/cost", 
+            params=params,
+            account_email=account_email
+        )
+        
+        if rsc_data and "raw" in rsc_data:
+            raw_text = rsc_data["raw"]
+            if not (raw_text.strip().startswith("<!DOCTYPE") or raw_text.strip().startswith("<html")):
+                if "chartExportData" in raw_text or '"data":' in raw_text or "total" in raw_text:
+                    final_result = _parse_cost_rsc_data(rsc_data)
+                    if final_result:
+                        result["total_cost"] = final_result.get("total_cost", 0.0)
+                        result["by_service"] = final_result.get("by_service", [])
+                        result["by_model"] = final_result.get("by_model", [])
+                        result["spend_trend"] = final_result.get("spend_trend", [])
+                        result["daily_by_model"] = final_result.get("daily_by_model", [])
+                        result["debug_info"]["source"] = "preload"
+                        log.info(f"[Preload] Parsed cost: ${result['total_cost']}, {len(result['by_model'])} models")
+    except Exception as e:
+        log.warning(f"[Preload] Failed to fetch cost data: {e}")
+        result["error"] = str(e)
+    
+    _cache_set(cache_key, result)
+    return result
+
+
 @router.get("/cost")
 async def get_cost_data(
     request: Request,
@@ -1188,6 +1370,25 @@ async def get_cost_data(
     session = await _get_session(account_email)
     session_email = (session.get("email") if session else None) or account_email or "default"
     
+    # 检查是否使用默认参数（无筛选）
+    is_default_params = (
+        window_size == "month" and
+        starting_on is None and
+        ending_before is None and
+        regions is None and
+        services is None and
+        models is None and
+        api_token is None
+    )
+    
+    # 优先检查预加载缓存（仅在默认参数且非强制刷新时）
+    if not force and is_default_params:
+        preload_cached = await _get_preload_cache(session_email, "cost")
+        if preload_cached:
+            preload_cached["_cache_source"] = "preload"
+            preload_cached["_cached"] = True
+            return preload_cached
+    
     # 构建缓存键（包含所有筛选参数）
     filter_key = f"{window_size}:{starting_on}:{ending_before}:{regions}:{services}:{api_token}"
     if models:
@@ -1196,6 +1397,8 @@ async def get_cost_data(
     
     cached = None if force else _cache_get(cache_key)
     if cached:
+        cached["_cache_source"] = "legacy"
+        cached["_cached"] = True
         return cached
 
     result = {
@@ -2786,3 +2989,102 @@ def _parse_rates_rsc_data(data: Dict[str, Any]) -> Dict[str, Any]:
         log.error(f"Traceback: {traceback.format_exc()}")
     
     return result
+
+
+# ============================================================================
+# 预加载队列相关端点
+# ============================================================================
+
+@router.get("/preload/status")
+async def get_preload_status() -> Dict[str, Any]:
+    """
+    获取预加载队列状态
+    
+    返回队列状态、待处理任务数、最后刷新时间等信息。
+    """
+    try:
+        from .account_preload import get_preload_queue
+        queue = await get_preload_queue()
+        return queue.get_queue_status()
+    except Exception as e:
+        log.error(f"Failed to get preload status: {e}")
+        return {
+            "started": False,
+            "error": str(e),
+        }
+
+
+@router.get("/preload/cache-info")
+async def get_cache_info(account_email: Optional[str] = None) -> Dict[str, Any]:
+    """
+    获取账户缓存新鲜度信息
+    
+    Args:
+        account_email: 账户邮箱，如果为None则获取当前账户
+    
+    返回各数据类型的缓存状态和新鲜度。
+    """
+    try:
+        # 获取账户邮箱
+        if not account_email:
+            adapter = await get_storage_adapter()
+            current = await adapter.get_config(CURRENT_ACCOUNT_KEY)
+            if current:
+                account_email = current.get("email")
+        
+        if not account_email:
+            return {"error": "No account specified"}
+        
+        from .account_preload import get_preload_queue
+        queue = await get_preload_queue()
+        freshness_info = await queue.cache.get_freshness_info(account_email)
+        
+        return {
+            "account_email": account_email,
+            "cache_info": freshness_info,
+            "cache_stats": queue.cache.get_stats(),
+        }
+    except Exception as e:
+        log.error(f"Failed to get cache info: {e}")
+        return {"error": str(e)}
+
+
+@router.post("/preload/trigger")
+async def trigger_preload(account_email: Optional[str] = None) -> Dict[str, Any]:
+    """
+    手动触发预加载
+    
+    Args:
+        account_email: 账户邮箱，如果为None则预加载所有账户
+    
+    触发后台预加载任务。
+    """
+    try:
+        from .account_preload import get_preload_queue, start_preload_queue
+        
+        # 确保队列已启动
+        queue = await start_preload_queue()
+        
+        if account_email:
+            # 预加载指定账户
+            task_id = await queue.enqueue_account(account_email, priority=0)
+            return {
+                "success": True,
+                "message": f"Triggered preload for {account_email}",
+                "task_id": task_id,
+            }
+        else:
+            # 预加载所有账户
+            adapter = await get_storage_adapter()
+            current = await adapter.get_config(CURRENT_ACCOUNT_KEY)
+            current_email = current.get("email") if current else None
+            
+            task_ids = await queue.enqueue_all_accounts(current_account=current_email)
+            return {
+                "success": True,
+                "message": f"Triggered preload for {len(task_ids)} accounts",
+                "task_ids": task_ids,
+            }
+    except Exception as e:
+        log.error(f"Failed to trigger preload: {e}")
+        return {"success": False, "error": str(e)}

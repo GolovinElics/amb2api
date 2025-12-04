@@ -6457,6 +6457,8 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     switchTab('config');
                     await loadConfig();
                     await refreshUsageStats();
+                    // 触发后台预加载账户数据（非阻塞）
+                    triggerAccountPreload();
                 } else {
                     showStatus('密码错误', 'error');
                     // 添加错误动画
@@ -7063,6 +7065,25 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${authToken}`
             };
+        }
+
+        // 触发后台预加载账户数据（非阻塞，静默执行）
+        async function triggerAccountPreload() {
+            try {
+                console.log('[Preload] Triggering account preload after panel login');
+                const res = await fetch('/api/account/preload/trigger', {
+                    method: 'POST',
+                    headers: getAuthHeaders()
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    console.log('[Preload] Preload triggered:', data);
+                } else {
+                    console.log('[Preload] Preload trigger failed:', res.status);
+                }
+            } catch (e) {
+                console.log('[Preload] Preload trigger error:', e.message);
+            }
         }
 
         async function startAuth() {
@@ -11864,12 +11885,13 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     
                     // 使用 Promise.allSettled 来跟踪所有请求的完成情况
                     // overview API 合并了 info + billing + apiKeys
+                    // 切换账户时优先使用预加载缓存，减少等待时间
                     Promise.allSettled([
                         loadAccountsList(true),
-                        loadAccountOverviewData(true),  // 合并的 info + billing + apiKeys
-                        loadAccountUsage(true, true),
-                        loadAccountCost(true, true),
-                        loadAccountRates(true, true)
+                        loadAccountOverviewData(false),  // 合并的 info + billing + apiKeys，优先使用缓存
+                        loadAccountUsage(false, true),   // 优先使用缓存
+                        loadAccountCost(false, true),    // 优先使用缓存
+                        loadAccountRates(false, true)    // 优先使用缓存
                     ]).then(results => {
                         const elapsed = Date.now() - startTime;
                         console.log(`All data loading completed in ${elapsed}ms`, results.map((r, i) => ({
@@ -12059,12 +12081,13 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                         
                         // 使用合并的 overview API 加载概览数据（1个请求代替3个）
                         // 同时并发加载 usage、cost、rates
+                        // 首次加载不强制刷新，优先使用预加载缓存
                         console.log('Initial load: Starting parallel data loading for account:', currentAccountEmail);
                         Promise.allSettled([
-                            loadAccountOverviewData(true),  // 合并的 info + billing + apiKeys
-                            loadAccountUsage(true, true),
-                            loadAccountCost(true, true),
-                            loadAccountRates(true, true)
+                            loadAccountOverviewData(false),  // 合并的 info + billing + apiKeys，优先使用缓存
+                            loadAccountUsage(false, true),   // 优先使用缓存
+                            loadAccountCost(false, true),    // 优先使用缓存
+                            loadAccountRates(false, true)    // 优先使用缓存
                         ]).then(results => {
                             console.log('Initial load: All data loading completed', results.map((r, i) => ({
                                 index: i,

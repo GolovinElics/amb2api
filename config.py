@@ -526,3 +526,97 @@ async def get_enable_real_streaming() -> bool:
     if env_value:
         return env_value.lower() in ("true", "1", "yes", "on")
     return bool(await get_config_value("enable_real_streaming", False))
+
+
+# ============================================================================
+# Account Preload Queue Configuration
+# ============================================================================
+
+async def get_preload_max_concurrent() -> int:
+    """
+    Get preload queue max concurrent tasks setting.
+    
+    预加载队列最大并发任务数。
+    
+    Environment variable: PRELOAD_MAX_CONCURRENT
+    TOML config key: preload_max_concurrent
+    Default: 2
+    """
+    env_value = os.getenv("PRELOAD_MAX_CONCURRENT")
+    if env_value:
+        try:
+            return max(1, int(env_value))
+        except ValueError:
+            pass
+    return int(await get_config_value("preload_max_concurrent", 2))
+
+
+async def get_preload_refresh_interval() -> float:
+    """
+    Get preload queue refresh interval setting.
+    
+    预加载队列自动刷新间隔（秒）。
+    
+    Environment variable: PRELOAD_REFRESH_INTERVAL
+    TOML config key: preload_refresh_interval
+    Default: 300.0 (5 minutes)
+    """
+    env_value = os.getenv("PRELOAD_REFRESH_INTERVAL")
+    if env_value:
+        try:
+            return max(10.0, float(env_value))
+        except ValueError:
+            pass
+    return float(await get_config_value("preload_refresh_interval", 300.0))
+
+
+async def get_preload_cache_ttl() -> float:
+    """
+    Get preload cache TTL setting.
+    
+    预加载缓存 TTL（秒）。
+    
+    Environment variable: PRELOAD_CACHE_TTL
+    TOML config key: preload_cache_ttl
+    Default: 300.0 (5 minutes)
+    """
+    env_value = os.getenv("PRELOAD_CACHE_TTL")
+    if env_value:
+        try:
+            return max(10.0, float(env_value))
+        except ValueError:
+            pass
+    return float(await get_config_value("preload_cache_ttl", 300.0))
+
+
+async def get_preload_max_cached_accounts() -> int:
+    """
+    Get preload max cached accounts setting.
+    
+    预加载缓存最大账户数。
+    
+    Environment variable: PRELOAD_MAX_CACHED_ACCOUNTS
+    TOML config key: preload_max_cached_accounts
+    Default: 20
+    """
+    env_value = os.getenv("PRELOAD_MAX_CACHED_ACCOUNTS")
+    if env_value:
+        try:
+            return max(1, int(env_value))
+        except ValueError:
+            pass
+    return int(await get_config_value("preload_max_cached_accounts", 20))
+
+
+async def get_preload_config() -> dict:
+    """
+    Get all preload queue configuration as a dictionary.
+    
+    返回预加载队列的所有配置。
+    """
+    return {
+        "max_concurrent": await get_preload_max_concurrent(),
+        "refresh_interval": await get_preload_refresh_interval(),
+        "cache_ttl": await get_preload_cache_ttl(),
+        "max_cached_accounts": await get_preload_max_cached_accounts(),
+    }
