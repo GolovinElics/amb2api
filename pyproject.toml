@@ -1,6 +1,6 @@
 [project]
 name = "amb2api"
-version = "0.4.3"
+version = "0.4.5"
 description = "AMB2API - AssemblyAI LLM Gateway OpenAI-compatible proxy"
 readme = "README.md"
 requires-python = ">=3.12"

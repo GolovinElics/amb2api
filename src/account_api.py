@@ -1049,26 +1049,27 @@ async def get_usage_data(
     account_email: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    获取使用量数据
+    获取使用量数据（支持完整筛选参数）
     
     Args:
         window_size: 时间窗口 (day, week, month)
         starting_on: 开始日期 (YYYY-MM-DD)
         ending_before: 结束日期 (YYYY-MM-DD)
         group_by: 分组方式 (model, date, region)
-        product: 产品类型
-        regions: 区域列表 (逗号分隔)
-        services: 服务列表 (逗号分隔)
+        product: 产品类型 (如 "LLM Gateway + LeMUR")
+        regions: 区域列表 (逗号分隔，如 US,Europe)
+        services: 服务列表 (逗号分隔，如 API,Playground)
     
     Returns:
-        使用量数据，包括总 tokens、按模型分类的使用量等
+        使用量数据，包括总 tokens、按模型分类的使用量、按日期分组的数据等
     """
     # 获取 session 以确定账户邮箱
     session = await _get_session(account_email)
     session_email = (session.get("email") if session else None) or account_email or "default"
     
-    # 使用账户邮箱作为缓存键的一部分，确保不同账户有独立的缓存
-    cache_key = f"usage:summary:{session_email}"
+    # 构建缓存键（包含所有筛选参数）
+    filter_key = f"{window_size}:{starting_on}:{ending_before}:{product}:{regions}:{services}"
+    cache_key = f"usage:{session_email}:{filter_key}"
     cached = None if force else _cache_get(cache_key)
     if cached:
         return cached
@@ -1078,13 +1079,45 @@ async def get_usage_data(
         "items": [],
         "by_model": [],
         "segments": [],
+        "daily_by_model": [],  # 按日期和模型分组的数据
+        "filters_applied": {},
         "debug_info": {}
     }
     
     try:
-        # 只发一个请求，使用最可靠的参数
+        # 构建请求参数
         path = "/dashboard/usage"
         params = {"_rsc": "1mzsd"}
+        
+        # 时间窗口参数
+        if starting_on and ending_before:
+            params["window_size"] = window_size if window_size in ["day", "hour"] else "day"
+            params["starting_on"] = starting_on
+            params["ending_before"] = ending_before
+            result["filters_applied"]["date_range"] = f"{starting_on} ~ {ending_before}"
+            result["filters_applied"]["window_size"] = params["window_size"]
+        
+        # 产品筛选 (LLM Gateway + LeMUR)
+        if product:
+            params["product"] = product
+            result["filters_applied"]["product"] = product
+        
+        # 区域筛选
+        if regions:
+            params["regions"] = regions
+            result["filters_applied"]["regions"] = regions
+        
+        # 服务筛选
+        if services:
+            params["services"] = services
+            result["filters_applied"]["services"] = services
+        
+        # 分组方式
+        if group_by:
+            params["group_by"] = group_by
+            result["filters_applied"]["group_by"] = group_by
+        
+        log.info(f"Usage request params: {params}")
         rsc_data = await _make_dashboard_request("GET", path, params=params, account_email=account_email)
         
         final_result = None
@@ -1099,13 +1132,14 @@ async def get_usage_data(
             result["items"] = final_result.get("items", [])
             result["by_model"] = final_result.get("by_model", [])
             result["segments"] = final_result.get("segments", [])
+            result["daily_by_model"] = final_result.get("daily_by_model", [])
             result["debug_info"] = final_result.get("debug_info", {})
             result["debug_info"]["source"] = final_result.get("_source", "unknown")
             
             if "error" in final_result:
                 result["error"] = final_result["error"]
             
-            log.info(f"Parsed usage from RSC: {result['total_tokens']} tokens, {len(result['by_model'])} models, {len(result['segments'])} segments (source: {final_result.get('_source', 'unknown')})")
+            log.info(f"Parsed usage from RSC: {result['total_tokens']} tokens, {len(result['by_model'])} models, {len(result['segments'])} segments, {len(result['daily_by_model'])} daily points (source: {final_result.get('_source', 'unknown')})")
         else:
             log.warning("No valid usage data from any source")
 
@@ -1901,6 +1935,7 @@ def _parse_usage_rsc_data(data: Dict[str, Any]) -> Dict[str, Any]:
         - total_tokens: 总 token 数
         - by_model: 按模型分类的使用量列表
         - segments: 可视化分段数据
+        - daily_by_model: 按日期和模型分组的数据
         - items: 其他数据项
         - error: 错误信息（如果有）
         - debug_info: 调试信息
@@ -1916,6 +1951,7 @@ def _parse_usage_rsc_data(data: Dict[str, Any]) -> Dict[str, Any]:
         "items": [],
         "by_model": [],
         "segments": [],
+        "daily_by_model": [],  # 按日期和模型分组的数据
         "debug_info": {
             "raw_length": len(raw_text),
             "parsing_method": None,
@@ -1995,7 +2031,14 @@ def _parse_usage_rsc_data(data: Dict[str, Any]) -> Dict[str, Any]:
                         result["debug_info"]["parsing_method"] = "pattern2_fallback"
                         log.info(f"Extracted total tokens (pattern2 fallback): {result['total_tokens']}")
         
-        # 6. 记录调试信息
+        # 6. 提取 UsageChart 数据（按日期和模型分组）
+        daily_by_model = _extract_usage_chart_data(raw_text)
+        if daily_by_model:
+            result["daily_by_model"] = daily_by_model
+            result["debug_info"]["daily_by_model_count"] = len(daily_by_model)
+            log.info(f"Extracted {len(daily_by_model)} daily usage data points")
+        
+        # 7. 记录调试信息
         if result["total_tokens"] == 0 and not result["by_model"]:
             log.warning("No usage data extracted from RSC response")
             result["debug_info"]["raw_sample"] = raw_text[:500] if len(raw_text) > 500 else raw_text
@@ -2005,6 +2048,104 @@ def _parse_usage_rsc_data(data: Dict[str, Any]) -> Dict[str, Any]:
         result["error"] = str(e)
         result["debug_info"]["error_type"] = type(e).__name__
         result["debug_info"]["raw_sample"] = raw_text[:500] if len(raw_text) > 500 else raw_text
+    
+    return result
+
+
+def _extract_usage_chart_data(raw_text: str) -> List[Dict[str, Any]]:
+    """
+    从 RSC 数据中提取 UsageChart 的 data 数组
+    
+    UsageChart 数据格式：
+    ["$","$L13",null,{"data":[{"GPT 5 (Input)":4423,"GPT 5 (Output)":457,...,"name":"2025-11-23T00:00:00.000Z"},...],"names":[...],...}]
+    
+    Returns:
+        按日期分组的使用量数据列表，每个元素包含：
+        - date: 日期字符串
+        - models: 模型名称到 tokens 的映射
+    """
+    import re
+    import json
+    
+    result = []
+    
+    try:
+        # 查找 UsageChart 组件的数据
+        # 模式：{"data":[{...}],"names":[...],...}
+        chart_pattern = r'\{"data":\s*\[(\{[^\]]+\})\],"names":\s*\[([^\]]+)\]'
+        chart_match = re.search(chart_pattern, raw_text)
+        
+        if not chart_match:
+            # 尝试另一种模式：直接查找 data 数组
+            data_pattern = r'"data":\s*\[(\[\{[^\]]+\}\]|\{[^}]+\}(?:,\{[^}]+\})*)\]'
+            data_match = re.search(data_pattern, raw_text)
+            if data_match:
+                log.debug("Found data array with alternative pattern")
+        
+        # 更精确的模式：查找包含日期的数据数组
+        # 日期格式：2025-11-23T00:00:00.000Z
+        date_data_pattern = r'\{"[^"]+":[\d.]+[^}]*"name":"(\d{4}-\d{2}-\d{2}T[^"]+)"[^}]*\}'
+        date_matches = re.findall(date_data_pattern, raw_text)
+        
+        if date_matches:
+            log.debug(f"Found {len(date_matches)} date entries in usage data")
+            
+            # 提取完整的数据对象
+            # 查找包含 "name":"日期" 的 JSON 对象
+            full_data_pattern = r'\{(?:[^{}]|\{[^{}]*\})*"name":"(\d{4}-\d{2}-\d{2}T[^"]+)"(?:[^{}]|\{[^{}]*\})*\}'
+            
+            for match in re.finditer(full_data_pattern, raw_text):
+                try:
+                    obj_str = match.group(0)
+                    # 尝试解析 JSON
+                    obj = json.loads(obj_str)
+                    
+                    date_str = obj.get("name", "")
+                    if date_str:
+                        # 提取模型数据
+                        models = {}
+                        for key, value in obj.items():
+                            if key != "name" and isinstance(value, (int, float)):
+                                # 合并 Input 和 Output
+                                base_model = key.replace(" (Input)", "").replace(" (Output)", "")
+                                if base_model not in models:
+                                    models[base_model] = {"input": 0, "output": 0, "total": 0}
+                                
+                                if "(Input)" in key:
+                                    models[base_model]["input"] += value
+                                elif "(Output)" in key:
+                                    models[base_model]["output"] += value
+                                else:
+                                    models[base_model]["total"] += value
+                                
+                                models[base_model]["total"] = models[base_model]["input"] + models[base_model]["output"]
+                        
+                        if models:
+                            result.append({
+                                "date": date_str,
+                                "models": models
+                            })
+                except json.JSONDecodeError:
+                    continue
+                except Exception as e:
+                    log.debug(f"Failed to parse usage data object: {e}")
+                    continue
+        
+        # 去重（按日期）
+        seen_dates = set()
+        unique_result = []
+        for item in result:
+            if item["date"] not in seen_dates:
+                seen_dates.add(item["date"])
+                unique_result.append(item)
+        
+        result = sorted(unique_result, key=lambda x: x["date"])
+        
+        if result:
+            log.info(f"Extracted {len(result)} daily usage data points from UsageChart")
+        
+    except Exception as e:
+        log.error(f"Failed to extract UsageChart data: {e}")
     
     return result
 

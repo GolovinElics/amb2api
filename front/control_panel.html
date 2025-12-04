@@ -5685,31 +5685,80 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     <!-- 使用量子页面 -->
                     <div id="accountSubUsage" class="hidden">
                         <div class="config-group">
-                            <h4>使用量统计</h4>
-                            <div style="display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; align-items: center;">
-                                <button class="btn btn-sm" onclick="loadAccountUsage(true)">刷新</button>
-                            </div>
-                            <div id="accountUsageContent">
+                            <h4>使用量统计 <button class="btn btn-sm" onclick="loadAccountUsageAll(true)" style="margin-left: 8px; padding: 2px 8px; font-size: 11px;">刷新</button></h4>
+                            
+                            <!-- 总览区域（固定，不受筛选影响） -->
+                            <div id="accountUsageSummarySection">
                                 <div class="skeleton-loader">
                                     <div class="skeleton-card" style="text-align: center;">
-                                        <div class="skeleton-line short" style="margin: 0 auto 12px;"></div>
+                                        <div class="skeleton-line short" style="margin: 0 auto 8px;"></div>
                                         <div class="skeleton-big-number"></div>
-                                        <div class="skeleton-line short" style="margin: 8px auto 0;"></div>
                                     </div>
-                                    <div class="skeleton-card">
-                                        <div class="skeleton-line medium"></div>
-                                        <div style="height: 6px; background: var(--border-color); border-radius: 4px; margin-bottom: 16px;"></div>
+                                </div>
+                            </div>
+                            
+                            <!-- 详情区域（受筛选影响） -->
+                            <div style="margin-top: 24px; padding: 16px; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color);">
+                                <!-- 标题：按模型分类 + 日期范围 -->
+                                <h4 style="margin: 0 0 12px 0; font-size: 14px; color: var(--text-color);">使用详情 <span id="usageDetailDateRange" style="font-weight: normal; color: var(--text-secondary);"></span></h4>
+                                
+                                <!-- 筛选器标签栏 -->
+                                <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 16px;">
+                                    <span style="font-size: 12px; color: var(--text-secondary);">Filter by:</span>
+                                    
+                                    <!-- 日期筛选 -->
+                                    <button id="usageFilterDateBtn" class="cost-filter-tag" onclick="toggleUsageFilterPanel('Date')" style="padding: 4px 10px; border-radius: 16px; border: 1px solid var(--border-color); background: var(--card-bg); cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 4px;">
+                                        <span id="usageFilterDateLabel">Date: Last 7 days</span>
+                                        <span style="font-size: 10px;">▼</span>
+                                    </button>
+                                    
+                                    <!-- 产品筛选 -->
+                                    <button id="usageFilterProductBtn" class="cost-filter-tag" onclick="toggleUsageFilterPanel('Product')" style="padding: 4px 10px; border-radius: 16px; border: 1px solid var(--border-color); background: var(--card-bg); cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 4px;">
+                                        <span id="usageFilterProductLabel">Product: LLM</span>
+                                        <span style="font-size: 10px;">▼</span>
+                                    </button>
+                                    
+                                    <!-- 视图切换 -->
+                                    <div style="margin-left: auto; display: flex; gap: 4px;">
+                                        <button id="usageViewChart" onclick="setUsageViewMode('chart')" class="cost-view-btn active" style="padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg); cursor: pointer; font-size: 12px;">图表</button>
+                                        <button id="usageViewTable" onclick="setUsageViewMode('table')" class="cost-view-btn" style="padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg); cursor: pointer; font-size: 12px;">列表</button>
                                     </div>
-                                    <div class="skeleton-card">
-                                        <div class="skeleton-line medium" style="margin-bottom: 16px;"></div>
-                                        <div class="skeleton-line long"></div>
-                                        <div class="skeleton-line long"></div>
-                                        <div class="skeleton-line medium"></div>
+                                </div>
+                                
+                                <!-- 日期筛选面板 -->
+                                <div id="usageFilterDatePanel" class="hidden" style="margin-bottom: 16px; padding: 12px; background: var(--container-bg); border-radius: 8px; border: 1px solid var(--border-color);">
+                                    <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;">
+                                        <button class="btn btn-sm usage-date-preset" data-days="7" onclick="setUsageDatePreset(7)" style="padding: 4px 12px;">Last 7 days</button>
+                                        <button class="btn btn-sm usage-date-preset" data-days="14" onclick="setUsageDatePreset(14)" style="padding: 4px 12px;">Last 14 days</button>
+                                        <button class="btn btn-sm usage-date-preset" data-days="30" onclick="setUsageDatePreset(30)" style="padding: 4px 12px;">Last 30 days</button>
                                     </div>
-                                    <div class="loading-spinner" style="padding: 20px 0;">
-                                        <div class="spinner"></div>
-                                        <div class="spinner-text">正在加载使用量数据...</div>
+                                    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                                        <input type="date" id="usageStartDate" style="width: 140px; padding: 4px 8px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--card-bg); color: var(--text-color); font-size: 12px;">
+                                        <span style="color: var(--text-secondary);">to</span>
+                                        <input type="date" id="usageEndDate" style="width: 140px; padding: 4px 8px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--card-bg); color: var(--text-color); font-size: 12px;">
+                                        <button class="btn btn-sm" onclick="applyUsageDateFilter()" style="padding: 4px 12px; background: #4285f4;">Apply</button>
                                     </div>
+                                </div>
+                                
+                                <!-- 产品筛选面板 -->
+                                <div id="usageFilterProductPanel" class="hidden" style="margin-bottom: 16px; padding: 12px; background: var(--container-bg); border-radius: 8px; border: 1px solid var(--border-color);">
+                                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                                        <button class="btn btn-sm usage-product-btn active" data-product="LLM Gateway + LeMUR" onclick="setUsageProduct('LLM Gateway + LeMUR')" style="padding: 4px 12px;">LLM Gateway + LeMUR</button>
+                                        <button class="btn btn-sm usage-product-btn" data-product="Speech-to-Text" onclick="setUsageProduct('Speech-to-Text')" style="padding: 4px 12px;">Speech-to-Text</button>
+                                        <button class="btn btn-sm usage-product-btn" data-product="Streaming" onclick="setUsageProduct('Streaming')" style="padding: 4px 12px;">Streaming</button>
+                                    </div>
+                                </div>
+                                
+                                <!-- 详情总额 -->
+                                <div style="margin-bottom: 12px; padding: 8px 0; border-bottom: 1px solid var(--border-color);">
+                                    <div style="font-size: 14px; color: var(--text-color);">
+                                        Total tokens: <strong id="usageDetailTotal">0</strong>
+                                    </div>
+                                </div>
+                                
+                                <!-- 详情内容区域 -->
+                                <div id="accountUsageDetails">
+                                    <div style="text-align: center; padding: 40px;"><div class="spinner"></div></div>
                                 </div>
                             </div>
                         </div>
@@ -5759,15 +5808,21 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                                 
                                 <!-- 日期筛选面板 -->
                                 <div id="costFilterDatePanel" class="cost-filter-panel hidden" style="padding: 12px; background: var(--container-bg); border: 1px solid var(--border-color); border-radius: 6px; margin-bottom: 12px;">
+                                    <!-- 快速预设按钮 -->
+                                    <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;">
+                                        <button class="btn btn-sm cost-date-preset active" data-days="7" onclick="setCostDatePreset(7)" style="padding: 4px 12px;">Last 7 days</button>
+                                        <button class="btn btn-sm cost-date-preset" data-days="14" onclick="setCostDatePreset(14)" style="padding: 4px 12px;">Last 14 days</button>
+                                        <button class="btn btn-sm cost-date-preset" data-days="30" onclick="setCostDatePreset(30)" style="padding: 4px 12px;">Last 30 days</button>
+                                    </div>
                                     <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
                                         <div style="display: flex; gap: 4px;">
                                             <button class="cost-window-btn active" data-window="day" onclick="setCostWindow('day')" style="padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg); cursor: pointer; font-size: 11px;">day</button>
                                             <button class="cost-window-btn" data-window="hour" onclick="setCostWindow('hour')" style="padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg); cursor: pointer; font-size: 11px;">hour</button>
                                         </div>
                                         <div style="display: flex; gap: 6px; align-items: center;">
-                                            <input type="date" id="costStartDate" class="config-input" style="width: auto; padding: 4px 8px; font-size: 12px;" onchange="validateCostDateRange()">
+                                            <input type="date" id="costStartDate" class="config-input" style="width: 140px; padding: 4px 8px; font-size: 12px;" onchange="validateCostDateRange()">
                                             <span style="color: var(--text-secondary); font-size: 12px;">-</span>
-                                            <input type="date" id="costEndDate" class="config-input" style="width: auto; padding: 4px 8px; font-size: 12px;" onchange="validateCostDateRange()">
+                                            <input type="date" id="costEndDate" class="config-input" style="width: 140px; padding: 4px 8px; font-size: 12px;" onchange="validateCostDateRange()">
                                         </div>
                                         <div id="costDateError" style="color: #dc3545; font-size: 11px; display: none;">Invalid date range</div>
                                         <div style="margin-left: auto; display: flex; gap: 6px;">
@@ -5874,8 +5929,8 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                         <div class="config-group">
                             <h4>费率信息</h4>
                             <div style="display: flex; gap: 12px; margin-bottom: 16px;">
-                                <select id="accountRatesRegion" class="config-input" style="width: auto;" onchange="loadAccountRates(true)">
-                                    <option value="US" selected>US</option>
+                                <select id="accountRatesRegion" class="config-input" style="width: auto; min-width: 100px;" onchange="loadAccountRates(true)">
+                                    <option value="US" selected="selected">US</option>
                                     <option value="Europe">Europe</option>
                                 </select>
                                 <button class="btn btn-sm" onclick="loadAccountRates(true)">刷新</button>
@@ -12154,23 +12209,14 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     loadAccountBilling();
                 }
             } else if (tabName === 'usage') {
-                // 优先使用缓存，即使不完整也先显示
-                const el = document.getElementById('accountUsageContent');
-                const cacheKey = 'summary';
-                const cached = accountCache.usage[cacheKey];
-                console.log('Switching to usage tab, cache:', cached ? { ts: cached.ts, complete: cached.complete, hasHtml: !!cached.html } : 'none');
-                if (el && cached && cached.html && isFresh(cached.ts)) {
-                    // 先显示缓存内容（即使不完整）
-                    console.log('Using cached usage data');
-                    el.innerHTML = cached.html;
-                    // 如果数据不完整，在后台静默刷新
-                    if (!cached.complete) {
-                        loadAccountUsage(true, true); // force=true, silent=true
-                    }
-                } else {
-                    console.log('No valid cache, loading usage data');
-                    loadAccountUsage();
+                // 初始化筛选器（如果尚未初始化）
+                if (!usageFilterState.initialized) {
+                    initUsageFilters();
+                    usageFilterState.initialized = true;
                 }
+                
+                // 加载使用量数据（总览 + 详情）
+                loadAccountUsageAll();
             } else if (tabName === 'cost') {
                 // 初始化筛选器（如果尚未初始化）
                 if (!costFilterState.initialized) {
@@ -12181,6 +12227,12 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 // 加载成本数据（总览 + 详情）
                 loadAccountCost();
             } else if (tabName === 'rates') {
+                // 确保区域下拉框有默认值
+                const regionSelect = document.getElementById('accountRatesRegion');
+                if (regionSelect && !regionSelect.value) {
+                    regionSelect.value = 'US';
+                }
+                
                 const el = document.getElementById('accountRatesContent');
                 console.log('Switching to rates tab, cache:', accountCache.rates ? { ts: accountCache.rates.ts, hasHtml: !!accountCache.rates.html } : 'none');
                 if (el && accountCache.rates.html && isFresh(accountCache.rates.ts)) {
@@ -12538,6 +12590,52 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             `;
         }
 
+        // 生成使用详情区域的加载动画HTML
+        function getUsageDetailLoadingHTML() {
+            return `
+                <div class="skeleton-loader" style="padding: 0;">
+                    <!-- 模拟图表区域 -->
+                    <div class="skeleton-card" style="margin: 0; padding: 16px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                            <div class="skeleton-line short" style="width: 80px; margin: 0;"></div>
+                            <div style="display: flex; gap: 8px;">
+                                <div class="skeleton-line" style="width: 60px; height: 12px; margin: 0;"></div>
+                                <div class="skeleton-line" style="width: 60px; height: 12px; margin: 0;"></div>
+                                <div class="skeleton-line" style="width: 60px; height: 12px; margin: 0;"></div>
+                            </div>
+                        </div>
+                        <!-- 模拟条形图区域 -->
+                        <div style="display: flex; flex-direction: column; gap: 12px;">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <div class="skeleton-line" style="width: 100px; height: 14px; margin: 0;"></div>
+                                <div class="skeleton-line" style="flex: 1; height: 24px; margin: 0; border-radius: 4px;"></div>
+                                <div class="skeleton-line" style="width: 60px; height: 14px; margin: 0;"></div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <div class="skeleton-line" style="width: 100px; height: 14px; margin: 0;"></div>
+                                <div class="skeleton-line" style="flex: 1; height: 24px; margin: 0; border-radius: 4px; max-width: 70%;"></div>
+                                <div class="skeleton-line" style="width: 60px; height: 14px; margin: 0;"></div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <div class="skeleton-line" style="width: 100px; height: 14px; margin: 0;"></div>
+                                <div class="skeleton-line" style="flex: 1; height: 24px; margin: 0; border-radius: 4px; max-width: 40%;"></div>
+                                <div class="skeleton-line" style="width: 60px; height: 14px; margin: 0;"></div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <div class="skeleton-line" style="width: 100px; height: 14px; margin: 0;"></div>
+                                <div class="skeleton-line" style="flex: 1; height: 24px; margin: 0; border-radius: 4px; max-width: 20%;"></div>
+                                <div class="skeleton-line" style="width: 60px; height: 14px; margin: 0;"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="loading-spinner" style="padding: 16px 0;">
+                        <div class="spinner"></div>
+                        <div class="spinner-text">正在加载使用详情...</div>
+                    </div>
+                </div>
+            `;
+        }
+
         // 生成费率页面的加载动画HTML
         function getRatesLoadingHTML() {
             return `
@@ -12764,6 +12862,753 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             }
         }
 
+        // ========== 使用量筛选器相关函数 ==========
+        
+        // 使用量筛选器状态
+        const usageFilterState = {
+            windowSize: 'day',
+            startDate: null,
+            endDate: null,
+            product: 'LLM Gateway + LeMUR',
+            initialized: false
+        };
+        
+        // 使用量视图模式
+        let usageViewMode = 'chart';
+        
+        function setUsageViewMode(mode) {
+            usageViewMode = mode;
+            document.getElementById('usageViewChart')?.classList.toggle('active', mode === 'chart');
+            document.getElementById('usageViewTable')?.classList.toggle('active', mode === 'table');
+            // 重新渲染详情
+            if (window.lastUsageDetailData) {
+                renderUsageDetails(window.lastUsageDetailData);
+            }
+        }
+        
+        // 初始化使用量筛选器
+        function initUsageFilters() {
+            // 设置默认日期范围（最近7天，包含今天）
+            const today = new Date();
+            const start = new Date(today);
+            start.setDate(today.getDate() - 6); // 包含今天，所以减去6天
+            
+            usageFilterState.startDate = start.toISOString().split('T')[0];
+            usageFilterState.endDate = today.toISOString().split('T')[0]; // 结束日期是今天
+            
+            const startDateEl = document.getElementById('usageStartDate');
+            const endDateEl = document.getElementById('usageEndDate');
+            
+            if (startDateEl) {
+                startDateEl.value = usageFilterState.startDate;
+                startDateEl.max = today.toISOString().split('T')[0];
+            }
+            if (endDateEl) {
+                endDateEl.value = usageFilterState.endDate;
+                endDateEl.max = today.toISOString().split('T')[0];
+            }
+            
+            updateUsageDateLabel();
+        }
+        
+        function toggleUsageFilterPanel(panel) {
+            const panels = ['Date', 'Product'];
+            panels.forEach(p => {
+                const el = document.getElementById('usageFilter' + p + 'Panel');
+                const btn = document.getElementById('usageFilter' + p + 'Btn');
+                if (p === panel) {
+                    el?.classList.toggle('hidden');
+                    btn?.classList.toggle('active');
+                } else {
+                    el?.classList.add('hidden');
+                    btn?.classList.remove('active');
+                }
+            });
+        }
+        
+        function setUsageDatePreset(days) {
+            const today = new Date();
+            const start = new Date(today);
+            start.setDate(today.getDate() - (days - 1)); // 包含今天，所以减去 days-1
+            
+            usageFilterState.startDate = start.toISOString().split('T')[0];
+            usageFilterState.endDate = today.toISOString().split('T')[0]; // 结束日期是今天
+            
+            document.getElementById('usageStartDate').value = usageFilterState.startDate;
+            document.getElementById('usageEndDate').value = usageFilterState.endDate;
+            
+            // 更新预设按钮状态
+            document.querySelectorAll('.usage-date-preset').forEach(btn => {
+                btn.classList.toggle('active', parseInt(btn.dataset.days) === days);
+            });
+            
+            updateUsageDateLabel();
+            loadAccountUsageDetails(true);
+        }
+        
+        function applyUsageDateFilter() {
+            usageFilterState.startDate = document.getElementById('usageStartDate').value;
+            usageFilterState.endDate = document.getElementById('usageEndDate').value;
+            
+            // 清除预设按钮状态
+            document.querySelectorAll('.usage-date-preset').forEach(btn => btn.classList.remove('active'));
+            
+            updateUsageDateLabel();
+            toggleUsageFilterPanel('Date');
+            loadAccountUsageDetails(true);
+        }
+        
+        function setUsageProduct(product) {
+            usageFilterState.product = product;
+            
+            // 更新按钮状态
+            document.querySelectorAll('.usage-product-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.product === product);
+            });
+            
+            // 更新标签
+            const label = document.getElementById('usageFilterProductLabel');
+            if (label) {
+                const shortName = product.includes('LLM') ? 'LLM' : product.split('-')[0];
+                label.textContent = 'Product: ' + shortName;
+            }
+            
+            toggleUsageFilterPanel('Product');
+            loadAccountUsageDetails(true);
+        }
+        
+        function updateUsageDateLabel() {
+            const label = document.getElementById('usageFilterDateLabel');
+            if (!label) return;
+            
+            const start = new Date(usageFilterState.startDate);
+            const end = new Date(usageFilterState.endDate);
+            const days = Math.round((end - start) / (1000 * 60 * 60 * 24));
+            
+            if (days === 7) {
+                label.textContent = 'Date: Last 7 days';
+            } else if (days === 14) {
+                label.textContent = 'Date: Last 14 days';
+            } else if (days === 30) {
+                label.textContent = 'Date: Last 30 days';
+            } else {
+                label.textContent = '日期: ' + (start.getMonth() + 1) + '/' + start.getDate() + ' - ' + (end.getMonth() + 1) + '/' + end.getDate();
+            }
+        }
+        
+        // 构建使用量筛选参数
+        function buildUsageFilterParams() {
+            const params = new URLSearchParams();
+            
+            if (usageFilterState.startDate && usageFilterState.endDate) {
+                params.append('window_size', usageFilterState.windowSize);
+                params.append('starting_on', usageFilterState.startDate);
+                // ending_before 需要是结束日期的第二天（exclusive）
+                const endDateObj = new Date(usageFilterState.endDate);
+                endDateObj.setDate(endDateObj.getDate() + 1);
+                params.append('ending_before', endDateObj.toISOString().split('T')[0]);
+            }
+            
+            if (usageFilterState.product) {
+                params.append('product', usageFilterState.product);
+            }
+            
+            params.append('group_by', 'model');
+            params.append('regions', 'US');
+            params.append('services', 'API');
+            
+            return params;
+        }
+        
+        // 加载使用量总览数据
+        async function loadAccountUsageSummary(force = false) {
+            if (!currentAccountEmail) return;
+            
+            const el = document.getElementById('accountUsageSummarySection');
+            if (!el) return;
+            
+            try {
+                const params = new URLSearchParams();
+                params.append('force', force ? '1' : '0');
+                params.append('_t', Date.now());
+                params.append('account_email', currentAccountEmail);
+                
+                const res = await fetch('/api/account/usage?' + params.toString(), { headers: getAuthHeaders() });
+                if (!res.ok) throw new Error('Failed to load summary');
+                
+                const data = await res.json();
+                
+                let html = '<div style="display: grid; gap: 16px;">';
+                html += '<div class="summary-card">';
+                html += '<div class="summary-title" style="margin-bottom: 8px;">Summary (Last 30 days)</div>';
+                html += '<div class="summary-sub">Total tokens across account</div>';
+                html += '<div class="summary-value">' + (data.total_tokens || 0).toLocaleString() + '</div>';
+                html += '</div>';
+                html += '</div>';
+                
+                el.innerHTML = html;
+            } catch (e) {
+                console.error('Failed to load usage summary:', e);
+                el.innerHTML = '<div class="status error">加载失败</div>';
+            }
+        }
+        
+        // 加载使用量详情数据
+        async function loadAccountUsageDetails(force = false) {
+            if (!currentAccountEmail) return;
+            
+            const el = document.getElementById('accountUsageDetails');
+            const totalEl = document.getElementById('usageDetailTotal');
+            const dateRangeEl = document.getElementById('usageDetailDateRange');
+            if (!el) return;
+            
+            // 骨架屏加载动画
+            el.innerHTML = getUsageDetailLoadingHTML();
+            
+            try {
+                const params = buildUsageFilterParams();
+                params.append('force', force ? '1' : '0');
+                params.append('_t', Date.now());
+                params.append('account_email', currentAccountEmail);
+                
+                const res = await fetch('/api/account/usage?' + params.toString(), { headers: getAuthHeaders() });
+                if (!res.ok) throw new Error('Failed to load details');
+                
+                const data = await res.json();
+                window.lastUsageDetailData = data;
+                
+                // 更新总额
+                let detailTotal = 0;
+                if (data.by_model && data.by_model.length > 0) {
+                    detailTotal = data.by_model.reduce((sum, item) => sum + (item.tokens || 0), 0);
+                } else {
+                    detailTotal = data.total_tokens || 0;
+                }
+                if (totalEl) totalEl.textContent = detailTotal.toLocaleString();
+                
+                // 更新日期范围显示
+                if (dateRangeEl && usageFilterState.startDate && usageFilterState.endDate) {
+                    const start = new Date(usageFilterState.startDate);
+                    const end = new Date(usageFilterState.endDate);
+                    dateRangeEl.textContent = '(' + (start.getMonth() + 1) + '/' + start.getDate() + ' - ' + (end.getMonth() + 1) + '/' + end.getDate() + ')';
+                }
+                
+                // 渲染详情
+                renderUsageDetails(data);
+                
+            } catch (e) {
+                console.error('Failed to load usage details:', e);
+                el.innerHTML = '<div class="status error">加载失败</div>';
+            }
+        }
+        
+        // 渲染使用量详情
+        function renderUsageDetails(data) {
+            const el = document.getElementById('accountUsageDetails');
+            if (!el) return;
+            
+            // 检查是否有数据：优先使用 by_model，如果为空则从 daily_by_model 或 segments 构建
+            let models = data.by_model || [];
+            
+            if (models.length === 0) {
+                // 尝试从 daily_by_model 中提取模型名称和汇总数据
+                const dailyByModel = data.daily_by_model || [];
+                if (dailyByModel.length > 0) {
+                    const modelTotals = {};
+                    dailyByModel.forEach(day => {
+                        if (day.models) {
+                            Object.entries(day.models).forEach(([model, data]) => {
+                                if (!modelTotals[model]) {
+                                    modelTotals[model] = { input: 0, output: 0, total: 0 };
+                                }
+                                modelTotals[model].input += data.input || 0;
+                                modelTotals[model].output += data.output || 0;
+                                modelTotals[model].total += data.total || (data.input || 0) + (data.output || 0);
+                            });
+                        }
+                    });
+                    
+                    // 转换为数组并排序
+                    models = Object.entries(modelTotals)
+                        .map(([model, data]) => ({
+                            model: model,
+                            tokens: data.total || data.input + data.output,
+                            input_tokens: data.input,
+                            output_tokens: data.output
+                        }))
+                        .filter(m => m.tokens > 0)
+                        .sort((a, b) => b.tokens - a.tokens);
+                }
+                
+                // 如果还是没有，尝试从 segments 构建（但没有模型名称）
+                if (models.length === 0 && data.segments && data.segments.length > 0) {
+                    models = data.segments.map((seg, idx) => ({
+                        model: seg.name || seg.model || `Model ${idx + 1}`,
+                        tokens: seg.value || seg.tokens || 0,
+                        color: seg.color
+                    })).filter(m => m.tokens > 0);
+                }
+                
+                // 更新 data.by_model 以便后续使用
+                if (models.length > 0) {
+                    data.by_model = models;
+                }
+            }
+            
+            const hasData = models.length > 0 || (data.total_tokens && data.total_tokens > 0);
+            
+            if (!hasData) {
+                const totalEl = document.getElementById('usageDetailTotal');
+                if (totalEl) totalEl.textContent = '0';
+                el.innerHTML = '<div style="text-align: center; padding: 60px 20px; color: var(--text-secondary);"><div style="font-size: 14px;">该时间范围内没有使用数据</div></div>';
+                return;
+            }
+            
+            if (usageViewMode === 'chart') {
+                renderUsageChart(el, data);
+            } else {
+                renderUsageTable(el, data);
+            }
+        }
+        
+        // 渲染使用量图表
+        function renderUsageChart(el, data) {
+            try {
+            const colorPalette = ['#4285f4', '#ea4335', '#fbbc04', '#34a853', '#ff6d01', '#46bdc6', '#7baaf7', '#f07b72', '#fcd04f', '#81c995', '#ff9e80', '#78d9ec', '#a8c7fa', '#f6aea9', '#fde293', '#a8dab5', '#ffccbc', '#b2ebf2'];
+            
+            // 为每个模型分配颜色
+            const modelColors = {};
+            if (data.by_model) {
+                data.by_model.forEach((item, idx) => {
+                    modelColors[item.model] = colorPalette[idx % colorPalette.length];
+                });
+            }
+            
+            let dailyByModel = data.daily_by_model || [];
+            
+            const dates = dailyByModel.map(d => d.date);
+            
+            // 计算每个模型在每天的数据
+            const modelDailyData = {};
+            let dataPointCount = dailyByModel.length;
+            
+            dailyByModel.forEach((day, idx) => {
+                if (day.models) {
+                    Object.entries(day.models).forEach(([model, tokens]) => {
+                        if (!modelDailyData[model]) {
+                            modelDailyData[model] = new Array(dataPointCount).fill(0);
+                        }
+                        const total = typeof tokens === 'object' ? 
+                            ((tokens.input || 0) + (tokens.output || 0)) : 
+                            (tokens || 0);
+                        modelDailyData[model][idx] = total;
+                    });
+                }
+            });
+            
+            // 计算单个模型的最大值
+            let maxAmount = 0;
+            Object.values(modelDailyData).forEach(arr => {
+                arr.forEach(val => {
+                    if (val > maxAmount) maxAmount = val;
+                });
+            });
+            maxAmount = maxAmount || 1000;
+            maxAmount = maxAmount * 1.1;
+            
+            // 计算合适的Y轴刻度
+            let yMax = maxAmount;
+            let yStep = yMax / 4;
+            const yTicks = [];
+            
+            try {
+                if (maxAmount > 1) {
+                    const yTickCount = 4;
+                    const rawStep = maxAmount / yTickCount;
+                    if (rawStep > 0 && isFinite(rawStep)) {
+                        const logVal = Math.log10(rawStep);
+                        if (isFinite(logVal)) {
+                            const magnitude = Math.pow(10, Math.floor(logVal));
+                            const normalizedStep = rawStep / magnitude;
+                            let niceStep;
+                            if (normalizedStep <= 1) niceStep = 1;
+                            else if (normalizedStep <= 2) niceStep = 2;
+                            else if (normalizedStep <= 5) niceStep = 5;
+                            else niceStep = 10;
+                            yStep = niceStep * magnitude;
+                            yMax = Math.ceil(maxAmount / yStep) * yStep;
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('Y-axis calculation error:', e);
+            }
+            
+            if (!isFinite(yMax) || yMax <= 0) yMax = 1000;
+            if (!isFinite(yStep) || yStep <= 0) yStep = yMax / 4;
+            
+            for (let v = 0; v <= yMax * 1.001; v += yStep) {
+                yTicks.push(Math.round(v));
+                if (yTicks.length > 10) break;
+            }
+            if (yTicks.length === 0) yTicks.push(0, yMax);
+            
+            const chartHeight = 200;
+            const chartWidth = 100;
+            
+            let html = '<div style="position: relative;">';
+            
+            // Y轴标签
+            html += '<div style="position: absolute; left: 0; top: 0; bottom: 30px; width: 50px; display: flex; flex-direction: column; justify-content: space-between; font-size: 10px; color: var(--text-secondary); text-align: right; padding-right: 8px;">';
+            for (let i = yTicks.length - 1; i >= 0; i--) {
+                const formatted = yTicks[i] >= 1000000 ? (yTicks[i] / 1000000).toFixed(1) + 'M' : 
+                                  yTicks[i] >= 1000 ? (yTicks[i] / 1000).toFixed(0) + 'K' : 
+                                  yTicks[i].toString();
+                html += '<div>' + formatted + '</div>';
+            }
+            html += '</div>';
+            
+            // 图表区域
+            html += '<div id="usageChartContainer" style="margin-left: 55px; position: relative; height: ' + chartHeight + 'px; border-bottom: 1px solid var(--border-color);">';
+            
+            if (dataPointCount > 0) {
+                const width = chartWidth;
+                const height = chartHeight - 20;
+                
+                html += '<svg viewBox="0 0 ' + width + ' ' + height + '" preserveAspectRatio="none" style="width: 100%; height: 100%; overflow: visible;">';
+                html += '<defs>';
+                
+                Object.entries(modelColors).forEach(([model, color], idx) => {
+                    html += '<linearGradient id="usageGrad' + idx + '" x1="0%" y1="0%" x2="0%" y2="100%">';
+                    html += '<stop offset="0%" style="stop-color:' + color + ';stop-opacity:0.3"/>';
+                    html += '<stop offset="100%" style="stop-color:' + color + ';stop-opacity:0.02"/>';
+                    html += '</linearGradient>';
+                });
+                html += '</defs>';
+                
+                // 绘制Y轴网格线
+                yTicks.forEach((tick, i) => {
+                    if (i > 0) {
+                        const yPct = (1 - tick / yMax) * 100;
+                        html += '<line x1="0%" y1="' + yPct + '%" x2="100%" y2="' + yPct + '%" stroke="#e0e0e0" stroke-width="1" vector-effect="non-scaling-stroke" opacity="0.6"/>';
+                    }
+                });
+                
+                // 绘制每个模型的曲线
+                const sortedModels = Object.entries(modelDailyData)
+                    .map(([model, arr]) => ({ model, arr, total: arr.reduce((a, b) => a + b, 0) }))
+                    .sort((a, b) => a.total - b.total);
+                
+                const allModelPoints = {};
+                
+                // 给两侧留出边距（10%）
+                const padding = width * 0.05;
+                const innerWidth = width - padding * 2;
+                
+                sortedModels.forEach(({ model, arr }, modelIdx) => {
+                    const color = modelColors[model] || colorPalette[modelIdx % colorPalette.length];
+                    const gradId = Object.keys(modelColors).indexOf(model);
+                    
+                    const points = arr.map((val, i) => {
+                        const yVal = Math.max(0, Math.min(height, height - (val / yMax) * height));
+                        return {
+                            x: dataPointCount > 1 ? padding + (i / (dataPointCount - 1)) * innerWidth : width / 2,
+                            y: yVal,
+                            value: val
+                        };
+                    });
+                    
+                    allModelPoints[model] = points;
+                    
+                    if (points.length > 1) {
+                        const curvePath = generateSmoothPath(points, 0.2, height);
+                        if (curvePath) {
+                            // 填充区域：从曲线起点底部开始，沿曲线，到终点底部，闭合
+                            const firstX = points[0].x;
+                            const lastX = points[points.length - 1].x;
+                            const fillPath = curvePath + ' L' + lastX + ',' + height + ' L' + firstX + ',' + height + ' Z';
+                            html += '<path d="' + fillPath + '" fill="url(#usageGrad' + (gradId >= 0 ? gradId : modelIdx) + ')" opacity="0.5"/>';
+                            html += '<path d="' + curvePath + '" fill="none" stroke="' + color + '" stroke-width="1.5" vector-effect="non-scaling-stroke"/>';
+                        }
+                    }
+                });
+                
+                html += '</svg>';
+                
+                // 垂直指示线
+                html += '<div id="usageChartIndicator" style="display: none; position: absolute; top: 0; bottom: 0; width: 1px; background: var(--text-secondary); pointer-events: none; opacity: 0.5;"></div>';
+                
+                // 数据点圆点容器
+                html += '<div id="usageChartDots" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none;"></div>';
+                
+                // 交互层
+                html += '<div id="usageChartOverlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; cursor: crosshair; z-index: 10;" onmousemove="showUsageTooltip(event)" onmouseleave="hideUsageTooltip()"></div>';
+                
+                // 存储点数据
+                window.usageChartPoints = allModelPoints;
+                window.usageChartData = { 
+                    dailyByModel: dailyByModel, 
+                    modelColors: modelColors, 
+                    yMax: yMax, 
+                    chartHeight: chartHeight - 20 
+                };
+            }
+            
+            html += '</div>';
+            
+            // X轴标签
+            if (dates.length > 0) {
+                html += '<div style="margin-left: 55px; display: flex; justify-content: space-between; font-size: 10px; color: var(--text-secondary); padding-top: 4px;">';
+                const step = Math.max(1, Math.floor(dates.length / 8));
+                for (let i = 0; i < dates.length; i += step) {
+                    const d = new Date(dates[i]);
+                    html += '<div>' + (d.getMonth() + 1) + '/' + d.getDate() + '</div>';
+                }
+                html += '</div>';
+            }
+            
+            // Tooltip
+            html += '<div id="usageChartTooltip" style="display: none; position: fixed; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; font-size: 12px; z-index: 10000; box-shadow: 0 4px 12px rgba(0,0,0,0.15); max-width: 500px; pointer-events: none;"></div>';
+            
+            html += '</div>';
+            el.innerHTML = html;
+            } catch (e) {
+                console.error('renderUsageChart error:', e);
+                el.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-secondary);">图表渲染失败: ' + e.message + '</div>';
+            }
+        }
+        
+        // 显示使用量tooltip
+        function showUsageTooltip(event) {
+            const tooltip = document.getElementById('usageChartTooltip');
+            const overlay = document.getElementById('usageChartOverlay');
+            const indicator = document.getElementById('usageChartIndicator');
+            const dotsContainer = document.getElementById('usageChartDots');
+            
+            if (!tooltip || !overlay || !window.usageChartData) return;
+            const dailyByModel = window.usageChartData.dailyByModel || [];
+            if (dailyByModel.length === 0) return;
+            
+            const rect = overlay.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const pct = x / rect.width;
+            const idx = Math.min(Math.floor(pct * dailyByModel.length), dailyByModel.length - 1);
+            
+            if (idx < 0 || !dailyByModel[idx]) return;
+            
+            // 显示垂直指示线
+            if (indicator) {
+                const indicatorX = (idx / Math.max(dailyByModel.length - 1, 1)) * rect.width;
+                indicator.style.display = 'block';
+                indicator.style.left = indicatorX + 'px';
+            }
+            
+            // 显示数据点圆点
+            if (dotsContainer && window.usageChartPoints) {
+                const modelColors = window.usageChartData.modelColors || {};
+                const yMax = window.usageChartData.yMax || 1;
+                const chartHeight = rect.height;
+                let dotsHtml = '';
+                
+                Object.entries(window.usageChartPoints).forEach(([model, points]) => {
+                    if (points[idx] && points[idx].value > 0) {
+                        const color = modelColors[model] || '#4285f4';
+                        const dotX = (idx / Math.max(points.length - 1, 1)) * rect.width;
+                        const dotY = chartHeight - (points[idx].value / yMax) * chartHeight;
+                        dotsHtml += '<div style="position: absolute; left: ' + (dotX - 4) + 'px; top: ' + (dotY - 4) + 'px; width: 8px; height: 8px; border-radius: 50%; background: ' + color + '; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.3);"></div>';
+                    }
+                });
+                dotsContainer.innerHTML = dotsHtml;
+            }
+            
+            const item = dailyByModel[idx];
+            const date = new Date(item.date);
+            const dateStr = date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' }) + ' (UTC)';
+            
+            // 构建tooltip内容
+            let tooltipHtml = '<div style="font-weight: 600; margin-bottom: 8px; color: var(--text-color);">' + dateStr + '</div>';
+            
+            if (item.models && Object.keys(item.models).length > 0) {
+                const modelColors = window.usageChartData.modelColors || {};
+                tooltipHtml += '<div style="display: flex; gap: 24px;">';
+                tooltipHtml += '<div style="flex: 1;"><div style="font-weight: 500; margin-bottom: 4px; color: var(--text-secondary); font-size: 11px;">INPUT</div>';
+                
+                Object.entries(item.models).forEach(([model, data]) => {
+                    const color = modelColors[model] || '#4285f4';
+                    const inputTokens = typeof data === 'object' ? (data.input || 0) : 0;
+                    tooltipHtml += '<div style="color: ' + color + '; font-size: 11px;">' + model + ': ' + inputTokens.toLocaleString() + '</div>';
+                });
+                
+                tooltipHtml += '</div>';
+                tooltipHtml += '<div style="width: 1px; background: var(--border-color);"></div>';
+                tooltipHtml += '<div style="flex: 1;"><div style="font-weight: 500; margin-bottom: 4px; color: var(--text-secondary); font-size: 11px;">OUTPUT</div>';
+                
+                Object.entries(item.models).forEach(([model, data]) => {
+                    const color = modelColors[model] || '#4285f4';
+                    const outputTokens = typeof data === 'object' ? (data.output || 0) : 0;
+                    tooltipHtml += '<div style="color: ' + color + '; font-size: 11px;">' + model + ': ' + outputTokens.toLocaleString() + '</div>';
+                });
+                
+                tooltipHtml += '</div></div>';
+            }
+            
+            tooltip.innerHTML = tooltipHtml;
+            tooltip.style.display = 'block';
+            
+            // 智能定位
+            const tooltipRect = tooltip.getBoundingClientRect();
+            let left = event.clientX + 15;
+            let top = event.clientY - tooltipRect.height / 2;
+            
+            if (left + tooltipRect.width > window.innerWidth - 10) {
+                left = event.clientX - tooltipRect.width - 15;
+            }
+            if (top < 10) top = 10;
+            if (top + tooltipRect.height > window.innerHeight - 10) {
+                top = window.innerHeight - tooltipRect.height - 10;
+            }
+            
+            tooltip.style.left = left + 'px';
+            tooltip.style.top = top + 'px';
+        }
+        
+        // 隐藏使用量tooltip
+        function hideUsageTooltip() {
+            const tooltip = document.getElementById('usageChartTooltip');
+            const indicator = document.getElementById('usageChartIndicator');
+            const dotsContainer = document.getElementById('usageChartDots');
+            
+            if (tooltip) tooltip.style.display = 'none';
+            if (indicator) indicator.style.display = 'none';
+            if (dotsContainer) dotsContainer.innerHTML = '';
+        }
+        
+        // 渲染使用量表格（带分布图和分类）
+        function renderUsageTable(el, data) {
+            const models = data.by_model || [];
+            if (models.length === 0) {
+                el.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-secondary);">没有使用数据</div>';
+                return;
+            }
+            
+            // 计算总量
+            const totalTokens = models.reduce((sum, m) => sum + (m.tokens || 0), 0);
+            
+            // 按分类分配颜色（同一分类使用相近颜色）
+            const groupColorPalettes = {
+                'Claude': ['#ff6b35', '#ff8c5a', '#ffad7f', '#ffc9a3'],   // 橙色系
+                'Gemini': ['#00bcd4', '#26c6da', '#4dd0e1', '#80deea'],   // 青色系
+                'GPT': ['#2196f3', '#42a5f5', '#64b5f6', '#90caf9'],      // 蓝色系
+                '其他': ['#9c27b0', '#ab47bc', '#ba68c8', '#ce93d8']      // 紫色系
+            };
+            const groupColorIndex = { 'Claude': 0, 'Gemini': 0, 'GPT': 0, '其他': 0 };
+            
+            const modelColors = {};
+            models.forEach(m => {
+                const name = m.model || '';
+                let group = '其他';
+                if (name.toLowerCase().includes('claude')) {
+                    group = 'Claude';
+                } else if (name.toLowerCase().includes('gemini')) {
+                    group = 'Gemini';
+                } else if (name.toLowerCase().includes('gpt') || name.toLowerCase().includes('chatgpt')) {
+                    group = 'GPT';
+                }
+                const palette = groupColorPalettes[group];
+                modelColors[m.model] = palette[groupColorIndex[group] % palette.length];
+                groupColorIndex[group]++;
+            });
+            
+            // 按tokens排序
+            const sortedModels = [...models].sort((a, b) => (b.tokens || 0) - (a.tokens || 0));
+            
+            let html = '<div style="padding: 0;">';
+            
+            // 使用量分布条
+            html += '<div style="margin-bottom: 16px;">';
+            html += '<div style="font-size: 14px; font-weight: 500; color: var(--text-color); margin-bottom: 8px;">使用量分布</div>';
+            html += '<div style="display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: var(--border-color);">';
+            sortedModels.forEach(m => {
+                const pct = totalTokens > 0 ? ((m.tokens || 0) / totalTokens) * 100 : 0;
+                if (pct > 0) {
+                    const color = modelColors[m.model];
+                    html += '<div style="width: ' + pct + '%; background: ' + color + ';" title="' + m.model + ': ' + pct.toFixed(1) + '%"></div>';
+                }
+            });
+            html += '</div></div>';
+            
+            // 按模型分类
+            html += '<div style="font-size: 14px; font-weight: 500; color: var(--text-color); margin-bottom: 8px;">按模型分类</div>';
+            
+            // 分组：Claude, Gemini, GPT, 其他
+            const groups = {
+                'Claude': [],
+                'Gemini': [],
+                'GPT': [],
+                '其他': []
+            };
+            
+            sortedModels.forEach(m => {
+                const name = m.model || '';
+                if (name.toLowerCase().includes('claude')) {
+                    groups['Claude'].push(m);
+                } else if (name.toLowerCase().includes('gemini')) {
+                    groups['Gemini'].push(m);
+                } else if (name.toLowerCase().includes('gpt') || name.toLowerCase().includes('chatgpt')) {
+                    groups['GPT'].push(m);
+                } else {
+                    groups['其他'].push(m);
+                }
+            });
+            
+            // 渲染每个分组
+            Object.entries(groups).forEach(([groupName, groupModels]) => {
+                if (groupModels.length === 0) return;
+                
+                html += '<div style="margin-bottom: 8px;">';
+                html += '<div style="font-size: 14px; font-weight: 600; color: var(--text-color); padding: 4px 0;">' + groupName + '</div>';
+                
+                groupModels.forEach(m => {
+                    const color = modelColors[m.model];
+                    const pct = totalTokens > 0 ? ((m.tokens || 0) / totalTokens) * 100 : 0;
+                    
+                    html += '<div style="display: flex; align-items: center; padding: 8px 0; gap: 10px; border-bottom: 1px solid var(--border-color);">';
+                    html += '<div style="width: 10px; height: 10px; border-radius: 50%; background: ' + color + '; flex-shrink: 0;"></div>';
+                    html += '<div style="flex: 1; font-size: 14px; color: var(--text-color); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">' + m.model + '</div>';
+                    html += '<div style="font-size: 14px; color: var(--text-color); text-align: right; white-space: nowrap;">';
+                    html += '<span style="font-weight: 600;">' + (m.tokens || 0).toLocaleString() + '</span>';
+                    html += ' <span style="color: var(--text-secondary);">tokens</span>';
+                    html += ' <span style="color: var(--text-secondary);">(' + pct.toFixed(1) + '%)</span>';
+                    html += '</div>';
+                    html += '</div>';
+                });
+                
+                html += '</div>';
+            });
+            
+            html += '</div>';
+            el.innerHTML = html;
+        }
+        
+        // 加载使用量数据（总览 + 详情）
+        async function loadAccountUsageAll(force = false) {
+            if (!currentAccountEmail) return;
+            
+            // 初始化筛选器
+            if (!usageFilterState.initialized) {
+                initUsageFilters();
+                usageFilterState.initialized = true;
+            }
+            
+            // 并发加载总览和详情
+            await Promise.all([
+                loadAccountUsageSummary(force),
+                loadAccountUsageDetails(force)
+            ]);
+        }
+        
+        // ========== 使用量筛选器相关函数结束 ==========
+
         // ========== 成本筛选器相关函数 ==========
         
         // HTML转义函数
@@ -12788,10 +13633,10 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
         
         // 初始化成本筛选器
         async function initCostFilters() {
-            // 设置默认日期范围（最近7天）
+            // 设置默认日期范围（最近7天，包含今天）
             const today = new Date();
             const sevenDaysAgo = new Date(today);
-            sevenDaysAgo.setDate(today.getDate() - 7);
+            sevenDaysAgo.setDate(today.getDate() - 6); // 包含今天，所以减去6天
             
             const endDateEl = document.getElementById('costEndDate');
             const startDateEl = document.getElementById('costStartDate');
@@ -12980,6 +13825,44 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             });
         }
         
+        // 设置日期预设（快速选择）
+        function setCostDatePreset(days) {
+            const today = new Date();
+            const start = new Date(today);
+            start.setDate(today.getDate() - (days - 1)); // 包含今天，所以减去 days-1
+            
+            const startDateEl = document.getElementById('costStartDate');
+            const endDateEl = document.getElementById('costEndDate');
+            
+            if (startDateEl && endDateEl) {
+                startDateEl.value = start.toISOString().split('T')[0];
+                endDateEl.value = today.toISOString().split('T')[0];
+            }
+            
+            costFilterState.startDate = start.toISOString().split('T')[0];
+            costFilterState.endDate = today.toISOString().split('T')[0];
+            
+            // 更新预设按钮状态
+            document.querySelectorAll('.cost-date-preset').forEach(btn => {
+                btn.classList.toggle('active', parseInt(btn.dataset.days) === days);
+            });
+            
+            // 更新标签
+            const label = document.getElementById('costFilterDateLabel');
+            if (label) {
+                if (days === 7) {
+                    label.textContent = 'Date: Last 7 days';
+                } else if (days === 14) {
+                    label.textContent = 'Date: Last 14 days';
+                } else if (days === 30) {
+                    label.textContent = 'Date: Last 30 days';
+                }
+            }
+            
+            // 立即应用筛选
+            applyCostFilters();
+        }
+        
         // 更新日期标签
         function updateCostDateLabel() {
             const startDate = document.getElementById('costStartDate').value;
@@ -12989,9 +13872,20 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             if (startDate && endDate) {
                 const start = new Date(startDate);
                 const end = new Date(endDate);
-                label.textContent = '日期: ' + (start.getMonth() + 1) + '/' + start.getDate() + ' - ' + (end.getMonth() + 1) + '/' + end.getDate();
+                // 计算天数差
+                const days = Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1;
+                
+                if (days === 7) {
+                    label.textContent = 'Date: Last 7 days';
+                } else if (days === 14) {
+                    label.textContent = 'Date: Last 14 days';
+                } else if (days === 30) {
+                    label.textContent = 'Date: Last 30 days';
+                } else {
+                    label.textContent = 'Date: ' + (start.getMonth() + 1) + '/' + start.getDate() + ' - ' + (end.getMonth() + 1) + '/' + end.getDate();
+                }
             } else {
-                label.textContent = '日期: 最近7天';
+                label.textContent = 'Date: Last 7 days';
             }
         }
         
@@ -13579,11 +14473,15 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     const color = modelColors[model] || colorPalette[sortIdx % colorPalette.length];
                     const gradIdx = Object.keys(modelColors).indexOf(model);
                     
+                    // 给两侧留出边距（5%）
+                    const padding = width * 0.05;
+                    const innerWidth = width - padding * 2;
+                    
                     // 计算点坐标（确保Y不低于0，不高于height）
                     const points = arr.map((val, i) => {
                         const yVal = Math.max(0, Math.min(height, height - (val / yMax) * height));
                         return {
-                            x: (i / Math.max(arr.length - 1, 1)) * width,
+                            x: padding + (i / Math.max(arr.length - 1, 1)) * innerWidth,
                             y: yVal,
                             value: val
                         };
@@ -13595,7 +14493,9 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     
                     // 填充区域（使用平滑曲线）
                     if (curvePath) {
-                        const fillPath = curvePath + ' L' + width + ',' + height + ' L0,' + height + ' Z';
+                        const firstX = points[0].x;
+                        const lastX = points[points.length - 1].x;
+                        const fillPath = curvePath + ' L' + lastX + ',' + height + ' L' + firstX + ',' + height + ' Z';
                         html += '<path d="' + fillPath + '" fill="url(#grad' + (gradIdx >= 0 ? gradIdx : sortIdx) + ')" opacity="0.5"/>';
                         // 曲线
                         html += '<path d="' + curvePath + '" fill="none" stroke="' + color + '" stroke-width="1.5" vector-effect="non-scaling-stroke" opacity="0.8"/>';
@@ -13604,10 +14504,13 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 
                 // 如果没有按模型的数据，使用总趋势
                 if (sortedModels.length === 0 && trendData.length > 0) {
+                    const padding = width * 0.05;
+                    const innerWidth = width - padding * 2;
+                    
                     const points = trendData.map((t, i) => {
                         const yVal = Math.max(0, Math.min(height, height - ((t.amount || 0) / yMax) * height));
                         return {
-                            x: (i / Math.max(trendData.length - 1, 1)) * width,
+                            x: padding + (i / Math.max(trendData.length - 1, 1)) * innerWidth,
                             y: yVal,
                             value: t.amount || 0
                         };
@@ -13616,7 +14519,9 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     const curvePath = generateSmoothPath(points, 0.2, height);
                     if (curvePath) {
                         html += '<defs><linearGradient id="gradDefault" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" style="stop-color:#4285f4;stop-opacity:0.3"/><stop offset="100%" style="stop-color:#4285f4;stop-opacity:0.02"/></linearGradient></defs>';
-                        const fillPath = curvePath + ' L' + width + ',' + height + ' L0,' + height + ' Z';
+                        const firstX = points[0].x;
+                        const lastX = points[points.length - 1].x;
+                        const fillPath = curvePath + ' L' + lastX + ',' + height + ' L' + firstX + ',' + height + ' Z';
                         html += '<path d="' + fillPath + '" fill="url(#gradDefault)" opacity="0.5"/>';
                         html += '<path d="' + curvePath + '" fill="none" stroke="#4285f4" stroke-width="1.5" vector-effect="non-scaling-stroke"/>';
                     }
@@ -13630,8 +14535,8 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 // 数据点圆点容器
                 html += '<div id="costChartDots" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none;"></div>';
                 
-                // 交互层
-                html += '<div id="costChartOverlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; cursor: crosshair;" onmousemove="showCostTooltip(event)" onmouseleave="hideCostTooltip()"></div>';
+                // 交互层（添加 z-index 确保在最上层）
+                html += '<div id="costChartOverlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; cursor: crosshair; z-index: 10;" onmousemove="showCostTooltip(event)" onmouseleave="hideCostTooltip()"></div>';
                 
                 // 存储点数据
                 window.costChartPoints = allModelPoints;
@@ -13678,7 +14583,9 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             const overlay = document.getElementById('costChartOverlay');
             const indicator = document.getElementById('costChartIndicator');
             const dotsContainer = document.getElementById('costChartDots');
+            
             if (!tooltip || !overlay || !window.costChartData) return;
+            if (!window.costChartData.trend || window.costChartData.trend.length === 0) return;
             
             const rect = overlay.getBoundingClientRect();
             const x = event.clientX - rect.left;
@@ -13845,24 +14752,102 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
         
         // 渲染表格视图
         function renderCostTable(el, data) {
-            let html = '<div class="cost-table-wrap">';
-            html += '<table class="table cost-model-table"><thead><tr>';
-            html += '<th style="color: var(--text-color);">Model</th>';
-            html += '<th style="color: var(--text-color);">Input Cost</th>';
-            html += '<th style="color: var(--text-color);">Output Cost</th>';
-            html += '<th style="color: var(--text-color);">Total</th>';
-            html += '</tr></thead><tbody>';
+            const models = data.by_model || [];
+            if (models.length === 0) {
+                el.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-secondary);">没有成本数据</div>';
+                return;
+            }
             
-            (data.by_model || []).forEach(item => {
-                html += '<tr>';
-                html += '<td style="color: var(--text-color);">' + (item.model || '-') + '</td>';
-                html += '<td style="color: var(--text-color);">$' + (item.input_cost || 0).toFixed(5) + '</td>';
-                html += '<td style="color: var(--text-color);">$' + (item.output_cost || 0).toFixed(5) + '</td>';
-                html += '<td style="color: var(--text-color);">$' + (item.cost || 0).toFixed(5) + '</td>';
-                html += '</tr>';
+            // 计算总成本
+            const totalCost = models.reduce((sum, m) => sum + (m.cost || 0), 0);
+            
+            // 按分类分配颜色（同一分类使用相近颜色）
+            const groupColorPalettes = {
+                'Claude': ['#ff6b35', '#ff8c5a', '#ffad7f', '#ffc9a3'],
+                'Gemini': ['#00bcd4', '#26c6da', '#4dd0e1', '#80deea'],
+                'GPT': ['#2196f3', '#42a5f5', '#64b5f6', '#90caf9'],
+                '其他': ['#9c27b0', '#ab47bc', '#ba68c8', '#ce93d8']
+            };
+            const groupColorIndex = { 'Claude': 0, 'Gemini': 0, 'GPT': 0, '其他': 0 };
+            
+            const modelColors = {};
+            models.forEach(m => {
+                const name = m.model || '';
+                let group = '其他';
+                if (name.toLowerCase().includes('claude')) {
+                    group = 'Claude';
+                } else if (name.toLowerCase().includes('gemini')) {
+                    group = 'Gemini';
+                } else if (name.toLowerCase().includes('gpt') || name.toLowerCase().includes('chatgpt')) {
+                    group = 'GPT';
+                }
+                const palette = groupColorPalettes[group];
+                modelColors[m.model] = palette[groupColorIndex[group] % palette.length];
+                groupColorIndex[group]++;
             });
             
-            html += '</tbody></table></div>';
+            // 按成本排序
+            const sortedModels = [...models].sort((a, b) => (b.cost || 0) - (a.cost || 0));
+            
+            let html = '<div style="padding: 0;">';
+            
+            // 成本分布条
+            html += '<div style="margin-bottom: 16px;">';
+            html += '<div style="font-size: 14px; font-weight: 500; color: var(--text-color); margin-bottom: 8px;">成本分布</div>';
+            html += '<div style="display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: var(--border-color);">';
+            sortedModels.forEach(m => {
+                const pct = totalCost > 0 ? ((m.cost || 0) / totalCost) * 100 : 0;
+                if (pct > 0) {
+                    const color = modelColors[m.model];
+                    html += '<div style="width: ' + pct + '%; background: ' + color + ';" title="' + m.model + ': ' + pct.toFixed(1) + '%"></div>';
+                }
+            });
+            html += '</div></div>';
+            
+            // 按模型分类
+            html += '<div style="font-size: 14px; font-weight: 500; color: var(--text-color); margin-bottom: 8px;">按模型分类</div>';
+            
+            // 分组
+            const groups = { 'Claude': [], 'Gemini': [], 'GPT': [], '其他': [] };
+            
+            sortedModels.forEach(m => {
+                const name = m.model || '';
+                if (name.toLowerCase().includes('claude')) {
+                    groups['Claude'].push(m);
+                } else if (name.toLowerCase().includes('gemini')) {
+                    groups['Gemini'].push(m);
+                } else if (name.toLowerCase().includes('gpt') || name.toLowerCase().includes('chatgpt')) {
+                    groups['GPT'].push(m);
+                } else {
+                    groups['其他'].push(m);
+                }
+            });
+            
+            // 渲染每个分组
+            Object.entries(groups).forEach(([groupName, groupModels]) => {
+                if (groupModels.length === 0) return;
+                
+                html += '<div style="margin-bottom: 8px;">';
+                html += '<div style="font-size: 14px; font-weight: 600; color: var(--text-color); padding: 4px 0;">' + groupName + '</div>';
+                
+                groupModels.forEach(m => {
+                    const color = modelColors[m.model];
+                    const pct = totalCost > 0 ? ((m.cost || 0) / totalCost) * 100 : 0;
+                    
+                    html += '<div style="display: flex; align-items: center; padding: 8px 0; gap: 10px; border-bottom: 1px solid var(--border-color);">';
+                    html += '<div style="width: 10px; height: 10px; border-radius: 50%; background: ' + color + '; flex-shrink: 0;"></div>';
+                    html += '<div style="flex: 1; font-size: 14px; color: var(--text-color); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">' + m.model + '</div>';
+                    html += '<div style="font-size: 14px; color: var(--text-color); text-align: right; white-space: nowrap;">';
+                    html += '<span style="font-weight: 600;">$' + (m.cost || 0).toFixed(4) + '</span>';
+                    html += ' <span style="color: var(--text-secondary);">(' + pct.toFixed(1) + '%)</span>';
+                    html += '</div>';
+                    html += '</div>';
+                });
+                
+                html += '</div>';
+            });
+            
+            html += '</div>';
             el.innerHTML = html;
         }
 
