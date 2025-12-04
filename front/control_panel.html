@@ -857,16 +857,15 @@
             border-radius: 10px;
             box-shadow: 0 2px 10px var(--shadow-color);
             transition: background-color 0.3s ease;
-            overflow-x: visible;
             position: relative;
             z-index: 10;
+            /* 不设置overflow，让sticky正常工作 */
         }
 
         @media (max-width: 768px) {
             .container { 
                 padding: 20px 16px; 
                 border-radius: 8px;
-                overflow-x: hidden;
                 max-width: 100%;
             }
         }
@@ -875,7 +874,6 @@
             .container { 
                 padding: 16px 12px; 
                 border-radius: 6px;
-                overflow-x: hidden;
                 max-width: 100%;
             }
         }
@@ -898,7 +896,7 @@
         @media (max-width: 768px) {
             .container.login-mode {
                 padding: 16px 8px;
-                padding-top: 5vh;
+                padding-top: 15vh;
                 border-radius: 0 !important;
                 max-width: 100%;
                 overflow: hidden;
@@ -908,7 +906,7 @@
         @media (max-width: 480px) {
             .container.login-mode {
                 padding: 8px 0;
-                padding-top: 3vh;
+                padding-top: 12vh;
                 border-radius: 0 !important;
                 max-width: 100%;
             }
@@ -1792,17 +1790,124 @@
             100% { background-position: 0% 50%; }
         }
 
+        /* 主界面使用flex布局实现固定头部 */
+        #mainSection {
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 60px);
+            max-height: calc(100vh - 60px);
+        }
+        
+        /* 固定头部区域 */
+        .fixed-header {
+            flex-shrink: 0;
+            background-color: var(--card-bg);
+            padding: 15px 20px 0 20px;
+            margin: 0;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px var(--shadow-color);
+            z-index: 100;
+            transition: box-shadow 0.3s ease;
+        }
+        
+        .fixed-header.scrolled {
+            box-shadow: 0 4px 12px var(--shadow-color);
+        }
+        
+        .fixed-header h1 {
+            margin-top: 0;
+            margin-bottom: 15px;
+        }
+        
+        @media (max-width: 768px) {
+            #mainSection {
+                height: calc(100vh - 44px);
+                max-height: calc(100vh - 44px);
+            }
+            
+            .fixed-header {
+                padding: 12px 16px 10px 16px;
+                border-radius: 10px;
+            }
+            
+            .fixed-header h1 {
+                font-size: 1.5em;
+                margin-bottom: 12px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            #mainSection {
+                height: calc(100vh - 36px);
+                max-height: calc(100vh - 36px);
+            }
+            
+            .fixed-header {
+                padding: 10px 12px 8px 12px;
+                border-radius: 8px;
+            }
+            
+            .fixed-header h1 {
+                font-size: 1.3em;
+                margin-bottom: 10px;
+            }
+        }
+
+        /* 标签栏容器 - 限制在圆角内 */
+        .tabs-wrapper {
+            overflow: hidden;
+            margin: 0 -20px -12px -20px;
+            padding: 0 20px 12px 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .tabs-wrapper {
+                margin: 0 -16px -10px -16px;
+                padding: 0 16px 10px 16px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .tabs-wrapper {
+                margin: 0 -12px -8px -12px;
+                padding: 0 12px 8px 12px;
+            }
+        }
+        
         .tabs {
             display: flex;
             gap: 6px;
-            border-bottom: 1px solid #e5e7eb;
-            margin-bottom: 20px;
+            border-bottom: none;
+            margin-bottom: 0;
             flex-wrap: nowrap;
             overflow-x: auto;
             overflow-y: hidden;
             -webkit-overflow-scrolling: touch;
             scrollbar-width: thin;
             scrollbar-color: var(--border-color) transparent;
+        }
+        
+        /* 内容区域 - 可滚动 */
+        .tab-content-wrapper {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding-top: 20px;
+            padding-bottom: 10px;
+        }
+        
+        @media (max-width: 768px) {
+            .tab-content-wrapper {
+                padding-top: 16px;
+                padding-bottom: 8px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .tab-content-wrapper {
+                padding-top: 12px;
+                padding-bottom: 6px;
+            }
         }
         
         /* 标签页滚动条样式 */
@@ -3334,22 +3439,165 @@
 
         .env-locked {
             position: relative;
+            opacity: 0.6;
+            filter: grayscale(50%);
+            cursor: pointer;
         }
 
         .env-locked::after {
-            content: "🔒 环境变量锚定";
+            content: "Locked";
             position: absolute;
-            right: 10px;
-            top: 8px;
-            transform: none;
-            background-color: #ffc107;
-            color: #212529;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-size: 11px;
+            right: 12px;
+            top: 6px;
+            background-color: #4a5568;
+            color: #e2e8f0;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
             white-space: nowrap;
             z-index: 2;
             pointer-events: none;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+            animation: floatIsland 3s ease-in-out infinite;
+            opacity: 1;
+            filter: none;
+        }
+
+        @keyframes floatIsland {
+            0%, 100% { 
+                transform: translateY(0);
+            }
+            50% { 
+                transform: translateY(-3px);
+            }
+        }
+
+        [data-theme="dark"] .env-locked::after {
+            background-color: #2d3748;
+            color: #a0aec0;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+        }
+
+        .env-locked input:disabled,
+        .env-locked select:disabled,
+        .env-locked textarea:disabled {
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        /* 配置页面浮动按钮 */
+        .config-floating-actions {
+            position: fixed;
+            bottom: 50px;
+            right: calc(50% - 480px);
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 9998;
+        }
+
+        .config-floating-actions.visible {
+            display: flex;
+        }
+
+        .config-floating-btn {
+            padding: 10px 20px;
+            border-radius: 25px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            white-space: nowrap;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            animation: floatBtn 3s ease-in-out infinite;
+        }
+
+        .config-floating-btn:hover {
+            transform: scale(1.08);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+        }
+
+        .config-floating-btn:active {
+            transform: scale(0.95);
+        }
+
+        .config-floating-btn.refresh {
+            background: linear-gradient(135deg, #4285f4 0%, #5c9aff 100%);
+            color: white;
+        }
+
+        .config-floating-btn.save {
+            background: linear-gradient(135deg, #34a853 0%, #5cb85c 100%);
+            color: white;
+        }
+
+        @keyframes floatBtn {
+            0%, 100% { 
+                transform: translateY(0);
+            }
+            50% { 
+                transform: translateY(-3px);
+            }
+        }
+
+        .config-floating-btn:hover {
+            animation: none;
+            transform: scale(1.08);
+        }
+
+        /* 暗黑模式浮动按钮 */
+        [data-theme="dark"] .config-floating-btn {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        }
+
+        [data-theme="dark"] .config-floating-btn:hover {
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+        }
+        
+        /* 当屏幕宽度小于1040px时，按钮靠右边距 */
+        @media (max-width: 1040px) {
+            .config-floating-actions {
+                right: 30px;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .config-floating-actions {
+                bottom: 30px;
+                right: 20px;
+            }
+            
+            .config-floating-btn {
+                padding: 10px 20px;
+                font-size: 14px;
+                border-radius: 25px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .config-floating-actions {
+                bottom: 25px;
+                right: 15px;
+            }
+            
+            .config-floating-btn {
+                padding: 8px 16px;
+                font-size: 13px;
+            }
+        }
+
+        /* 暗黑模式面板优先配置区块 */
+        [data-theme="dark"] .config-group[style*="fff9e6"] {
+            background: linear-gradient(135deg, #3d3520 0%, #4a4025 100%) !important;
+            border-color: #6b5a1e !important;
+        }
+
+        [data-theme="dark"] .config-group[style*="fff9e6"] h4,
+        [data-theme="dark"] .config-group[style*="fff9e6"] span,
+        [data-theme="dark"] .config-group[style*="fff9e6"] .config-note {
+            color: #ffc107 !important;
         }
 
         /* 使用统计样式 */
@@ -4158,6 +4406,20 @@
             display: flex;
             align-items: center;
             gap: 10px;
+            min-width: 140px;
+        }
+        
+        .key-toolbar-filter .custom-select-wrapper {
+            min-width: 120px;
+        }
+        
+        .key-toolbar-filter .custom-select-trigger {
+            padding: 8px 12px;
+            font-size: 13px;
+        }
+        
+        .key-toolbar-filter .custom-select-options {
+            z-index: 10001;
         }
         
         .key-toolbar-actions {
@@ -4194,6 +4456,12 @@
             background: transparent;
             color: #17a2b8;
             border: 1px solid #17a2b8;
+        }
+        
+        .key-toolbar-actions .btn-outline-success {
+            background: transparent;
+            color: #28a745;
+            border: 1px solid #28a745;
         }
         
         .key-table-container {
@@ -4264,25 +4532,29 @@
 
         /* ========== 密钥管理弹窗移动端适配 ========== */
         @media (max-width: 768px) {
-            /* 弹窗整体全屏 */
+            /* 弹窗整体 - 不再全屏，改为自适应高度 */
             .key-modal-content {
-                width: 100% !important;
-                max-width: 100% !important;
-                height: 100vh !important;
-                max-height: 100vh !important;
-                margin: 0 !important;
-                border-radius: 0 !important;
+                width: 95% !important;
+                max-width: 95% !important;
+                height: auto !important;
+                max-height: 90vh !important;
+                margin: 5vh auto !important;
+                border-radius: 12px !important;
                 padding: 12px !important;
-                /* 手机模式下重置定位为全屏 */
-                top: 0 !important;
-                left: 0 !important;
-                transform: none !important;
+                /* 手机模式下居中定位 */
+                position: fixed !important;
+                top: 50% !important;
+                left: 50% !important;
+                transform: translate(-50%, -50%) !important;
+                display: flex;
+                flex-direction: column;
             }
             
             /* 头部优化 */
             .key-modal-header {
                 gap: 8px;
                 padding-bottom: 10px;
+                flex-shrink: 0;
             }
             
             .key-modal-title-wrap {
@@ -4299,22 +4571,35 @@
                 padding: 3px 8px;
             }
             
-            /* 统计卡片保持3列但缩小 */
+            /* 统计卡片紧凑横向布局 */
             .key-stats-grid {
-                gap: 8px;
-                padding: 12px 0;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 6px;
+                padding: 10px 0;
+                flex-shrink: 0;
             }
             
             .key-stat-card {
-                padding: 10px;
+                flex: 1;
+                min-width: 90px;
+                padding: 8px 10px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
             }
             
             .key-stat-value {
-                font-size: 18px;
+                font-size: 16px;
             }
             
             .key-stat-label {
-                font-size: 11px;
+                font-size: 10px;
+            }
+            
+            .key-stat-card .progress-bar {
+                display: none;
             }
             
             /* 工具栏垂直布局 */
@@ -4322,7 +4607,8 @@
                 flex-direction: column;
                 align-items: stretch;
                 gap: 8px;
-                padding: 10px 0;
+                padding: 8px 0;
+                flex-shrink: 0;
             }
             
             /* 按钮组横向滚动 */
@@ -4352,6 +4638,31 @@
                 padding: 6px 8px;
             }
             
+            .key-toolbar-filter {
+                min-width: auto !important;
+                width: auto !important;
+            }
+            
+            .key-toolbar-filter .custom-select-wrapper {
+                min-width: 90px !important;
+                max-width: 110px !important;
+            }
+            
+            .key-toolbar-filter .custom-select-trigger {
+                padding: 6px 10px !important;
+                font-size: 12px !important;
+            }
+            
+            /* 表格容器 - 关键：限制高度并允许滚动 */
+            .key-table-container {
+                flex: 1;
+                min-height: 150px;
+                max-height: 40vh;
+                overflow-y: auto;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            
             /* 表格隐藏禁用原因和禁用时间列 */
             .key-col-reason,
             .key-col-time,
@@ -4362,40 +4673,59 @@
                 display: none;
             }
             
-            .key-col-index { width: 40px; }
+            .key-col-index { width: 28px; font-size: 10px; }
             .key-col-key { 
                 min-width: 80px; 
                 max-width: 120px;
                 word-break: break-all;
-                font-size: 11px;
+                font-size: 10px;
             }
             .key-col-status { 
-                width: 55px; 
+                width: 42px; 
                 font-size: 10px; 
                 text-align: center;
             }
-            .key-col-status .status-badge {
-                padding: 2px 6px !important;
+            .key-col-status .status-badge,
+            .key-table td:nth-child(3) .status-badge,
+            .key-table td:nth-child(3) span {
+                padding: 2px 5px !important;
                 font-size: 10px !important;
                 white-space: nowrap !important;
+                transform: scale(0.9);
+                display: inline-block;
             }
-            .key-col-action { width: 80px; }
+            .key-col-action { width: 58px; }
+            
+            /* 表头一行显示 */
+            .key-table th {
+                font-size: 10px;
+                padding: 4px 2px;
+                white-space: nowrap;
+            }
             
             .key-table {
                 min-width: auto;
-                font-size: 12px;
+                font-size: 11px;
+            }
+            
+            /* 密钥列一行显示 */
+            .key-table td:nth-child(2) code {
+                font-size: 9px !important;
+                word-break: break-all;
             }
             
             /* 分页优化 */
             .key-pagination {
                 flex-direction: column;
                 align-items: center;
-                gap: 10px;
-                padding: 12px 0;
+                gap: 8px;
+                padding: 10px 0;
+                flex-shrink: 0;
             }
             
             .key-pagination-controls {
                 justify-content: center;
+                flex-wrap: wrap;
             }
             
             .key-pagination-info,
@@ -4411,7 +4741,10 @@
         @media (max-width: 480px) {
             /* 更小屏幕进一步优化 */
             .key-modal-content {
-                padding: 6px !important;
+                width: 98% !important;
+                padding: 8px !important;
+                margin: 2vh auto !important;
+                max-height: 96vh !important;
             }
             
             /* 工具栏按钮更小 */
@@ -4425,30 +4758,37 @@
                 padding: 5px 6px !important;
             }
             
-            /* 统计卡片横向布局 */
+            /* 统计卡片更紧凑 */
             .key-stats-grid {
-                grid-template-columns: 1fr;
-                gap: 6px;
+                gap: 4px;
+                padding: 8px 0;
             }
             
             .key-stat-card {
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                padding: 8px 12px;
+                min-width: 80px;
+                padding: 6px 8px;
             }
             
             .key-stat-header {
-                margin-bottom: 0;
+                margin-bottom: 2px;
+            }
+            
+            .key-stat-dot {
+                width: 6px;
+                height: 6px;
             }
             
             .key-stat-value {
-                font-size: 18px;
-                margin: 0;
+                font-size: 14px;
             }
             
-            .key-stat-card .progress-bar {
-                display: none;
+            .key-stat-label {
+                font-size: 9px;
+            }
+            
+            /* 表格容器高度调整 */
+            .key-table-container {
+                max-height: 35vh;
             }
             
             /* 表格进一步缩小 */
@@ -4471,17 +4811,17 @@
             }
             
             .key-col-status {
-                width: 50px !important;
+                width: 42px !important;
             }
             
             .key-col-status .status-badge {
-                padding: 1px 4px !important;
-                font-size: 9px !important;
+                padding: 1px 3px !important;
+                font-size: 8px !important;
                 white-space: nowrap !important;
             }
             
             .key-col-action {
-                width: 70px !important;
+                width: 65px !important;
             }
             
             /* 操作按钮缩小 */
@@ -4489,6 +4829,46 @@
             .key-table td:last-child button {
                 padding: 3px 5px !important;
                 font-size: 9px !important;
+            }
+            
+            /* 分页更紧凑 */
+            .key-pagination {
+                gap: 6px;
+                padding: 8px 0;
+            }
+            
+            .key-pagination-info {
+                font-size: 11px;
+            }
+            
+            .key-pagination-controls {
+                gap: 4px;
+            }
+            
+            .key-pagination-label {
+                font-size: 11px;
+                margin-left: 4px;
+            }
+            
+            .key-pagination-input {
+                width: 40px;
+                padding: 2px;
+                font-size: 11px;
+            }
+            
+            .pagination-btn {
+                padding: 4px 8px;
+                font-size: 12px;
+            }
+            
+            .key-pagination-current {
+                padding: 4px 8px;
+                font-size: 12px;
+            }
+            
+            #keyPageSize {
+                padding: 2px 4px;
+                font-size: 11px;
             }
         }
 
@@ -4769,7 +5149,7 @@
         .key-mode-row {
             display: flex;
             gap: 16px;
-            margin-bottom: 12px;
+            margin-bottom: 60px;
         }
 
         .key-mode-item {
@@ -4788,6 +5168,91 @@
         .key-mode-item .config-input {
             width: 100%;
             background: var(--input-bg);
+        }
+
+        /* 自定义下拉框样式 */
+        .custom-select-wrapper {
+            position: relative;
+            width: 100%;
+            z-index: 10;
+        }
+
+        .custom-select-wrapper.open {
+            z-index: 1000;
+        }
+
+        .custom-select-trigger {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            background: var(--input-bg);
+            border: 2px solid var(--input-border);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            color: var(--text-color);
+            transition: border-color 0.2s, border-radius 0.2s;
+        }
+
+        .custom-select-trigger:hover {
+            border-color: #4285f4;
+        }
+
+        .custom-select-trigger::after {
+            content: "▼";
+            font-size: 10px;
+            color: var(--text-secondary);
+            transition: transform 0.2s;
+        }
+
+        .custom-select-wrapper.open .custom-select-trigger {
+            border-color: #4285f4;
+            border-radius: 6px 6px 0 0;
+            border-bottom-color: transparent;
+        }
+
+        .custom-select-wrapper.open .custom-select-trigger::after {
+            transform: rotate(180deg);
+        }
+
+        .custom-select-options {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: var(--container-bg);
+            border: 2px solid transparent;
+            border-top: none;
+            border-radius: 0 0 6px 6px;
+            max-height: 0;
+            overflow: hidden;
+            z-index: 1000;
+            transition: max-height 0.2s ease-out, border-color 0.2s;
+        }
+
+        .custom-select-wrapper.open .custom-select-options {
+            max-height: 200px;
+            border-color: #4285f4;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .custom-select-option {
+            padding: 10px 12px;
+            cursor: pointer;
+            font-size: 14px;
+            color: var(--text-color);
+            transition: background 0.15s;
+        }
+
+        .custom-select-option:hover {
+            background: var(--hover-bg);
+        }
+
+        .custom-select-option.selected {
+            background: rgba(66, 133, 244, 0.1);
+            color: #4285f4;
+            font-weight: 500;
         }
 
         /* 手机模式下密钥模式垂直排列 */
@@ -4878,18 +5343,25 @@
 
         <!-- 主界面 -->
         <div id="mainSection" class="hidden">
-            <h1>AMB2API 管理面板</h1>
+            <!-- 固定头部区域 -->
+            <div class="fixed-header" id="fixedHeader">
+                <h1>AMB2API 管理面板</h1>
 
-            <!-- 标签页 -->
-            <div class="tabs">
-                <button class="tab" onclick="switchTab('account')">账户管理</button>
-                <button class="tab active" onclick="switchTab('config')">配置管理</button>
-                <button class="tab" onclick="switchTab('ratelimit')">速率限制</button>
-                <button class="tab" onclick="switchTab('usage')">使用统计</button>
-                <button class="tab" onclick="switchTab('playground')">操练场</button>
-                <button class="tab" onclick="switchTab('logs')">实时日志</button>
+                <!-- 标签页 -->
+                <div class="tabs-wrapper">
+                    <div class="tabs">
+                        <button class="tab" onclick="switchTab('account')">账户管理</button>
+                        <button class="tab active" onclick="switchTab('config')">配置管理</button>
+                        <button class="tab" onclick="switchTab('ratelimit')">速率限制</button>
+                        <button class="tab" onclick="switchTab('usage')">使用统计</button>
+                        <button class="tab" onclick="switchTab('playground')">操练场</button>
+                        <button class="tab" onclick="switchTab('logs')">实时日志</button>
+                    </div>
+                </div>
             </div>
 
+            <!-- 内容区域 -->
+            <div class="tab-content-wrapper">
 
             <!-- 批量上传标签页 -->
             <div id="uploadTab" class="tab-content">
@@ -5189,9 +5661,27 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
 
                 <div id="configMetaBar" style="margin:6px 0 12px 0; display:flex; gap:8px; align-items:center; flex-wrap:wrap"></div>
 
+                <!-- 配置页面浮动操作按钮 -->
+                <div class="config-floating-actions" id="configFloatingActions">
+                    <button class="config-floating-btn refresh" onclick="loadConfig()">Flash</button>
+                    <button class="config-floating-btn save" onclick="saveConfig()">Save</button>
+                </div>
+                
                 <div id="configSection">
                     <div class="loading" id="configLoading">正在加载配置...</div>
                     <div id="configForm" class="hidden">
+                        <!-- 面板优先配置 - 独立区块 -->
+                        <div class="config-group" style="background: linear-gradient(135deg, #fff9e6 0%, #fff3cd 100%); border: 1px solid #ffc107;">
+                            <h4 style="color: #856404;">⚙️ 优先级配置</h4>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label style="display: flex; align-items: center; gap: 10px;">
+                                    <input type="checkbox" id="overrideEnv" class="config-checkbox" />
+                                    <span style="font-weight: 600; color: #856404;">面板优先（忽略环境变量）</span>
+                                </label>
+                                <small class="config-note" style="color: #856404; margin-top: 8px;">启用后，面板保存的值将覆盖环境变量的优先级，被锁定的配置项将可以编辑</small>
+                            </div>
+                        </div>
+
                         <div class="config-group">
                             <h4>密钥配置</h4>
                             <div class="form-group">
@@ -5205,35 +5695,32 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                             <!-- 密钥更新模式和聚合模式并排 -->
                             <div class="key-mode-row">
                                 <div class="key-mode-item">
-                                    <label for="keyUpdateMode">更新模式</label>
-                                    <select id="keyUpdateMode" class="config-input">
-                                        <option value="append">追加</option>
-                                        <option value="override">覆盖</option>
-                                    </select>
+                                    <label>更新模式</label>
+                                    <div class="custom-select-wrapper" data-select-id="keyUpdateMode">
+                                        <div class="custom-select-trigger">追加</div>
+                                        <div class="custom-select-options">
+                                            <div class="custom-select-option selected" data-value="append">追加</div>
+                                            <div class="custom-select-option" data-value="override">覆盖</div>
+                                        </div>
+                                    </div>
+                                    <input type="hidden" id="keyUpdateMode" value="append">
                                 </div>
                                 <div class="key-mode-item">
-                                    <label for="keyAggregationMode">聚合模式</label>
-                                    <select id="keyAggregationMode" class="config-input">
-                                        <option value="round_robin">轮询</option>
-                                        <option value="random">随机</option>
-                                    </select>
+                                    <label>聚合模式</label>
+                                    <div class="custom-select-wrapper" data-select-id="keyAggregationMode">
+                                        <div class="custom-select-trigger">轮询</div>
+                                        <div class="custom-select-options">
+                                            <div class="custom-select-option selected" data-value="round_robin">轮询</div>
+                                            <div class="custom-select-option" data-value="random">随机</div>
+                                        </div>
+                                    </div>
+                                    <input type="hidden" id="keyAggregationMode" value="round_robin">
                                 </div>
                             </div>
                             <small class="config-note" style="margin-top: -8px; display: block;">更新模式：追加=新增密钥到末尾，覆盖=替换所有密钥；聚合模式：轮询=依次使用，随机=随机选择</small>
                             <!-- 隐藏的兼容性字段 -->
                             <input type="hidden" id="useAssembly" value="true" />
                             <input type="hidden" id="keyAggregationEnabled" value="true" />
-                            <div class="form-group">
-                                <label>
-                                    <input type="checkbox" id="overrideEnv" class="config-checkbox" /> 面板优先（忽略环境变量）
-                                </label>
-                                <small class="config-note">启用后，面板保存的值将覆盖环境变量的优先级</small>
-                            </div>
-
-                            <div class="manage-actions">
-                                <button class="refresh-btn btn-sm" onclick="loadConfig()">刷新配置</button>
-                                <button class="btn btn-sm" style="background:#dc3545" onclick="saveConfig()">保存配置</button>
-                            </div>
                         </div>
                         <div class="config-group">
                             <h4>模型配置</h4>
@@ -5264,8 +5751,8 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                                 <label for="confettiProbability">彩带掉落概率: <span id="confettiProbabilityValue">10</span>%</label>
                                 <input type="range" id="confettiProbability" min="1" max="100" value="10" 
                                     oninput="document.getElementById('confettiProbabilityValue').textContent = this.value; this.style.background = 'linear-gradient(to right, #4285f4 0%, #4285f4 ' + this.value + '%, #ddd ' + this.value + '%, #ddd 100%)';"
-                                    style="background: linear-gradient(to right, #4285f4 0%, #4285f4 10%, #ddd 10%, #ddd 100%);" />
-                                <small class="config-note">鼠标移动时彩带掉落的概率（1-100%）</small>
+                                    style="background: linear-gradient(to right, #4285f4 0%, #4285f4 10%, #ddd 10%, #ddd 100%); margin-bottom: 12px;" />
+                                <small class="config-note" style="margin-top: 8px; display: block;">鼠标移动时彩带掉落的概率（1-100%）</small>
                             </div>
 
                             <div class="form-group">
@@ -5966,6 +6453,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
 
                 </div>
             </div>
+            </div><!-- 关闭 tab-content-wrapper -->
         </div>
     </div>
 
@@ -6021,19 +6509,23 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             <!-- 工具栏 -->
             <div class="key-toolbar">
                 <div class="key-toolbar-filter">
-                    <select id="modalKeyStatusFilter" class="filter-select" onchange="loadKeyManagementModal()">
-                        <option value="all">全部状态</option>
-                        <option value="enabled">已启用</option>
-                        <option value="disabled">已禁用</option>
-                        <option value="invalid">失效密钥</option>
-                    </select>
+                    <div class="custom-select-wrapper" data-select-id="modalKeyStatusFilter" data-onchange="loadKeyManagementModal()">
+                        <div class="custom-select-trigger">全部状态</div>
+                        <div class="custom-select-options">
+                            <div class="custom-select-option selected" data-value="all">全部状态</div>
+                            <div class="custom-select-option" data-value="enabled">已启用</div>
+                            <div class="custom-select-option" data-value="disabled">已禁用</div>
+                            <div class="custom-select-option" data-value="invalid">失效密钥</div>
+                        </div>
+                    </div>
+                    <input type="hidden" id="modalKeyStatusFilter" value="all">
                 </div>
                 <div class="key-toolbar-actions">
-                    <button class="btn btn-sm" onclick="loadKeyManagementModal()">刷新</button>
                     <button class="btn btn-sm btn-outline-primary" onclick="enableAllKeys()">启用全部</button>
                     <button class="btn btn-sm btn-outline-danger" onclick="disableAllKeys()">禁用全部</button>
                     <button class="btn btn-sm btn-outline-warning" onclick="deleteAutoDisabledKeys()">删除自动禁用密钥</button>
-                    <button class="btn btn-sm btn-outline-info" onclick="cleanupKeyStats()">🧹 清理过期统计</button>
+                    <button class="btn btn-sm btn-outline-info" onclick="cleanupKeyStats()">清理过期统计</button>
+                    <button class="btn btn-sm btn-outline-success" onclick="loadKeyManagementModal()">刷新</button>
                 </div>
             </div>
             
@@ -6461,6 +6953,10 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                         
                         // 显示主界面
                         mainEl.classList.remove('hidden');
+                        
+                        // 显示配置页面浮动按钮
+                        const configFloatingActions = document.getElementById('configFloatingActions');
+                        if (configFloatingActions) configFloatingActions.classList.add('visible');
                     }, 400);
                     
                     showStatus('登录成功', 'success');
@@ -6516,6 +7012,17 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 if (onclick.includes("'" + tabName + "'")) btn.classList.add('active');
             });
             ['playgroundStatus','usageStatus','configStatus'].forEach(id=>{ const el=document.getElementById(id); if (el) el.innerHTML=''; });
+            
+            // 控制配置页面浮动按钮显示/隐藏
+            const configFloatingActions = document.getElementById('configFloatingActions');
+            if (configFloatingActions) {
+                if (tabName === 'config') {
+                    configFloatingActions.classList.add('visible');
+                } else {
+                    configFloatingActions.classList.remove('visible');
+                }
+            }
+            
             if (tabName === 'usage') {
                 refreshUsageStats();
                 refreshLogSummary();
@@ -6547,7 +7054,10 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
 
         // 显示密钥管理弹窗
         function showKeyManagementModal() {
-            document.getElementById('keyManagementModal').style.display = 'block';
+            const modal = document.getElementById('keyManagementModal');
+            modal.style.display = 'block';
+            // 初始化弹窗内的自定义下拉框
+            initCustomSelects(modal);
             loadKeyManagementModal();
         }
 
@@ -8206,7 +8716,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             if (r429IntEl) r429IntEl.value = currentConfig.retry_429_interval ?? 1.0;
             if (banEnEl) banEnEl.checked = !!currentConfig.auto_ban_enabled;
             if (banCodesEl) banCodesEl.value = Array.isArray(currentConfig.auto_ban_error_codes) ? currentConfig.auto_ban_error_codes.join(',') : (currentConfig.auto_ban_error_codes||'');
-            lockField('assemblyApiKeys','ASSEMBLY_API_KEYS');
+            // 秘钥配置不做锁定
             lockField('useAssembly','USE_ASSEMBLY');
             lockField('configApiPassword','API_PASSWORD');
             lockField('configPanelPassword','PANEL_PASSWORD');
@@ -8219,7 +8729,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
         }
 
         function applyLocks(){
-            lockField('assemblyApiKeys','ASSEMBLY_API_KEYS');
+            // 秘钥配置不做锁定
             lockField('useAssembly','USE_ASSEMBLY');
             lockField('configApiPassword','API_PASSWORD');
             lockField('configPanelPassword','PANEL_PASSWORD');
@@ -9544,6 +10054,22 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
         let isMouseInLoginCard = false;
         let gradientActivated = false;
         
+        // 初始化固定头部滚动效果
+        function initFixedHeaderScroll() {
+            const fixedHeader = document.getElementById('fixedHeader');
+            const contentWrapper = document.querySelector('.tab-content-wrapper');
+            if (!fixedHeader || !contentWrapper) return;
+            
+            // 监听内容区域滚动事件添加阴影
+            contentWrapper.addEventListener('scroll', function() {
+                if (contentWrapper.scrollTop > 10) {
+                    fixedHeader.classList.add('scrolled');
+                } else {
+                    fixedHeader.classList.remove('scrolled');
+                }
+            }, { passive: true });
+        }
+        
         function initLoginEffects() {
             const particleCanvas = document.getElementById('particleCanvas');
             const confettiCanvas = document.getElementById('confettiCanvas');
@@ -9675,11 +10201,81 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             });
         }
         
+        // 初始化自定义下拉框
+        function initCustomSelects(container = document) {
+            container.querySelectorAll('.custom-select-wrapper:not(.initialized)').forEach(wrapper => {
+                wrapper.classList.add('initialized');
+                const trigger = wrapper.querySelector('.custom-select-trigger');
+                const options = wrapper.querySelectorAll('.custom-select-option');
+                const selectId = wrapper.dataset.selectId;
+                const hiddenInput = document.getElementById(selectId);
+                const onChangeCallback = wrapper.dataset.onchange;
+
+                // 点击触发器切换下拉框
+                trigger.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    // 关闭其他下拉框
+                    document.querySelectorAll('.custom-select-wrapper.open').forEach(w => {
+                        if (w !== wrapper) w.classList.remove('open');
+                    });
+                    wrapper.classList.toggle('open');
+                });
+
+                // 点击选项
+                options.forEach(option => {
+                    option.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const value = option.dataset.value;
+                        const text = option.textContent;
+                        const oldValue = hiddenInput ? hiddenInput.value : null;
+                        
+                        // 更新显示
+                        trigger.textContent = text;
+                        
+                        // 更新选中状态
+                        options.forEach(o => o.classList.remove('selected'));
+                        option.classList.add('selected');
+                        
+                        // 更新隐藏input的值
+                        if (hiddenInput) hiddenInput.value = value;
+                        
+                        // 关闭下拉框
+                        wrapper.classList.remove('open');
+                        
+                        // 触发onchange回调
+                        if (onChangeCallback && oldValue !== value) {
+                            try {
+                                eval(onChangeCallback);
+                            } catch (err) {
+                                console.error('Custom select onchange error:', err);
+                            }
+                        }
+                    });
+                });
+            });
+
+            // 点击外部关闭下拉框（只绑定一次）
+            if (!window._customSelectClickBound) {
+                window._customSelectClickBound = true;
+                document.addEventListener('click', () => {
+                    document.querySelectorAll('.custom-select-wrapper.open').forEach(w => {
+                        w.classList.remove('open');
+                    });
+                });
+            }
+        }
+
         // 页面加载时检查状态
         window.onload = function () {
             console.log('Page loaded');
             console.log('Login section exists:', !!document.getElementById('loginSection'));
             console.log('Main section exists:', !!document.getElementById('mainSection'));
+            
+            // 初始化自定义下拉框
+            initCustomSelects();
+            
+            // 初始化固定头部滚动效果
+            initFixedHeaderScroll();
             
             // 初始化登录页面动态特效
             initLoginEffects();
@@ -9706,6 +10302,19 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             
             // 加载彩带配置
             loadConfettiConfig();
+            
+            // 添加 env-locked 点击提示事件 - 点击整个锁定区域都会提示
+            document.addEventListener('click', function(e) {
+                const lockedGroup = e.target.closest('.env-locked');
+                if (lockedGroup) {
+                    // 滚动到配置状态区域让用户看到提示
+                    const configStatus = document.getElementById('configStatus');
+                    if (configStatus) {
+                        configStatus.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                    showStatus('此项由环境变量锁定，请勾选「面板优先」选项后方可修改', 'error');
+                }
+            });
         };
         
         // 加载彩带配置

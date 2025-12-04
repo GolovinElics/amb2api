@@ -85,7 +85,7 @@ async def get_config(token: str = Depends(authenticate)):
     except Exception:
         cfg["override_env"] = False
     env_locked = [k for k in [
-        "ASSEMBLY_API_KEYS","ASSEMBLY_API_KEY","USE_ASSEMBLY","API_PASSWORD","PANEL_PASSWORD","PORT","HOST",
+        "USE_ASSEMBLY","API_PASSWORD","PANEL_PASSWORD","PORT","HOST",
         "CALLS_PER_ROTATION","RETRY_429_ENABLED","RETRY_429_MAX_RETRIES","RETRY_429_INTERVAL","AUTO_BAN","AUTO_BAN_ERROR_CODES"
     ] if os.getenv(k)]
     return JSONResponse(content={"config": cfg, "env_locked": env_locked})
