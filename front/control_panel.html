@@ -5248,6 +5248,36 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                             </div>
                             <small class="config-note">查询后按供应商分组展示模型，勾选并保存即可用于接口列表与操练场</small>
                         </div>
+
+                        <div class="config-group">
+                            <h4>界面特效配置</h4>
+
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="confettiEnabled" class="config-checkbox" />
+                                    主页面彩带效果
+                                </label>
+                                <small class="config-note">登录后的页面是否显示鼠标彩带掉落效果</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="confettiProbability">彩带掉落概率: <span id="confettiProbabilityValue">10</span>%</label>
+                                <input type="range" id="confettiProbability" min="1" max="100" value="10" 
+                                    oninput="document.getElementById('confettiProbabilityValue').textContent = this.value; this.style.background = 'linear-gradient(to right, #4285f4 0%, #4285f4 ' + this.value + '%, #ddd ' + this.value + '%, #ddd 100%)';"
+                                    style="background: linear-gradient(to right, #4285f4 0%, #4285f4 10%, #ddd 10%, #ddd 100%);" />
+                                <small class="config-note">鼠标移动时彩带掉落的概率（1-100%）</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="lava-ripple-label" style="display: flex; align-items: center; gap: 8px;">
+                                    <input type="checkbox" id="lavaRippleEnabled" class="config-checkbox" checked />
+                                    <span class="lava-ripple-text" style="background: linear-gradient(135deg, #ff6b35 0%, #f7931e 25%, #ffcc00 50%, #8bc34a 75%, #4caf50 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; font-weight: bold; font-size: 14px;">层林尽染特效</span>
+                                    <span class="lava-ripple-icon" style="font-size: 16px;">🍂</span>
+                                </label>
+                                <small class="config-note">登录页面的熔岩波涟漪效果，关闭可提升旧电脑性能</small>
+                            </div>
+                        </div>
+
                         <div class="config-group">
                             <h4>服务器配置</h4>
 
@@ -5317,26 +5347,6 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                                 <input type="text" id="autoBanErrorCodes" class="config-input"
                                     placeholder="例如: 400,403" />
                                 <small class="config-note">用逗号分隔的错误码列表</small>
-                            </div>
-                        </div>
-
-                        <div class="config-group">
-                            <h4>界面特效配置</h4>
-
-                            <div class="form-group">
-                                <label>
-                                    <input type="checkbox" id="confettiEnabled" class="config-checkbox" />
-                                    主页面彩带效果
-                                </label>
-                                <small class="config-note">登录后的页面是否显示鼠标彩带掉落效果</small>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="confettiProbability">彩带掉落概率: <span id="confettiProbabilityValue">10</span>%</label>
-                                <input type="range" id="confettiProbability" min="1" max="100" value="10" 
-                                    oninput="document.getElementById('confettiProbabilityValue').textContent = this.value; this.style.background = 'linear-gradient(to right, #4285f4 0%, #4285f4 ' + this.value + '%, #ddd ' + this.value + '%, #ddd 100%)';"
-                                    style="background: linear-gradient(to right, #4285f4 0%, #4285f4 10%, #ddd 10%, #ddd 100%);" />
-                                <small class="config-note">鼠标移动时彩带掉落的概率（1-100%）</small>
                             </div>
                         </div>
 
@@ -9550,19 +9560,27 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             particleSystem.init(40);
             particleSystem.animate();
             
-            // 初始化涟漪系统
-            rippleSystem = new RippleSystem(rippleCanvas);
-            rippleSystem.animate();
+            // 初始化涟漪系统（受层林尽染开关控制）
+            const lavaRippleEnabledInit = localStorage.getItem('lavaRippleEnabled') !== 'false';
+            if (lavaRippleEnabledInit) {
+                rippleSystem = new RippleSystem(rippleCanvas);
+                rippleSystem.animate();
+            } else {
+                // 隐藏涟漪画布和渐变背景
+                rippleCanvas.style.display = 'none';
+                if (gradientOverlay) gradientOverlay.style.display = 'none';
+            }
             
             // 初始化彩带系统
             confettiSystem = new ConfettiSystem(confettiCanvas);
             confettiSystem.animate();
             
-            // 登录卡片鼠标进入事件 - 触发渐变浸染
+            // 登录卡片鼠标进入事件 - 触发渐变浸染（受层林尽染开关控制）
             if (loginCard) {
                 loginCard.addEventListener('mouseenter', () => {
                     isMouseInLoginCard = true;
-                    if (gradientOverlay && !gradientActivated) {
+                    const lavaEnabled = localStorage.getItem('lavaRippleEnabled') !== 'false';
+                    if (lavaEnabled && gradientOverlay && !gradientActivated) {
                         gradientOverlay.style.opacity = '1';
                         gradientActivated = true;
                     }
@@ -9598,8 +9616,9 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 
                 const now = Date.now();
                 
-                // 在登录卡片内时，产生缓慢的水波涟漪效果（仅登录页面）
-                if (isMouseInLoginCard && rippleSystem && now - lastRippleTime > 800) {
+                // 在登录卡片内时，产生缓慢的水波涟漪效果（仅登录页面，受层林尽染开关控制）
+                const lavaRippleEnabled = localStorage.getItem('lavaRippleEnabled') !== 'false';
+                if (lavaRippleEnabled && isMouseInLoginCard && rippleSystem && now - lastRippleTime > 800) {
                     rippleSystem.createRipple(e.clientX, e.clientY);
                     lastRippleTime = now;
                 }
@@ -9648,8 +9667,9 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     }
                 }
                 
-                // 水波涟漪仅在登录页面生效
-                if (isLoginPage && rippleSystem) {
+                // 水波涟漪仅在登录页面生效（受层林尽染开关控制）
+                const lavaRippleEnabledClick = localStorage.getItem('lavaRippleEnabled') !== 'false';
+                if (lavaRippleEnabledClick && isLoginPage && rippleSystem) {
                     rippleSystem.createRipple(e.clientX, e.clientY);
                 }
             });
@@ -9692,10 +9712,12 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
         function loadConfettiConfig() {
             const savedEnabled = localStorage.getItem('confettiEnabled');
             const savedProbability = localStorage.getItem('confettiProbability');
+            const savedLavaRipple = localStorage.getItem('lavaRippleEnabled');
             
             const enabledEl = document.getElementById('confettiEnabled');
             const probabilityEl = document.getElementById('confettiProbability');
             const probabilityValueEl = document.getElementById('confettiProbabilityValue');
+            const lavaRippleEl = document.getElementById('lavaRippleEnabled');
             
             if (enabledEl && savedEnabled !== null) {
                 enabledEl.checked = savedEnabled === 'true';
@@ -9708,6 +9730,11 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 probabilityEl.style.background = `linear-gradient(to right, #4285f4 0%, #4285f4 ${val}%, #ddd ${val}%, #ddd 100%)`;
             }
             
+            // 层林尽染开关（默认开启）
+            if (lavaRippleEl) {
+                lavaRippleEl.checked = savedLavaRipple !== 'false';
+            }
+            
             // 添加事件监听器保存配置
             if (enabledEl) {
                 enabledEl.addEventListener('change', saveConfettiConfig);
@@ -9715,18 +9742,25 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             if (probabilityEl) {
                 probabilityEl.addEventListener('input', saveConfettiConfig);
             }
+            if (lavaRippleEl) {
+                lavaRippleEl.addEventListener('change', saveConfettiConfig);
+            }
         }
         
         // 保存彩带配置
         function saveConfettiConfig() {
             const enabledEl = document.getElementById('confettiEnabled');
             const probabilityEl = document.getElementById('confettiProbability');
+            const lavaRippleEl = document.getElementById('lavaRippleEnabled');
             
             if (enabledEl) {
                 localStorage.setItem('confettiEnabled', enabledEl.checked);
             }
             if (probabilityEl) {
                 localStorage.setItem('confettiProbability', probabilityEl.value);
+            }
+            if (lavaRippleEl) {
+                localStorage.setItem('lavaRippleEnabled', lavaRippleEl.checked);
             }
         }
 
