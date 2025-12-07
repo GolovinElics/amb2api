@@ -146,7 +146,10 @@
             color: var(--text-color) !important;
         }
 
-        [data-theme="dark"] h1, [data-theme="dark"] h2, [data-theme="dark"] h3, [data-theme="dark"] h4 {
+        [data-theme="dark"] h1,
+        [data-theme="dark"] h2,
+        [data-theme="dark"] h3,
+        [data-theme="dark"] h4 {
             color: var(--text-color) !important;
         }
 
@@ -1044,15 +1047,12 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                         style="background-color: #e3f2fd; border: 1px solid #1976d2; border-radius: 6px; padding: 12px; font-size: 13px; color: #1565c0;">
                         <strong>统计范围：</strong>
                         <ul style="margin: 8px 0 4px 0; color: #424242;">
-                            <li><strong>Gemini 2.5 Pro 调用次数：</strong>仅统计 gemini-2.5-pro 及其变体模型的成功调用</li>
                             <li><strong>所有模型调用次数：</strong>统计所有模型的成功调用总数</li>
-                            <li><strong>每日配额：</strong>默认每日配额 Gemini 2.5 Pro: 100次，所有模型: 1000次</li>
                             <li><strong>配额重置：</strong>每天 UTC 07:00 自动重置调用计数</li>
                         </ul>
 
                         <strong>注意：</strong>
                         <ul style="margin: 8px 0 4px 0; color: #424242;">
-                            <li>只统计返回正常响应的API调用，报错的调用不计入统计</li>
                             <li>统计数据持久化保存在 creds_state.toml 文件中</li>
                             <li>支持每个凭证文件独立统计和配额管理</li>
                         </ul>
@@ -1250,7 +1250,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                         </div>
 
 
-                        
+
                     </div>
                 </div>
             </div>
@@ -3057,7 +3057,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             setFieldValue('retry429Interval', config.retry_429_interval);
 
 
-            
+
 
             // 标记环境变量锁定的字段
             markEnvLockedFields();
@@ -3499,12 +3499,12 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             // 初始化主题切换按钮
             const savedTheme = localStorage.getItem('theme') || 'light';
             updateThemeButton(savedTheme);
-            
+
             // ==================== 初始化主题切换按钮拖拽功能 ====================
             const themeToggle = document.getElementById('themeToggle');
             if (themeToggle) {
                 console.log('Theme toggle found, initializing drag...');
-                
+
                 let isDragging = false;
                 let hasMoved = false;
                 let startX, startY;
@@ -3544,11 +3544,11 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     e.preventDefault();
                     e.stopPropagation();
                     console.log('Start drag');
-                    
+
                     touchStartTime = Date.now();
                     hasMoved = false;
                     isDragging = false;
-                    
+
                     const pos = getEventPos(e);
                     startX = pos.x;
                     startY = pos.y;
@@ -3567,7 +3567,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 function onDrag(e) {
                     e.preventDefault();
                     e.stopPropagation();
-                    
+
                     const pos = getEventPos(e);
                     const deltaX = pos.x - startX;
                     const deltaY = pos.y - startY;
@@ -3585,7 +3585,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
 
                         const maxX = window.innerWidth - themeToggle.offsetWidth;
                         const maxY = window.innerHeight - themeToggle.offsetHeight;
-                        
+
                         themeToggle.style.top = Math.max(0, Math.min(newY, maxY)) + 'px';
                         themeToggle.style.left = Math.max(0, Math.min(newX, maxX)) + 'px';
                         themeToggle.style.right = 'auto';
@@ -3602,19 +3602,19 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
 
                     const wasDragging = isDragging;
                     console.log('Stop drag, was dragging:', wasDragging);
-                    
+
                     if (isDragging) {
                         themeToggle.classList.remove('dragging');
                         snapToEdge();
                     }
-                    
+
                     isDragging = false;
-                    
+
                     const touchDuration = Date.now() - touchStartTime;
                     if (!wasDragging && !hasMoved && touchDuration < 300) {
                         toggleTheme();
                     }
-                    
+
                     hasMoved = false;
                 }
 

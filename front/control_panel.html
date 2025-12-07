@@ -4126,8 +4126,8 @@
         }
 
         .ranking-chart-area {
-            flex: 1;
-            min-width: 0;
+            flex: 0 0 auto;
+            min-width: max-content;
             overflow-x: visible;
         }
 
@@ -4178,9 +4178,8 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            flex: 0 0 auto;
-            min-width: 28px;
-            max-width: 50px;
+            flex: 0 0 32px;
+            width: 32px;
         }
 
         .ranking-bar-col {
@@ -4196,21 +4195,25 @@
         }
 
         .ranking-x-labels {
+            position: relative;
             display: flex;
-            gap: 6px;
+            gap: 3px;
             margin-top: 8px;
+            height: 20px;
         }
 
         .ranking-x-label {
-            flex: 1;
-            min-width: 24px;
-            max-width: 60px;
+            flex: 0 0 32px;
+            width: 32px;
             font-size: 10px;
             color: var(--text-secondary);
-            text-align: center;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            text-align: left;
             white-space: nowrap;
+            overflow: visible;
+        }
+
+        .ranking-x-label:empty {
+            visibility: hidden;
         }
 
         .ranking-pager {
@@ -4278,6 +4281,213 @@
             height: 12px;
             border-radius: 2px;
             flex-shrink: 0;
+        }
+
+        /* 柱状图 tooltip */
+        .ranking-tooltip {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 10px 14px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 10000;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+
+        [data-theme="dark"] .ranking-tooltip {
+            background: #2d2d2d;
+            border-color: #444;
+        }
+
+        .ranking-tooltip-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-color);
+            margin-bottom: 4px;
+        }
+
+        .ranking-tooltip-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .ranking-tooltip-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+
+        .ranking-tooltip-count {
+            font-weight: 600;
+            color: var(--text-color);
+            margin-left: auto;
+        }
+
+        /* 图例分页 */
+        .ranking-legend-wrapper {
+            position: relative;
+            margin-top: 16px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .ranking-legend-pager {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            position: absolute;
+            right: 0;
+            top: 12px;
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .ranking-legend-pager-btn {
+            background: none;
+            border: none;
+            font-size: 10px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 2px 4px;
+        }
+
+        .ranking-legend-pager-btn:hover:not(:disabled) {
+            color: var(--text-color);
+        }
+
+        .ranking-legend-pager-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        /* 环形图样式 */
+        .donut-chart-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .donut-chart {
+            position: relative;
+            width: 200px;
+            height: 200px;
+        }
+
+        .donut-chart svg {
+            transform: rotate(-90deg);
+        }
+
+        .donut-center {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+
+        .donut-center-total {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--text-color);
+        }
+
+        .donut-center-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .donut-legend {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 280px;
+            overflow-y: auto;
+            padding-right: 12px;
+        }
+
+        .donut-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        .donut-legend-item:hover {
+            background: var(--input-bg);
+        }
+
+        .donut-legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .donut-legend-name {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 150px;
+        }
+
+        .donut-legend-count {
+            font-weight: 600;
+            color: var(--text-color);
+        }
+
+        .donut-legend-pager {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .donut-legend-pager button {
+            background: none;
+            border: none;
+            font-size: 12px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 2px 6px;
+        }
+
+        .donut-legend-pager button:hover:not(:disabled) {
+            color: var(--text-color);
+        }
+
+        .donut-legend-pager button:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .donut-tooltip {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 10px 14px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 10000;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+
+        [data-theme="dark"] .donut-tooltip {
+            background: #2d2d2d;
+            border-color: #444;
         }
 
         .ranking-bar-fail {
@@ -6046,6 +6256,20 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                         <div id="logSummaryModels"></div>
                         <div id="logSummaryKeys" style="margin-top:12px"></div>
                         <div id="modelRanking" class="ranking-container" style="margin-top:12px"></div>
+
+                        <!-- 模型调用次数占比（环形图） -->
+                        <div class="ranking-container" style="margin-top:16px;">
+                            <div class="ranking-header">
+                                <div class="ranking-title">模型调用次数占比</div>
+                                <select id="distributionKeyFilter" class="config-input"
+                                    style="max-width:200px; font-size:12px;" onchange="renderDistributionChart()">
+                                    <option value="">所有密钥</option>
+                                </select>
+                            </div>
+                            <div id="distributionChart"
+                                style="display:flex; gap:20px; flex-wrap:wrap; align-items:flex-start; padding:16px 0;">
+                            </div>
+                        </div>
                     </div>
 
                     <!-- 文件使用统计列表 -->
@@ -6067,7 +6291,6 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
 
                             <strong style="color: var(--text-color);">注意：</strong>
                             <ul style="color: var(--text-secondary);">
-                                <li>只统计返回正常响应的API调用，报错的调用不计入统计</li>
                                 <li>统计数据持久化保存在 creds_state.toml 文件中</li>
                                 <li>支持每个凭证文件独立统计和配额管理</li>
                             </ul>
@@ -11377,6 +11600,11 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             populateModelFilter(lsAll);
             populateKeyFilter(lsAll);
             renderModelRanking(ls);
+            // 更新环形图数据和渲染
+            distributionData = lsAll;
+            updateDistributionKeyFilter();
+            distributionLegendPage = 1;
+            renderDistributionChart();
         }
 
         function populateModelFilter(data) {
@@ -11423,22 +11651,13 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 mHtml += `<tr><td>${m}</td><td>${v.ok || 0}</td><td>${v.fail || 0}</td></tr>`;
             });
             mHtml += '</tbody></table></div>';
-            let kHtml = '<div class="table-responsive"><table class="table"><thead><tr><th>密钥</th><th>成功</th><th>失败</th><th>模型分布</th><th style="width:50px;">操作</th></tr></thead><tbody>';
+            let kHtml = '<div class="table-responsive"><table class="table"><thead><tr><th>密钥</th><th>成功</th><th>失败</th><th style="width:50px;">操作</th></tr></thead><tbody>';
             Object.entries(keys).forEach(([kk, v]) => {
-                const md = v.models || {};
-                // 按调用次数排序
-                const sortedModels = Object.entries(md)
-                    .map(([m, c]) => ({ model: m, ok: c.ok || 0, fail: c.fail || 0, total: (c.ok || 0) + (c.fail || 0) }))
-                    .sort((a, b) => b.total - a.total);
-                const mdHtml = sortedModels.map(item => {
-                    const cat = getModelCategory(item.model);
-                    return `<span class="model-tag model-tag-${cat}">${item.model}: ${item.ok}/${item.fail}</span>`;
-                }).join('');
                 const totalCalls = (v.ok || 0) + (v.fail || 0);
                 const clearBtn = totalCalls > 0 ?
                     `<button class="btn btn-sm" style="background:#6c757d; padding:2px 6px; font-size:10px;" onclick="resetKeyStats('${kk}')" title="清除">清除</button>` :
                     '-';
-                kHtml += `<tr><td title="${kk}">${kk}</td><td>${v.ok || 0}</td><td>${v.fail || 0}</td><td style="display:flex; flex-wrap:wrap; gap:2px; min-width:120px;">${mdHtml || '-'}</td><td>${clearBtn}</td></tr>`;
+                kHtml += `<tr><td title="${kk}">${kk}</td><td>${v.ok || 0}</td><td>${v.fail || 0}</td><td>${clearBtn}</td></tr>`;
             });
             kHtml += '</tbody></table></div>';
             mDiv.innerHTML = mHtml;
@@ -11489,32 +11708,39 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 return;
             }
 
-            const totalPages = Math.ceil(totalEntries / rankingPageSize);
-            const startIdx = (rankingCurrentPage - 1) * rankingPageSize;
-            const pageEntries = entries.slice(startIdx, startIdx + rankingPageSize);
-
+            const pageEntries = entries; // 显示所有条目
             const pageMax = Math.max(1, ...pageEntries.map(e => e.count));
             const maxBarHeight = 160;
 
-            // 计算Y轴刻度 - 确保刻度最大值等于或略大于实际最大值
+            // 计算Y轴刻度 - 确保比最大值多留一个刻度空余
             const yTicks = [];
             let yMax, step;
             if (pageMax <= 5) {
-                // 小数值时，直接用整数刻度
-                yMax = pageMax;
-                for (let i = pageMax; i >= 0; i--) {
-                    yTicks.push(i);
-                }
+                // 小数值：最大值+1
+                yMax = pageMax + 1;
+                for (let i = yMax; i >= 0; i--) yTicks.push(i);
+            } else if (pageMax <= 50) {
+                // 中小数值：步长10
+                step = 10;
+                yMax = Math.ceil(pageMax / step) * step + step;
+                for (let i = yMax; i >= 0; i -= step) yTicks.push(i);
+            } else if (pageMax <= 500) {
+                // 中等数值：步长100
+                step = 100;
+                yMax = Math.ceil(pageMax / step) * step + step;
+                for (let i = yMax; i >= 0; i -= step) yTicks.push(i);
             } else {
-                // 大数值时，分成4-5个刻度
-                step = Math.ceil(pageMax / 4);
-                yMax = step * 4;
-                for (let i = 4; i >= 0; i--) {
-                    yTicks.push(step * i);
-                }
+                // 大数值：动态计算合适步长
+                const magnitude = Math.pow(10, Math.floor(Math.log10(pageMax)));
+                step = Math.ceil(pageMax / magnitude / 4) * magnitude;
+                yMax = Math.ceil(pageMax / step) * step + step;
+                for (let i = yMax; i >= 0; i -= step) yTicks.push(i);
             }
-            // 用于计算柱子高度的最大值应该与Y轴最大值一致
             const chartMax = yMax;
+
+            // 计算跳跃式X轴标签间隔（确保标签不重叠，每个标签约需5个柱子宽度）
+            // 最少间隔5，最多显示约6个标签
+            const labelInterval = Math.max(5, Math.ceil(totalEntries / 6));
 
             let html = `<div class="ranking-header">
                 <div class="ranking-title">模型调用次数排行</div>
@@ -11525,63 +11751,112 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
 
             // Y轴
             html += `<div class="ranking-y-axis">`;
-            yTicks.forEach(v => {
-                html += `<span>${v}</span>`;
-            });
+            yTicks.forEach(v => { html += `<span>${v}</span>`; });
             html += `</div>`;
 
             // 图表区域
-            // 动态生成网格线
             let gridLinesHtml = '';
-            for (let i = 0; i < yTicks.length; i++) {
-                gridLinesHtml += '<div class="ranking-grid-line"></div>';
-            }
+            for (let i = 0; i < yTicks.length; i++) gridLinesHtml += '<div class="ranking-grid-line"></div>';
 
             html += `<div class="ranking-chart-area">
                 <div class="ranking-chart-wrapper">
                     <div class="ranking-grid-lines">${gridLinesHtml}</div>
-                    <div class="ranking-chart">`;
+                    <div class="ranking-chart" id="rankingChartBars">`;
 
             pageEntries.forEach((e, idx) => {
                 const barHeight = Math.max(2, Math.round((e.count / chartMax) * maxBarHeight));
-                const color = RANKING_COLORS[(startIdx + idx) % RANKING_COLORS.length];
-                html += `<div class="ranking-bar-group">
-                    <div class="ranking-bar-col" style="height:${barHeight}px; background:${color};" title="${e.name}: ${e.count}"></div>
+                const color = RANKING_COLORS[idx % RANKING_COLORS.length];
+                html += `<div class="ranking-bar-group" data-idx="${idx}" data-name="${e.name}" data-count="${e.count}" data-color="${color}">
+                    <div class="ranking-bar-col" style="height:${barHeight}px; background:${color};"></div>
                 </div>`;
             });
 
             html += `</div></div>`;
 
-            // X轴标签
+            // X轴标签 - 跳跃式显示
             html += `<div class="ranking-x-labels">`;
-            pageEntries.forEach(e => {
-                html += `<div class="ranking-x-label" title="${e.name}">${e.name}</div>`;
+            pageEntries.forEach((e, idx) => {
+                const showLabel = idx % labelInterval === 0;
+                html += `<div class="ranking-x-label" title="${e.name}">${showLabel ? e.name : ''}</div>`;
             });
             html += `</div></div>`;
 
-            // 分页器（右侧）
-            if (totalPages > 1) {
-                html += `<div class="ranking-pager">
-                    <button class="ranking-pager-btn" onclick="changeRankingPage(-1)" ${rankingCurrentPage <= 1 ? 'disabled' : ''}>▲</button>
-                    <div class="ranking-pager-info">${rankingCurrentPage}/${totalPages}</div>
-                    <button class="ranking-pager-btn" onclick="changeRankingPage(1)" ${rankingCurrentPage >= totalPages ? 'disabled' : ''}>▼</button>
+            html += `</div>`; // ranking-body 闭合
+
+            // 图例分页
+            const legendPageSize = 12;
+            const legendTotalPages = Math.ceil(totalEntries / legendPageSize);
+            const legendCurrentPage = window.rankingLegendPage || 1;
+            const legendStart = (legendCurrentPage - 1) * legendPageSize;
+            const legendEntries = entries.slice(legendStart, legendStart + legendPageSize);
+
+            html += `<div class="ranking-legend-wrapper">`;
+            if (legendTotalPages > 1) {
+                html += `<div class="ranking-legend-pager">
+                    <button class="ranking-legend-pager-btn" onclick="changeLegendPage(-1)" ${legendCurrentPage <= 1 ? 'disabled' : ''}>▲</button>
+                    <span>${legendCurrentPage}/${legendTotalPages}</span>
+                    <button class="ranking-legend-pager-btn" onclick="changeLegendPage(1)" ${legendCurrentPage >= legendTotalPages ? 'disabled' : ''}>▼</button>
                 </div>`;
             }
-
-            html += `</div>`; // ranking-body
-
-            // 底部图例（显示所有模型的颜色）
-            html += `<div class="ranking-legend-bar">`;
-            entries.forEach((e, idx) => {
-                const color = RANKING_COLORS[idx % RANKING_COLORS.length];
+            html += `<div class="ranking-legend-bar" style="margin-top:0; padding-top:0; border-top:none; padding-right:${legendTotalPages > 1 ? '40px' : '0'};">`;
+            legendEntries.forEach((e, idx) => {
+                const color = RANKING_COLORS[(legendStart + idx) % RANKING_COLORS.length];
                 html += `<div class="ranking-legend-item">
                     <span class="ranking-legend-dot" style="background:${color};"></span>
                     <span>${e.name}</span>
                 </div>`;
             });
-            html += `</div>`;
+            html += `</div></div>`;
 
             container.innerHTML = html;
+
+            // 添加 tooltip 事件
+            const chartBars = container.querySelector('#rankingChartBars');
+            if (chartBars) {
+                let tooltip = null;
+                chartBars.addEventListener('mouseover', (e) => {
+                    const barGroup = e.target.closest('.ranking-bar-group');
+                    if (!barGroup) return;
+                    const name = barGroup.dataset.name;
+                    const count = barGroup.dataset.count;
+                    const color = barGroup.dataset.color;
+
+                    if (!tooltip) {
+                        tooltip = document.createElement('div');
+                        tooltip.className = 'ranking-tooltip';
+                        tooltip.style.position = 'fixed';
+                        document.body.appendChild(tooltip);
+                    }
+                    tooltip.innerHTML = `
+                        <div class="ranking-tooltip-title">${name}</div>
+                        <div class="ranking-tooltip-row">
+                            <span class="ranking-tooltip-dot" style="background:${color};"></span>
+                            <span>${name}</span>
+                            <span class="ranking-tooltip-count">${count}</span>
+                        </div>
+                    `;
+                    const rect = barGroup.getBoundingClientRect();
+                    tooltip.style.left = (rect.left + rect.width / 2) + 'px';
+                    tooltip.style.top = (rect.top - 10) + 'px';
+                    tooltip.style.transform = 'translate(-50%, -100%)';
+                    tooltip.style.display = 'block';
+                });
+                chartBars.addEventListener('mouseout', (e) => {
+                    if (!e.target.closest('.ranking-bar-group')) return;
+                    if (tooltip) tooltip.style.display = 'none';
+                });
+            }
+        }
+
+        // 图例分页函数
+        window.rankingLegendPage = 1;
+        function changeLegendPage(delta) {
+            const legendTotalPages = Math.ceil(rankingAllEntries.length / 12);
+            const newPage = (window.rankingLegendPage || 1) + delta;
+            if (newPage >= 1 && newPage <= legendTotalPages) {
+                window.rankingLegendPage = newPage;
+                renderRankingPage();
+            }
         }
 
         function changeRankingPage(delta) {
@@ -11590,6 +11865,312 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             if (newPage >= 1 && newPage <= totalPages) {
                 rankingCurrentPage = newPage;
                 renderRankingPage();
+            }
+        }
+
+        // ==================== 模型分布环形图 ====================
+        let distributionData = null;
+        let distributionLegendPage = 1;
+        const DONUT_COLORS = [
+            '#f8bbd0', '#ffb74d', '#90caf9', '#a5d6a7', '#ce93d8',
+            '#80deea', '#fff176', '#bcaaa4', '#b39ddb', '#81c784',
+            '#ff8a65', '#4dd0e1', '#aed581', '#7986cb', '#e57373',
+            '#64b5f6', '#dce775', '#ba68c8', '#4db6ac', '#f06292'
+        ];
+
+        function updateDistributionKeyFilter() {
+            const sel = document.getElementById('distributionKeyFilter');
+            if (!sel || !distributionData) return;
+            const prev = sel.value;
+            sel.innerHTML = '<option value="">所有密钥</option>';
+            Object.keys(distributionData.keys || {}).forEach(k => {
+                const opt = document.createElement('option');
+                opt.value = k;
+                opt.textContent = k.length > 20 ? k.substring(0, 8) + '...' + k.substring(k.length - 8) : k;
+                sel.appendChild(opt);
+            });
+            sel.value = prev;
+        }
+
+        function renderDistributionChart() {
+            const container = document.getElementById('distributionChart');
+            if (!container || !distributionData) return;
+
+            const keyFilter = document.getElementById('distributionKeyFilter')?.value || '';
+            let models = {};
+
+            if (keyFilter) {
+                const keyData = distributionData.keys?.[keyFilter];
+                if (keyData && keyData.models) {
+                    Object.entries(keyData.models).forEach(([m, c]) => {
+                        const ok = c.ok || 0;
+                        if (ok > 0) models[m] = (models[m] || 0) + ok;
+                    });
+                }
+            } else {
+                Object.values(distributionData.keys || {}).forEach(keyData => {
+                    if (keyData.models) {
+                        Object.entries(keyData.models).forEach(([m, c]) => {
+                            const ok = c.ok || 0;
+                            if (ok > 0) models[m] = (models[m] || 0) + ok;
+                        });
+                    }
+                });
+            }
+
+            const entries = Object.entries(models)
+                .map(([name, count]) => ({ name, count }))
+                .sort((a, b) => b.count - a.count);
+
+            const total = entries.reduce((sum, e) => sum + e.count, 0);
+
+            if (total === 0) {
+                container.innerHTML = '<div style="text-align:center; color:var(--text-secondary); padding:40px;">暂无数据</div>';
+                return;
+            }
+
+            // 环形图参数 - 扩大画布以容纳标签
+            const width = 640;
+            const height = 320;
+            const cx = width / 2;
+            const cy = height / 2;
+            const outerRadius = 90; // 稍微减小半径
+            const innerRadius = 55;
+            const gapAngle = 0.02; // 块间隙角度（弧度）
+
+            // 计算每个块的角度
+            let currentAngle = -Math.PI / 2; // 从顶部开始
+            const segments = entries.map((e, idx) => {
+                const angleSize = (e.count / total) * 2 * Math.PI - gapAngle;
+                const startAngle = currentAngle;
+                const endAngle = currentAngle + angleSize;
+                currentAngle = endAngle + gapAngle;
+                return {
+                    ...e,
+                    startAngle,
+                    endAngle,
+                    midAngle: (startAngle + endAngle) / 2,
+                    color: DONUT_COLORS[idx % DONUT_COLORS.length],
+                    idx
+                };
+            });
+
+            // 生成圆弧路径（带圆角）
+            function arcPath(startAngle, endAngle, outerR, innerR) {
+                const x1 = cx + outerR * Math.cos(startAngle);
+                const y1 = cy + outerR * Math.sin(startAngle);
+                const x2 = cx + outerR * Math.cos(endAngle);
+                const y2 = cy + outerR * Math.sin(endAngle);
+                const x3 = cx + innerR * Math.cos(endAngle);
+                const y3 = cy + innerR * Math.sin(endAngle);
+                const x4 = cx + innerR * Math.cos(startAngle);
+                const y4 = cy + innerR * Math.sin(startAngle);
+                const largeArc = endAngle - startAngle > Math.PI ? 1 : 0;
+                return `M ${x1} ${y1} A ${outerR} ${outerR} 0 ${largeArc} 1 ${x2} ${y2} L ${x3} ${y3} A ${innerR} ${innerR} 0 ${largeArc} 0 ${x4} ${y4} Z`;
+            }
+
+            // 生成圆弧SVG
+            let arcsHtml = '';
+            segments.forEach((seg, idx) => {
+                const path = arcPath(seg.startAngle, seg.endAngle, outerRadius, innerRadius);
+                arcsHtml += `<path d="${path}" fill="${seg.color}" 
+                    class="donut-segment" data-idx="${idx}"
+                    data-name="${seg.name}" data-count="${seg.count}" data-color="${seg.color}"
+                    style="cursor:pointer; transition: transform 0.2s, filter 0.2s;"/>`;
+            });
+
+            // 生成标签连线 - 左右分布
+            // 生成标签连线 - 优化防重叠算法
+            let labelsHtml = '';
+            const labelRadius = outerRadius + 20; // 拐点半径
+            const textRadius = outerRadius + 40;  // 文字基准半径
+            const minLabelSpacing = 14;           // 最小垂直间距(font-size 10 + padding)
+
+            // 1. 预计算所有标签的理想位置
+            const allLabels = segments.map((seg, idx) => {
+                const midAngle = seg.midAngle;
+                const isRight = Math.cos(midAngle) >= 0;
+                // 理想Y坐标
+                const idealY = cy + labelRadius * Math.sin(midAngle);
+                return {
+                    idx,
+                    seg,
+                    midAngle,
+                    isRight,
+                    y: idealY,
+                    originalY: idealY
+                };
+            });
+
+            // 2. 分组并应用松弛算法
+            const relaxLabels = (labels) => {
+                if (labels.length <= 1) return;
+                // 按Y坐标排序
+                labels.sort((a, b) => a.y - b.y);
+
+                // 迭代多次以解决冲突
+                const iterations = 5;
+                for (let iter = 0; iter < iterations; iter++) {
+                    let changed = false;
+                    for (let i = 0; i < labels.length - 1; i++) {
+                        const top = labels[i];
+                        const bottom = labels[i + 1];
+                        const dist = bottom.y - top.y;
+
+                        if (dist < minLabelSpacing) {
+                            const overlap = minLabelSpacing - dist;
+                            // 互相推开
+                            top.y -= overlap / 2;
+                            bottom.y += overlap / 2;
+                            changed = true;
+                        }
+                    }
+                    if (!changed) break;
+                }
+            };
+
+            const rightLabels = allLabels.filter(l => l.isRight);
+            const leftLabels = allLabels.filter(l => !l.isRight);
+
+            relaxLabels(rightLabels);
+            relaxLabels(leftLabels);
+
+            // 3. 生成HTML
+            [...rightLabels, ...leftLabels].forEach(label => {
+                const { seg, midAngle, isRight, y: finalY, idx } = label;
+
+                // 连线起点（圆弧边缘）
+                const x1 = cx + (outerRadius + 5) * Math.cos(midAngle);
+                const y1 = cy + (outerRadius + 5) * Math.sin(midAngle);
+
+                // 连线拐点
+                // X坐标跟随原始角度，Y坐标使用调整后的位置
+                const x2 = cx + labelRadius * Math.cos(midAngle);
+                const y2 = finalY;
+
+                // 连线终点（文字位置）
+                const x3 = isRight ? cx + textRadius + 40 : cx - textRadius - 40;
+                const y3 = finalY;
+
+                // 文字位置
+                const textX = isRight ? x3 + 5 : x3 - 5;
+                const textAnchor = isRight ? 'start' : 'end';
+
+                labelsHtml += `
+                    <polyline points="${x1},${y1} ${x2},${y2} ${x3},${y3}" fill="none" stroke="${seg.color}" stroke-width="1.5" opacity="0.6"/>
+                    <text x="${textX}" y="${y3 + 4}" text-anchor="${textAnchor}" fill="var(--text-secondary)" font-size="10" class="donut-label" data-idx="${idx}">${seg.name}</text>
+                `;
+            });
+
+            container.innerHTML = `
+                <div style="flex:1; min-width:400px; display:flex; justify-content:center;">
+                    <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+                        <g id="donutArcs">${arcsHtml}</g>
+                        <g id="donutLabels">${labelsHtml}</g>
+                        <circle cx="${cx}" cy="${cy}" r="${innerRadius - 5}" fill="var(--card-bg)"/>
+                        <text x="${cx}" y="${cy - 5}" text-anchor="middle" fill="var(--text-color)" font-size="20" font-weight="600">${total}</text>
+                        <text x="${cx}" y="${cy + 15}" text-anchor="middle" fill="var(--text-secondary)" font-size="11">总计</text>
+                    </svg>
+                </div>
+                <div id="distributionLegendContainer" style="width: 200px; display: flex; flex-direction: column; justify-content: center; height: ${height}px;"></div>
+            `;
+
+            // 渲染图例
+            renderDistributionLegend(entries);
+
+            // 悬浮效果
+            const svg = container.querySelector('svg');
+            const segmentEls = svg.querySelectorAll('.donut-segment');
+            let tooltip = null;
+
+            segmentEls.forEach(el => {
+                el.addEventListener('mouseenter', function () {
+                    this.style.transform = `translate(${Math.cos(segments[this.dataset.idx].midAngle) * 8}px, ${Math.sin(segments[this.dataset.idx].midAngle) * 8}px)`;
+                    this.style.filter = 'brightness(1.1) drop-shadow(0 2px 6px rgba(0,0,0,0.3))';
+                });
+                el.addEventListener('mouseleave', function () {
+                    this.style.transform = 'none';
+                    this.style.filter = 'none';
+                });
+                el.addEventListener('mousemove', function (e) {
+                    const name = this.dataset.name;
+                    const count = this.dataset.count;
+                    const color = this.dataset.color;
+                    const percent = ((count / total) * 100).toFixed(1);
+                    if (!tooltip) {
+                        tooltip = document.createElement('div');
+                        tooltip.className = 'donut-tooltip';
+                        tooltip.style.position = 'fixed';
+                        document.body.appendChild(tooltip);
+                    }
+                    tooltip.innerHTML = `<div style="font-weight:600;margin-bottom:4px;">${name}</div>
+                        <div style="display:flex;align-items:center;gap:6px;">
+                            <span style="width:10px;height:10px;border-radius:50%;background:${color};"></span>
+                            <span>${count} (${percent}%)</span>
+                        </div>`;
+                    tooltip.style.left = (e.clientX + 15) + 'px';
+                    tooltip.style.top = (e.clientY + 15) + 'px';
+                    tooltip.style.display = 'block';
+                });
+                el.addEventListener('mouseout', function () {
+                    if (tooltip) tooltip.style.display = 'none';
+                });
+            });
+        }
+
+        function renderDistributionLegend(entries) {
+            const container = document.getElementById('distributionLegendContainer');
+            if (!container) return;
+
+            const legendPageSize = 7;
+            const legendTotalPages = Math.ceil(entries.length / legendPageSize);
+            // Ensure current page is valid
+            if (distributionLegendPage > legendTotalPages) distributionLegendPage = legendTotalPages || 1;
+
+            const legendStart = (distributionLegendPage - 1) * legendPageSize;
+            const legendEntries = entries.slice(legendStart, legendStart + legendPageSize);
+
+            let legendHtml = '<div class="donut-legend" style="flex:1; display:flex; flex-direction:column; justify-content:center;">';
+            legendEntries.forEach((e, idx) => {
+                const color = DONUT_COLORS[(legendStart + idx) % DONUT_COLORS.length];
+                legendHtml += `<div class="donut-legend-item" data-idx="${legendStart + idx}" style="margin: 4px 0;">
+                    <span class="donut-legend-dot" style="background:${color};"></span>
+                    <span class="donut-legend-name" title="${e.name}" style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${e.name}</span>
+                    <span class="donut-legend-count" style="font-weight:600;">${e.count}</span>
+                </div>`;
+            });
+            legendHtml += '</div>';
+
+            if (legendTotalPages > 1) {
+                legendHtml += `<div class="donut-legend-pager" style="margin-top:10px; display:flex; justify-content:center; align-items:center; gap:10px;">
+                    <button onclick="changeDistributionLegendPage(-1)" ${distributionLegendPage <= 1 ? 'disabled' : ''} style="border:none; background:none; cursor:pointer; padding:4px;">◀</button>
+                    <span style="font-size:12px; color:var(--text-secondary);">${distributionLegendPage}/${legendTotalPages}</span>
+                    <button onclick="changeDistributionLegendPage(1)" ${distributionLegendPage >= legendTotalPages ? 'disabled' : ''} style="border:none; background:none; cursor:pointer; padding:4px;">▶</button>
+                </div>`;
+            }
+
+            container.innerHTML = legendHtml;
+        }
+
+        function changeDistributionLegendPage(delta) {
+            distributionLegendPage += delta;
+            // Need to get entries again. Since we don't have them in scope, we need data.
+            // We can reuse the logic from renderDistributionChart to get entries or store them globally.
+            // renderDistributionChart calculates entries from distributionData.
+            // Let's call renderDistributionChart() again? No, that defeats the purpose.
+            // We should store the sorted entries or recalculate them efficiently.
+            // Or easier: pass renderDistributionChart just for data processing? 
+            // Better: update changeDistributionLegendPage to call renderDistributionChart (which is what we wanted to avoid) OR
+            // Extract data processing to separate function `getDistributionEntries()` and call that.
+
+            // For now, let's keep it simple: We need the entries.
+            // Let's make `currentDistributionEntries` a global variable or attached to window.
+
+            if (typeof window.currentDistributionEntries !== 'undefined') {
+                renderDistributionLegend(window.currentDistributionEntries);
+            } else {
+                // Fallback if data not available (should not happen if flow is correct)
+                renderDistributionChart();
             }
         }
 
