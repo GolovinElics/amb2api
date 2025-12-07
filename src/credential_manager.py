@@ -10,7 +10,8 @@ from contextlib import asynccontextmanager
 from config import get_calls_per_rotation, is_mongodb_mode
 from log import log
 from .storage_adapter import get_storage_adapter
-from .google_oauth_api import fetch_user_email_from_file, Credentials
+# Google OAuth imports removed - functionality deprecated
+# from .google_oauth_api import fetch_user_email_from_file, Credentials
 from .task_manager import task_manager
 
 
@@ -398,7 +399,9 @@ class CredentialManager:
                 return None
             
             # 尝试获取邮箱
-            email = await fetch_user_email_from_file(credential_data)
+            # Google OAuth email fetching deprecated
+            email = None
+            # email = await fetch_user_email_from_file(credential_data)
             
             if email:
                 # 缓存邮箱地址
@@ -456,98 +459,13 @@ class CredentialManager:
                 raise
     
     async def _should_refresh_token(self, credential_data: Dict[str, Any]) -> bool:
-        """检查token是否需要刷新"""
-        try:
-            # 如果没有access_token或过期时间，需要刷新
-            if not credential_data.get("access_token") and not credential_data.get("token"):
-                log.debug("没有access_token，需要刷新")
-                return True
-                
-            expiry_str = credential_data.get("expiry")
-            if not expiry_str:
-                log.debug("没有过期时间，需要刷新")
-                return True
-                
-            # 解析过期时间
-            try:
-                if isinstance(expiry_str, str):
-                    if "+" in expiry_str:
-                        file_expiry = datetime.fromisoformat(expiry_str)
-                    elif expiry_str.endswith("Z"):
-                        file_expiry = datetime.fromisoformat(expiry_str.replace('Z', '+00:00'))
-                    else:
-                        file_expiry = datetime.fromisoformat(expiry_str)
-                else:
-                    log.debug("过期时间格式无效，需要刷新")
-                    return True
-                    
-                # 确保时区信息
-                if file_expiry.tzinfo is None:
-                    file_expiry = file_expiry.replace(tzinfo=timezone.utc)
-                    
-                # 检查是否还有至少5分钟有效期
-                now = datetime.now(timezone.utc)
-                time_left = (file_expiry - now).total_seconds()
-                
-                log.debug(f"Token剩余时间: {int(time_left/60)}分钟")
-                
-                if time_left > 300:  # 5分钟缓冲
-                    return False
-                else:
-                    log.debug(f"Token即将过期（剩余{int(time_left/60)}分钟），需要刷新")
-                    return True
-                    
-            except Exception as e:
-                log.warning(f"解析过期时间失败: {e}，需要刷新")
-                return True
-                
-        except Exception as e:
-            log.error(f"检查token过期时出错: {e}")
-            return True
+        """检查token是否需要刷新 - Deprecated for Google OAuth"""
+        return False
     
     async def _refresh_token(self, credential_data: Dict[str, Any], filename: str) -> Optional[Dict[str, Any]]:
-        """刷新token并更新存储"""
-        try:
-            # 创建Credentials对象
-            creds = Credentials.from_dict(credential_data)
-            
-            # 检查是否可以刷新
-            if not creds.refresh_token:
-                log.error(f"没有refresh_token，无法刷新: {filename}")
-                return None
-                
-            # 刷新token
-            log.debug(f"正在刷新token: {filename}")
-            await creds.refresh()
-            
-            # 更新凭证数据
-            if creds.access_token:
-                credential_data["access_token"] = creds.access_token
-                # 保持兼容性
-                credential_data["token"] = creds.access_token
-                
-            if creds.expires_at:
-                credential_data["expiry"] = creds.expires_at.isoformat()
-                
-            # 保存到存储
-            await self._storage_adapter.store_credential(filename, credential_data)
-            log.info(f"Token刷新成功并已保存: {filename}")
-            
-            return credential_data
-            
-        except Exception as e:
-            error_msg = str(e)
-            log.error(f"Token刷新失败 {filename}: {error_msg}")
-            
-            # 检查是否是凭证永久失效的错误
-            is_permanent_failure = self._is_permanent_refresh_failure(error_msg)
-            
-            if is_permanent_failure:
-                log.warning(f"检测到凭证永久失效: {filename}")
-                # 记录失效状态，但不在这里禁用凭证，让上层调用者处理
-                await self.record_api_call_result(filename, False, 400)
-            
-            return None
+        """刷新token并更新存储 - Deprecated implementation"""
+        # Google OAuth refresh logic removed
+        return None
     
     def _is_permanent_refresh_failure(self, error_msg: str) -> bool:
         """判断是否是凭证永久失效的错误"""

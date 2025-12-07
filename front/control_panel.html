@@ -1027,23 +1027,7 @@
             cursor: not-allowed;
         }
 
-        .auth-url {
-            background-color: #f8f9fa;
-            border: 1px solid #e1e4e8;
-            border-radius: 5px;
-            padding: 15px;
-            margin: 20px 0;
-            word-break: break-all;
-        }
 
-        .auth-url a {
-            color: #4285f4;
-            text-decoration: none;
-        }
-
-        .auth-url a:hover {
-            text-decoration: underline;
-        }
 
         .credentials {
             background-color: #f0f8ff;
@@ -6006,88 +5990,7 @@
                     </div>
                 </div>
 
-                <!-- 环境变量标签页 -->
-                <div id="envloadTab" class="tab-content">
-                    <h3>环境变量凭证导入</h3>
-                    <p>从环境变量批量导入认证文件，支持部署自动化场景</p>
 
-                    <!-- 环境变量状态信息 -->
-                    <div id="envStatusSection">
-                        <div class="loading" id="envStatusLoading">正在检查环境变量状态...</div>
-                        <div id="envStatusContent" class="hidden">
-                            <div class="config-group">
-                                <h4>环境变量状态</h4>
-
-                                <div class="form-group">
-                                    <label>可用的环境变量:</label>
-                                    <div id="envVarsList" class="cred-content"></div>
-                                </div>
-
-                                <div class="form-group">
-                                    <label>自动加载设置:</label>
-                                    <span id="autoLoadStatus" style="font-weight: bold;"></span>
-                                    <small class="config-note">
-                                        要启用自动加载，请设置环境变量 AUTO_LOAD_ENV_CREDS=true
-                                    </small>
-                                </div>
-
-                                <div class="form-group">
-                                    <label>已导入的环境变量文件:</label>
-                                    <span id="envFilesCount" style="font-weight: bold;"></span>
-                                    <div id="envFilesList" class="config-note"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 操作按钮 -->
-                    <div class="manage-actions">
-                        <button class="btn" onclick="checkEnvCredsStatus()">刷新状态</button>
-                        <button class="btn" onclick="loadEnvCredentials()">从环境变量导入</button>
-                        <button class="btn" style="background-color: #dc3545;"
-                            onclick="clearEnvCredentials()">清除环境变量文件</button>
-                    </div>
-
-                    <!-- 使用说明 -->
-                    <div class="config-group"
-                        style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px;">
-                        <h4 style="color: var(--text-color); margin-bottom: 12px;">使用说明</h4>
-                        <div class="config-info" style="color: var(--text-secondary);">
-                            <strong style="color: var(--text-color);">环境变量格式：</strong>
-                            <ul style="color: var(--text-secondary);">
-                                <li><code
-                                        style="background: var(--code-bg); color: var(--text-color); padding: 2px 6px; border-radius: 3px;">GCLI_CREDS_1</code>,
-                                    <code
-                                        style="background: var(--code-bg); color: var(--text-color); padding: 2px 6px; border-radius: 3px;">GCLI_CREDS_2</code>,
-                                    ... (编号格式)
-                                </li>
-                                <li><code
-                                        style="background: var(--code-bg); color: var(--text-color); padding: 2px 6px; border-radius: 3px;">GCLI_CREDS_项目名1</code>,
-                                    <code
-                                        style="background: var(--code-bg); color: var(--text-color); padding: 2px 6px; border-radius: 3px;">GCLI_CREDS_项目名2</code>,
-                                    ... (项目名格式)
-                                </li>
-                            </ul>
-
-                            <strong style="color: var(--text-color);">环境变量值：</strong> 完整的认证文件JSON内容
-
-                            <br><br>
-                            <strong style="color: var(--text-color);">示例：</strong>
-                            <pre
-                                style="background: var(--code-bg); color: var(--text-color); padding: 10px; border-radius: 4px; font-size: 11px; border: 1px solid var(--border-color);">
-export GCLI_CREDS_1='{"client_id":"your-client-id","client_secret":"your-secret","refresh_token":"your-token","token_uri":"https://oauth2.googleapis.com/token","project_id":"your-project"}'
-export GCLI_CREDS_myproject='{"client_id":"...","project_id":"myproject",...}'
-export AUTO_LOAD_ENV_CREDS=true  # 启用程序启动时自动导入</pre>
-
-                            <strong style="color: var(--text-color);">Docker部署示例：</strong>
-                            <pre
-                                style="background: var(--code-bg); color: var(--text-color); padding: 10px; border-radius: 4px; font-size: 11px; border: 1px solid var(--border-color);">
-docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
-           -e AUTO_LOAD_ENV_CREDS=true \
-           your-image</pre>
-                        </div>
-                    </div>
-                </div>
 
                 <!-- 文件管理标签页 -->
                 <div id="manageTab" class="tab-content">
@@ -8452,185 +8355,6 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             }
         }
 
-        async function startAuth() {
-            const projectId = document.getElementById('projectId').value.trim();
-            const getAllProjects = document.getElementById('getAllProjectsCreds').checked;
-            // 项目ID现在是可选的
-            currentProjectId = projectId || null;
-
-            const btn = document.getElementById('getAuthBtn');
-            btn.disabled = true;
-            btn.textContent = '正在获取认证链接...';
-
-            try {
-                const requestBody = {};
-                if (projectId) {
-                    requestBody.project_id = projectId;
-                }
-                if (getAllProjects) {
-                    requestBody.get_all_projects = true;
-                    showStatus('批量并发认证模式：将为当前账号所有项目生成认证链接...', 'info');
-                } else if (projectId) {
-                    showStatus('使用指定的项目ID生成认证链接...', 'info');
-                } else {
-                    showStatus('将尝试自动检测项目ID，正在生成认证链接...', 'info');
-                }
-
-                const response = await fetch('/auth/start', {
-                    method: 'POST',
-                    headers: getAuthHeaders(),
-                    body: JSON.stringify(requestBody)
-                });
-
-                const data = await response.json();
-
-                if (response.ok) {
-                    document.getElementById('authUrl').href = data.auth_url;
-                    document.getElementById('authUrl').textContent = data.auth_url;
-                    document.getElementById('authUrlSection').classList.remove('hidden');
-
-                    if (getAllProjects) {
-                        showStatus('批量并发认证链接已生成，完成授权后将并发为所有可访问项目生成凭证文件', 'info');
-                    } else if (data.auto_project_detection) {
-                        showStatus('认证链接已生成（将在认证完成后自动检测项目ID），请点击链接完成授权', 'info');
-                    } else {
-                        showStatus(`认证链接已生成（项目ID: ${data.detected_project_id}），请点击链接完成授权`, 'info');
-                    }
-                    authInProgress = true;
-                } else {
-                    showStatus(`错误: ${data.error || '获取认证链接失败'}`, 'error');
-                }
-            } catch (error) {
-                showStatus(`网络错误: ${error.message}`, 'error');
-            } finally {
-                btn.disabled = false;
-                btn.textContent = '获取认证链接';
-            }
-        }
-
-        async function getCredentials() {
-            if (!authInProgress) {
-                showStatus('请先获取认证链接并完成授权', 'error');
-                return;
-            }
-
-            const btn = document.getElementById('getCredsBtn');
-            const getAllProjects = document.getElementById('getAllProjectsCreds').checked;
-            btn.disabled = true;
-            btn.textContent = getAllProjects ? '并发批量获取所有项目凭证中...' : '等待OAuth回调中...';
-
-            try {
-                if (getAllProjects) {
-                    showStatus('正在并发为所有项目获取认证凭证，采用并发处理提升速度...', 'info');
-                } else {
-                    showStatus('正在等待OAuth回调，这可能需要一些时间...', 'info');
-                }
-
-                const requestBody = {};
-                if (currentProjectId) {
-                    requestBody.project_id = currentProjectId;
-                }
-                if (getAllProjects) {
-                    requestBody.get_all_projects = true;
-                }
-
-                const response = await fetch('/auth/callback', {
-                    method: 'POST',
-                    headers: getAuthHeaders(),
-                    body: JSON.stringify(requestBody)
-                });
-
-                const data = await response.json();
-
-                if (response.ok) {
-                    const credentialsSection = document.getElementById('credentialsSection');
-                    const credentialsContent = document.getElementById('credentialsContent');
-
-                    if (getAllProjects && data.multiple_credentials) {
-                        // 处理多项目认证结果
-                        const results = data.multiple_credentials;
-                        let resultText = `批量并发认证完成！成功为 ${results.success.length} 个项目生成凭证：\n\n`;
-
-                        // 显示成功的项目
-                        results.success.forEach((item, index) => {
-                            resultText += `${index + 1}. 项目: ${item.project_name} (${item.project_id})\n`;
-                            resultText += `   文件: ${item.file_path}\n\n`;
-                        });
-
-                        // 显示失败的项目（如果有）
-                        if (results.failed.length > 0) {
-                            resultText += `\n失败的项目 (${results.failed.length} 个):\n`;
-                            results.failed.forEach((item, index) => {
-                                resultText += `${index + 1}. 项目: ${item.project_name} (${item.project_id})\n`;
-                                resultText += `   错误: ${item.error}\n\n`;
-                            });
-                        }
-
-                        credentialsContent.textContent = resultText;
-                        showStatus(`✅ 批量并发认证完成！成功生成 ${results.success.length} 个项目的凭证文件${results.failed.length > 0 ? `，${results.failed.length} 个项目失败` : ''}`, 'success');
-                    } else {
-                        // 处理单项目认证结果
-                        credentialsContent.textContent = JSON.stringify(data.credentials, null, 2);
-
-                        if (data.auto_detected_project) {
-                            showStatus(`✅ 认证成功！项目ID已自动检测为: ${data.credentials.project_id}，文件已保存到: ${data.file_path}`, 'success');
-                        } else {
-                            showStatus(`✅ 认证成功！文件已保存到: ${data.file_path}`, 'success');
-                        }
-                    }
-
-                    credentialsSection.classList.remove('hidden');
-                    authInProgress = false;
-                } else {
-                    // 检查是否需要项目选择
-                    if (data.requires_project_selection && data.available_projects) {
-                        let projectOptions = "请选择一个项目：\n\n";
-                        data.available_projects.forEach((project, index) => {
-                            projectOptions += `${index + 1}. ${project.name} (${project.projectId})\n`;
-                        });
-                        projectOptions += `\n请输入序号 (1-${data.available_projects.length}):`;
-
-                        const selection = prompt(projectOptions);
-                        const projectIndex = parseInt(selection) - 1;
-
-                        if (projectIndex >= 0 && projectIndex < data.available_projects.length) {
-                            const selectedProject = data.available_projects[projectIndex];
-                            currentProjectId = selectedProject.projectId;
-                            btn.textContent = '重新尝试获取认证文件';
-                            showStatus(`使用选择的项目 ${selectedProject.name} (${selectedProject.projectId}) 重新尝试...`, 'info');
-                            setTimeout(() => getCredentials(), 1000);
-                            return;
-                        } else {
-                            showStatus('无效的选择，请重新开始认证', 'error');
-                        }
-                    }
-                    // 检查是否需要手动输入项目ID
-                    else if (data.requires_manual_project_id) {
-                        const userProjectId = prompt('无法自动检测项目ID，请手动输入您的Google Cloud项目ID:');
-                        if (userProjectId && userProjectId.trim()) {
-                            // 重新尝试，使用用户输入的项目ID
-                            currentProjectId = userProjectId.trim();
-                            btn.textContent = '重新尝试获取认证文件';
-                            showStatus('使用手动输入的项目ID重新尝试...', 'info');
-                            setTimeout(() => getCredentials(), 1000);
-                            return;
-                        } else {
-                            showStatus('需要项目ID才能完成认证，请重新开始并输入正确的项目ID', 'error');
-                        }
-                    } else {
-                        showStatus(`❌ 错误: ${data.error || '获取认证文件失败'}`, 'error');
-                        if (data.error && data.error.includes('未接收到授权回调')) {
-                            showStatus('提示：请确保已完成浏览器中的OAuth认证，并看到了"OAuth authentication successful"页面', 'info');
-                        }
-                    }
-                }
-            } catch (error) {
-                showStatus(`网络错误: ${error.message}`, 'error');
-            } finally {
-                btn.disabled = false;
-                btn.textContent = '获取认证文件';
-            }
-        }
 
         // 文件上传相关函数
         function handleFileSelect(event) {
@@ -10012,114 +9736,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
         }
 
         // 环境变量凭证管理相关函数
-        async function checkEnvCredsStatus() {
-            const envStatusLoading = document.getElementById('envStatusLoading');
-            const envStatusContent = document.getElementById('envStatusContent');
 
-            try {
-                envStatusLoading.style.display = 'block';
-                envStatusContent.classList.add('hidden');
-
-                const response = await fetch('/auth/env-creds-status', {
-                    method: 'GET',
-                    headers: getAuthHeaders()
-                });
-
-                const data = await response.json();
-
-                if (response.ok) {
-                    // 更新环境变量列表
-                    const envVarsList = document.getElementById('envVarsList');
-                    if (Object.keys(data.available_env_vars).length > 0) {
-                        envVarsList.textContent = Object.keys(data.available_env_vars).join(', ');
-                    } else {
-                        envVarsList.textContent = '未找到GCLI_CREDS_*环境变量';
-                    }
-
-                    // 更新自动加载状态
-                    const autoLoadStatus = document.getElementById('autoLoadStatus');
-                    autoLoadStatus.textContent = data.auto_load_enabled ? '✅ 已启用' : '❌ 未启用';
-                    autoLoadStatus.style.color = data.auto_load_enabled ? '#28a745' : '#dc3545';
-
-                    // 更新已导入文件统计
-                    const envFilesCount = document.getElementById('envFilesCount');
-                    envFilesCount.textContent = `${data.existing_env_files_count} 个文件`;
-
-                    const envFilesList = document.getElementById('envFilesList');
-                    if (data.existing_env_files.length > 0) {
-                        envFilesList.textContent = data.existing_env_files.join(', ');
-                    } else {
-                        envFilesList.textContent = '无';
-                    }
-
-                    envStatusContent.classList.remove('hidden');
-                    showStatus('环境变量状态检查完成', 'success');
-                } else {
-                    showStatus(`获取环境变量状态失败: ${data.detail || data.error || '未知错误'}`, 'error');
-                }
-            } catch (error) {
-                console.error('checkEnvCredsStatus error:', error);
-                showStatus(`网络错误: ${error.message}`, 'error');
-            } finally {
-                envStatusLoading.style.display = 'none';
-            }
-        }
-
-        async function loadEnvCredentials() {
-            try {
-                showStatus('正在从环境变量导入凭证...', 'info');
-
-                const response = await fetch('/auth/load-env-creds', {
-                    method: 'POST',
-                    headers: getAuthHeaders()
-                });
-
-                const data = await response.json();
-
-                if (response.ok) {
-                    if (data.loaded_count > 0) {
-                        showStatus(`✅ 成功导入 ${data.loaded_count}/${data.total_count} 个凭证文件`, 'success');
-                        // 刷新状态
-                        setTimeout(() => checkEnvCredsStatus(), 1000);
-                    } else {
-                        showStatus(`⚠️ ${data.message}`, 'info');
-                    }
-                } else {
-                    showStatus(`导入失败: ${data.detail || data.error || '未知错误'}`, 'error');
-                }
-            } catch (error) {
-                console.error('loadEnvCredentials error:', error);
-                showStatus(`网络错误: ${error.message}`, 'error');
-            }
-        }
-
-        async function clearEnvCredentials() {
-            if (!confirm('确定要清除所有从环境变量导入的凭证文件吗？\n这将删除所有文件名以 "env-" 开头的认证文件。')) {
-                return;
-            }
-
-            try {
-                showStatus('正在清除环境变量凭证文件...', 'info');
-
-                const response = await fetch('/auth/env-creds', {
-                    method: 'DELETE',
-                    headers: getAuthHeaders()
-                });
-
-                const data = await response.json();
-
-                if (response.ok) {
-                    showStatus(`✅ 成功删除 ${data.deleted_count} 个环境变量凭证文件`, 'success');
-                    // 刷新状态
-                    setTimeout(() => checkEnvCredsStatus(), 1000);
-                } else {
-                    showStatus(`清除失败: ${data.detail || data.error || '未知错误'}`, 'error');
-                }
-            } catch (error) {
-                console.error('clearEnvCredentials error:', error);
-                showStatus(`网络错误: ${error.message}`, 'error');
-            }
-        }
 
         // 批量操作相关函数
         function toggleFileSelection(filename) {
@@ -10305,174 +9922,8 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 }
             } catch (error) {
                 console.error('refreshAllEmails error:', error);
-                showStatus(`邮箱刷新网络错误: ${error.message}`, 'error');
-            }
-        }
 
-        // Project ID 折叠切换函数
-        function toggleProjectIdSection() {
-            const section = document.getElementById('projectIdSection');
-            const icon = document.getElementById('projectIdToggleIcon');
-
-            if (section.style.display === 'none') {
-                section.style.display = 'block';
-                icon.style.transform = 'rotate(90deg)';
-                icon.textContent = '▼';
-            } else {
-                section.style.display = 'none';
-                icon.style.transform = 'rotate(0deg)';
-                icon.textContent = '▶';
-            }
-        }
-
-        // 回调URL输入区域折叠切换函数
-        function toggleCallbackUrlSection() {
-            const section = document.getElementById('callbackUrlSection');
-            const icon = document.getElementById('callbackUrlToggleIcon');
-
-            if (section.style.display === 'none') {
-                section.style.display = 'block';
-                icon.style.transform = 'rotate(180deg)';
-                icon.textContent = '▲';
-            } else {
-                section.style.display = 'none';
-                icon.style.transform = 'rotate(0deg)';
-                icon.textContent = '▼';
-            }
-        }
-
-        // 处理回调URL的函数
-        async function processCallbackUrl() {
-            const callbackUrlInput = document.getElementById('callbackUrlInput');
-            const callbackUrl = callbackUrlInput.value.trim();
-            const getAllProjects = document.getElementById('getAllProjectsCreds').checked;
-
-            if (!callbackUrl) {
-                showStatus('请输入回调URL', 'error');
-                return;
-            }
-
-            // 简单验证URL格式
-            if (!callbackUrl.startsWith('http://') && !callbackUrl.startsWith('https://')) {
-                showStatus('请输入有效的URL（以http://或https://开头）', 'error');
-                return;
-            }
-
-            // 检查是否包含必要参数
-            if (!callbackUrl.includes('code=') || !callbackUrl.includes('state=')) {
-                showStatus('❌ 这不是有效的回调URL！请确保：\n1. 已完成Google OAuth授权\n2. 复制的是浏览器地址栏的完整URL\n3. URL包含code和state参数', 'error');
-                return;
-            }
-
-            if (getAllProjects) {
-                showStatus('正在从回调URL并发批量获取所有项目凭证...', 'info');
-            } else {
-                showStatus('正在从回调URL获取凭证...', 'info');
-            }
-
-            try {
-                // 获取当前项目ID设置（如果有的话）
-                const projectIdInput = document.getElementById('projectId');
-                const projectId = projectIdInput ? projectIdInput.value.trim() : null;
-
-                const response = await fetch('/auth/callback-url', {
-                    method: 'POST',
-                    headers: getAuthHeaders(),
-                    body: JSON.stringify({
-                        callback_url: callbackUrl,
-                        project_id: projectId || null,
-                        get_all_projects: getAllProjects
-                    })
-                });
-
-                const result = await response.json();
-
-                if (getAllProjects && result.multiple_credentials) {
-                    // 处理多项目认证结果
-                    const results = result.multiple_credentials;
-                    let resultText = `批量并发认证完成！成功为 ${results.success.length} 个项目生成凭证：\n\n`;
-
-                    // 显示成功的项目
-                    results.success.forEach((item, index) => {
-                        resultText += `${index + 1}. 项目: ${item.project_name} (${item.project_id})\n`;
-                        resultText += `   文件: ${item.file_path}\n\n`;
-                    });
-
-                    // 显示失败的项目（如果有）
-                    if (results.failed.length > 0) {
-                        resultText += `\n失败的项目 (${results.failed.length} 个):\n`;
-                        results.failed.forEach((item, index) => {
-                            resultText += `${index + 1}. 项目: ${item.project_name} (${item.project_id})\n`;
-                            resultText += `   错误: ${item.error}\n\n`;
-                        });
-                    }
-
-                    // 显示结果
-                    document.getElementById('credentialsContent').textContent = resultText;
-                    document.getElementById('credentialsSection').classList.remove('hidden');
-                    showStatus(`✅ 批量并发认证完成！成功生成 ${results.success.length} 个项目的凭证文件${results.failed.length > 0 ? `，${results.failed.length} 个项目失败` : ''}`, 'success');
-
-                } else if (result.credentials) {
-                    // 处理单项目认证结果
-                    showStatus(result.message || '从回调URL获取凭证成功！', 'success');
-
-                    // 显示凭证内容
-                    document.getElementById('credentialsContent').innerHTML =
-                        '<pre>' + JSON.stringify(result.credentials, null, 2) + '</pre>';
-                    document.getElementById('credentialsSection').classList.remove('hidden');
-
-                } else if (result.requires_manual_project_id) {
-                    showStatus('需要手动指定项目ID，请在高级选项中填入Google Cloud项目ID后重试', 'error');
-                } else if (result.requires_project_selection) {
-                    let projectOptions = '<br><strong>可用项目：</strong><br>';
-                    result.available_projects.forEach(project => {
-                        projectOptions += `• ${project.name} (ID: ${project.projectId})<br>`;
-                    });
-                    showStatus('检测到多个项目，请在高级选项中指定项目ID：' + projectOptions, 'error');
-                } else {
-                    showStatus(result.error || '从回调URL获取凭证失败', 'error');
-                }
-
-                // 清空输入框
-                callbackUrlInput.value = '';
-
-                // 刷新凭证列表（如果有）
-                setTimeout(() => {
-                    if (typeof refreshCredsStatus === 'function') {
-                        refreshCredsStatus();
-                    }
-                }, 1000);
-
-            } catch (error) {
-                console.error('从回调URL获取凭证时出错:', error);
-                showStatus(`从回调URL获取凭证失败: ${error.message}`, 'error');
-            }
-        }
-
-        // 处理勾选框状态变化
-        function handleGetAllProjectsChange() {
-            const checkbox = document.getElementById('getAllProjectsCreds');
-            const note = document.getElementById('allProjectsNote');
-            const projectIdSection = document.getElementById('projectIdSection');
-            const projectIdToggle = document.querySelector('[onclick="toggleProjectIdSection()"]');
-
-            if (checkbox.checked) {
-                // 显示批量认证提示
-                note.style.display = 'block';
-                // 禁用项目ID输入（批量模式下不需要指定单个项目）
-                if (projectIdSection.style.display !== 'none') {
-                    toggleProjectIdSection();
-                }
-                projectIdToggle.style.opacity = '0.5';
-                projectIdToggle.style.pointerEvents = 'none';
-                projectIdToggle.title = '批量认证模式下无需指定单个项目ID';
-            } else {
-                // 隐藏批量认证提示
-                note.style.display = 'none';
-                // 重新启用项目ID输入
-                projectIdToggle.style.opacity = '1';
-                projectIdToggle.style.pointerEvents = 'auto';
-                projectIdToggle.title = '';
+                showStatus(`邮箱刷新网络错误: ${error.message} `, 'error');
             }
         }
 
@@ -10882,13 +10333,13 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             const colors = ['rgba(66, 133, 244, 0.4)', 'rgba(52, 168, 83, 0.4)', 'rgba(251, 188, 5, 0.4)', 'rgba(234, 67, 53, 0.4)'];
             const color = colors[Math.floor(Math.random() * colors.length)];
             ripple.style.cssText = `
-                left: ${x}px;
-                top: ${y}px;
+                left: ${x} px;
+                top: ${y} px;
                 width: 20px;
                 height: 20px;
                 background: ${color};
-                box-shadow: 0 0 20px ${color};
-            `;
+                box - shadow: 0 0 20px ${color};
+                `;
             document.body.appendChild(ripple);
             setTimeout(() => ripple.remove(), 600);
         }
@@ -11132,11 +10583,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 document.querySelector('.container').classList.add('login-mode');
             }
 
-            // 添加勾选框事件监听器
-            const checkbox = document.getElementById('getAllProjectsCreds');
-            if (checkbox) {
-                checkbox.addEventListener('change', handleGetAllProjectsChange);
-            }
+
 
             // 初始化工具定义高度同步
             setTimeout(syncToolsCardHeight, 100);
@@ -11182,7 +10629,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 const val = parseInt(savedProbability) || 10;
                 probabilityEl.value = val;
                 if (probabilityValueEl) probabilityValueEl.textContent = val;
-                probabilityEl.style.background = `linear-gradient(to right, #4285f4 0%, #4285f4 ${val}%, #ddd ${val}%, #ddd 100%)`;
+                probabilityEl.style.background = `linear - gradient(to right, #4285f4 0 %, #4285f4 ${val} %, #ddd ${val} %, #ddd 100 %)`;
             }
 
             // 层林尽染开关（默认开启）
@@ -11480,7 +10927,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 }
             } catch (error) {
                 if (!silent) {
-                    showStatus(`网络错误: ${error.message}`, 'error');
+                    showStatus(`网络错误: ${error.message} `, 'error');
                 }
             } finally {
                 if (!silent) {
@@ -11494,7 +10941,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 const res = await fetch('/keys/invalid', { headers: getAuthHeaders() });
                 const data = await res.json();
                 const list = (data.invalid_keys || []).map(it => it.key).join(', ');
-                const msg = `失效密钥 ${data.invalid_keys?.length || 0} 个${list ? '：' + list : ''}`;
+                const msg = `失效密钥 ${data.invalid_keys?.length || 0} 个${list ? '：' + list : ''} `;
                 showStatus(msg, 'info');
             } catch (e) {
                 showStatus('检查失效密钥失败: ' + e.message, 'error');
@@ -11704,7 +11151,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     <div class="ranking-title">模型调用次数排行</div>
                     <div class="ranking-total">总计: 0</div>
                 </div>
-                <div style="text-align:center; color:var(--text-secondary); padding:40px 0;">暂无数据</div>`;
+                    <div style="text-align:center; color:var(--text-secondary); padding:40px 0;">暂无数据</div>`;
                 return;
             }
 
@@ -11759,16 +11206,16 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             for (let i = 0; i < yTicks.length; i++) gridLinesHtml += '<div class="ranking-grid-line"></div>';
 
             html += `<div class="ranking-chart-area">
-                <div class="ranking-chart-wrapper">
-                    <div class="ranking-grid-lines">${gridLinesHtml}</div>
-                    <div class="ranking-chart" id="rankingChartBars">`;
+                    <div class="ranking-chart-wrapper">
+                        <div class="ranking-grid-lines">${gridLinesHtml}</div>
+                        <div class="ranking-chart" id="rankingChartBars">`;
 
             pageEntries.forEach((e, idx) => {
                 const barHeight = Math.max(2, Math.round((e.count / chartMax) * maxBarHeight));
                 const color = RANKING_COLORS[idx % RANKING_COLORS.length];
                 html += `<div class="ranking-bar-group" data-idx="${idx}" data-name="${e.name}" data-count="${e.count}" data-color="${color}">
-                    <div class="ranking-bar-col" style="height:${barHeight}px; background:${color};"></div>
-                </div>`;
+                                <div class="ranking-bar-col" style="height:${barHeight}px; background:${color};"></div>
+                            </div>`;
             });
 
             html += `</div></div>`;
@@ -11828,13 +11275,13 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                         document.body.appendChild(tooltip);
                     }
                     tooltip.innerHTML = `
-                        <div class="ranking-tooltip-title">${name}</div>
+                    <div class="ranking-tooltip-title">${name}</div>
                         <div class="ranking-tooltip-row">
                             <span class="ranking-tooltip-dot" style="background:${color};"></span>
                             <span>${name}</span>
                             <span class="ranking-tooltip-count">${count}</span>
                         </div>
-                    `;
+                `;
                     const rect = barGroup.getBoundingClientRect();
                     tooltip.style.left = (rect.left + rect.width / 2) + 'px';
                     tooltip.style.top = (rect.top - 10) + 'px';
@@ -11973,10 +11420,10 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             let arcsHtml = '';
             segments.forEach((seg, idx) => {
                 const path = arcPath(seg.startAngle, seg.endAngle, outerRadius, innerRadius);
-                arcsHtml += `<path d="${path}" fill="${seg.color}" 
-                    class="donut-segment" data-idx="${idx}"
-                    data-name="${seg.name}" data-count="${seg.count}" data-color="${seg.color}"
-                    style="cursor:pointer; transition: transform 0.2s, filter 0.2s;"/>`;
+                arcsHtml += `<path d="${path}" fill="${seg.color}"
+                class="donut-segment" data-idx="${idx}"
+                data-name="${seg.name}" data-count="${seg.count}" data-color="${seg.color}"
+                style="cursor:pointer; transition: transform 0.2s, filter 0.2s;" />`;
             });
 
             // 生成标签连线 - 左右分布
@@ -12057,23 +11504,23 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 const textAnchor = isRight ? 'start' : 'end';
 
                 labelsHtml += `
-                    <polyline points="${x1},${y1} ${x2},${y2} ${x3},${y3}" fill="none" stroke="${seg.color}" stroke-width="1.5" opacity="0.6"/>
-                    <text x="${textX}" y="${y3 + 4}" text-anchor="${textAnchor}" fill="var(--text-secondary)" font-size="10" class="donut-label" data-idx="${idx}">${seg.name}</text>
+                    <polyline points="${x1},${y1} ${x2},${y2} ${x3},${y3}" fill="none" stroke="${seg.color}" stroke-width="1.5" opacity="0.6" />
+                        <text x="${textX}" y="${y3 + 4}" text-anchor="${textAnchor}" fill="var(--text-secondary)" font-size="10" class="donut-label" data-idx="${idx}">${seg.name}</text>
                 `;
             });
 
             container.innerHTML = `
-                <div style="flex:1; min-width:400px; display:flex; justify-content:center;">
-                    <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-                        <g id="donutArcs">${arcsHtml}</g>
-                        <g id="donutLabels">${labelsHtml}</g>
-                        <circle cx="${cx}" cy="${cy}" r="${innerRadius - 5}" fill="var(--card-bg)"/>
-                        <text x="${cx}" y="${cy - 5}" text-anchor="middle" fill="var(--text-color)" font-size="20" font-weight="600">${total}</text>
-                        <text x="${cx}" y="${cy + 15}" text-anchor="middle" fill="var(--text-secondary)" font-size="11">总计</text>
-                    </svg>
-                </div>
-                <div id="distributionLegendContainer" style="width: 200px; display: flex; flex-direction: column; justify-content: center; height: ${height}px;"></div>
-            `;
+                    <div style="flex:1; min-width:400px; display:flex; justify-content:center;">
+                        <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+                            <g id="donutArcs">${arcsHtml}</g>
+                            <g id="donutLabels">${labelsHtml}</g>
+                            <circle cx="${cx}" cy="${cy}" r="${innerRadius - 5}" fill="var(--card-bg)" />
+                            <text x="${cx}" y="${cy - 5}" text-anchor="middle" fill="var(--text-color)" font-size="20" font-weight="600">${total}</text>
+                            <text x="${cx}" y="${cy + 15}" text-anchor="middle" fill="var(--text-secondary)" font-size="11">总计</text>
+                        </svg>
+                    </div>
+                    <div id="distributionLegendContainer" style="width: 200px; display: flex; flex-direction: column; justify-content: center; height: ${height}px;"></div>
+                `;
 
             // 渲染图例
             renderDistributionLegend(entries);
@@ -12104,10 +11551,10 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                         document.body.appendChild(tooltip);
                     }
                     tooltip.innerHTML = `<div style="font-weight:600;margin-bottom:4px;">${name}</div>
-                        <div style="display:flex;align-items:center;gap:6px;">
-                            <span style="width:10px;height:10px;border-radius:50%;background:${color};"></span>
-                            <span>${count} (${percent}%)</span>
-                        </div>`;
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <span style="width:10px;height:10px;border-radius:50%;background:${color};"></span>
+                        <span>${count} (${percent}%)</span>
+                    </div>`;
                     tooltip.style.left = (e.clientX + 15) + 'px';
                     tooltip.style.top = (e.clientY + 15) + 'px';
                     tooltip.style.display = 'block';
@@ -12220,7 +11667,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             // 如果是 key:hash 格式，进行脱敏处理
             if (displayName.startsWith('key:') && displayName.length > 20) {
                 const hash = displayName.substring(4); // 移除 "key:" 前缀
-                displayName = `Key: ${hash.substring(0, 4)}...${hash.substring(hash.length - 4)}`;
+                displayName = `Key: ${hash.substring(0, 4)}...${hash.substring(hash.length - 4)} `;
             }
 
             // 根据禁用状态添加样式
@@ -12230,12 +11677,12 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             div.className = `usage-card ${disabledClass}`;
 
             div.innerHTML = `
-                <div class="usage-header">
-                    <div class="usage-filename" style="display: flex; align-items: center;">
-                        ${displayName}
-                        ${disabledBadge}
+                    <div class="usage-header">
+                        <div class="usage-filename" style="display: flex; align-items: center;">
+                            ${displayName}
+                            ${disabledBadge}
+                        </div>
                     </div>
-                </div>
                 
                 <div class="usage-progress">
                     <div class="usage-progress-label">
@@ -12275,7 +11722,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 <div class="usage-actions">
                     <button class="usage-btn limits" onclick="openLimitsModal('${filename}')">设置限制</button>
                 </div>
-            `;
+                `;
 
             return div;
         }
@@ -12326,7 +11773,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     // 刷新统计数据
                     await refreshUsageStats();
                 } else {
-                    showStatus(`设置失败: ${data.detail || data.error || '未知错误'}`, 'error');
+                    showStatus(`设置失败: ${data.detail || data.error || '未知错误'} `, 'error');
                 }
             } catch (error) {
                 console.error('saveLimits error:', error);
@@ -12366,7 +11813,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             document.getElementById('playgroundTemperatureValue').value = value;
             const slider = document.getElementById('playgroundTemperature');
             const percent = (value / 2) * 100;
-            slider.style.background = `linear-gradient(to right, #4285f4 0%, #4285f4 ${percent}%, #e0e0e0 ${percent}%, #e0e0e0 100%)`;
+            slider.style.background = `linear - gradient(to right, #4285f4 0 %, #4285f4 ${percent} %, #e0e0e0 ${percent} %, #e0e0e0 100 %)`;
             // 实时更新预览
             updateRequestPreview();
         }
@@ -12382,7 +11829,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             const slider = document.getElementById('playgroundMaxTokens');
             const max = parseInt(slider.max);
             const percent = (value / max) * 100;
-            slider.style.background = `linear-gradient(to right, #4285f4 0%, #4285f4 ${percent}%, #e0e0e0 ${percent}%, #e0e0e0 100%)`;
+            slider.style.background = `linear - gradient(to right, #4285f4 0 %, #4285f4 ${percent} %, #e0e0e0 ${percent} %, #e0e0e0 100 %)`;
             // 实时更新预览
             updateRequestPreview();
         }
@@ -12442,7 +11889,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             // 始终更新进度条背景以反映新的 max 值
             updateMaxTokensValue(parseInt(slider.value));
 
-            console.log(`Model ${model}: max_tokens limit set to ${maxTokens}, current value: ${slider.value}`);
+            console.log(`Model ${model}: max_tokens limit set to ${maxTokens}, current value: ${slider.value} `);
         }
 
         async function initPlayground() {
@@ -12478,7 +11925,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                             const masked = key.length > 8 ?
                                 key.substring(0, 4) + '...' + key.substring(key.length - 4) :
                                 key.substring(0, 2) + '***';
-                            opt.textContent = `Key #${index}: ${masked}`;
+                            opt.textContent = `Key #${index}: ${masked} `;
                             keySelect.appendChild(opt);
                         }
                     });
@@ -12833,7 +12280,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 // 构建请求头
                 const headers = {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiPassword}`
+                    'Authorization': `Bearer ${apiPassword} `
                 };
                 // 如果选择了特定的 Key，添加到请求头
                 if (selectedKey) {
@@ -13152,7 +12599,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 // 构建请求头：包含 API 访问密码（Authorization）和可选的 API Key
                 const headers = {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiPassword}`  // API 访问密码
+                    'Authorization': `Bearer ${apiPassword} `  // API 访问密码
                 };
 
                 // 如果选择了特定的 API Key，添加到请求头
@@ -13220,7 +12667,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 const headersEl = document.getElementById('previewHeaders');
                 let headers = {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${authToken}`  // API 访问密码
+                    'Authorization': `Bearer ${authToken} `  // API 访问密码
                 };
 
                 // 如果用户编辑了请求头，使用编辑后的请求头
@@ -13366,7 +12813,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 const ctx = formatTokensShort(meta.context_length);
                 chip.className = 'badge model-chip';
                 // 使用与使用统计相同的样式
-                chip.style = `display:inline-flex; align-items:center; gap:4px; background:${colors.bg}; color:${colors.text}; padding:4px 10px; border-radius:12px; margin:2px; font-size:12px; border-left:4px solid ${colors.border}; transition: all 0.2s ease;`;
+                chip.style = `display:inline-flex; align-items:center; gap:4px; background:${colors.bg}; color:${colors.text}; padding:4px 10px; border-radius:12px; margin:2px; font-size:12px; border-left:4px solid ${colors.border}; transition:all 0.2s ease;`;
                 chip.innerHTML = `<span>${m}</span><span class="model-ctx" style="font-size:11px; color:${colors.text}; opacity:0.7;">${ctx}</span>`;
                 wrap.appendChild(chip);
             });
@@ -13447,7 +12894,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 if (res2.ok) {
                     showStatus(`已保存 ${data2.saved_count} 个模型`, 'success');
                 } else {
-                    showStatus(`保存失败: ${data2.detail || data2.error || '未知错误'}`, 'error');
+                    showStatus(`保存失败: ${data2.detail || data2.error || '未知错误'} `, 'error');
                 }
             } catch (e) {
                 showStatus('填充失败: ' + e.message, 'error');
@@ -13473,7 +12920,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     closeModelsModal();
                     showStatus(`已保存 ${data.saved_count} 个模型`, 'success');
                 } else {
-                    showStatus(`保存失败: ${data.detail || data.error || '未知错误'}`, 'error');
+                    showStatus(`保存失败: ${data.detail || data.error || '未知错误'} `, 'error');
                 }
             } catch (e) {
                 showStatus('保存失败: ' + e.message, 'error');
@@ -13645,7 +13092,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                             <button class="btn btn-sm" onclick="accountLogout('${safeEmail}')" style="background: #dc3545;">登出</button>
                         </div>
                     </div>
-                `;
+                    `;
             });
             html += '</div>';
             container.innerHTML = html;
@@ -13700,8 +13147,8 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 });
 
                 if (!res.ok) {
-                    const errorData = await res.json().catch(() => ({ detail: `HTTP ${res.status}: ${res.statusText}` }));
-                    showAccountStatus(errorData.detail || `切换账户失败: HTTP ${res.status}`, 'error');
+                    const errorData = await res.json().catch(() => ({ detail: `HTTP ${res.status}: ${res.statusText} ` }));
+                    showAccountStatus(errorData.detail || `切换账户失败: HTTP ${res.status} `, 'error');
                     return;
                 }
 
@@ -13741,7 +13188,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                         loadAccountRates(false, true)    // 优先使用缓存
                     ]).then(results => {
                         const elapsed = Date.now() - startTime;
-                        console.log(`All data loading completed in ${elapsed}ms`, results.map((r, i) => ({
+                        console.log(`All data loading completed in ${elapsed} ms`, results.map((r, i) => ({
                             index: i,
                             status: r.status,
                             reason: r.status === 'rejected' ? r.reason?.message : undefined
@@ -13808,7 +13255,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 // 更新 info 缓存和显示
                 if (data.info) {
                     const infoHtml = `
-                        <div style="display: grid; gap: 12px;">
+                    <div style="display: grid; gap: 12px;">
                             <div><strong>邮箱:</strong> ${data.info.email || '-'}</div>
                             <div><strong>账户 ID:</strong> ${data.info.id || '-'}</div>
                             <div><strong>类型:</strong> ${data.info.customer_type || '-'}</div>
@@ -13849,9 +13296,9 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     let apiKeysHtml = '';
                     if (data.api_keys.length > 0) {
                         apiKeysHtml = `
-                            <strong style="display: block; margin-bottom: 12px;">API Keys (${data.api_keys.length}):</strong>
-                            <div style="display: flex; flex-direction: column; gap: 10px;">
-                                ${data.api_keys.map((key, idx) => `
+                    <strong style="display: block; margin-bottom: 12px;">API Keys(${data.api_keys.length}):</strong>
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            ${data.api_keys.map((key, idx) => `
                                     <div style="background: var(--card-bg); padding: 12px; border-radius: 6px; border: 1px solid var(--border-color);">
                                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                                             <span style="font-weight: 500; color: var(--text-color);">${key.name || 'Unnamed Key'}</span>
@@ -13871,8 +13318,8 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                                         </div>
                                     </div>
                                 `).join('')}
-                            </div>
-                        `;
+                        </div>
+                `;
                     } else {
                         apiKeysHtml = '<div style="color: var(--text-secondary); font-style: italic;">未找到 API Keys</div>';
                     }
@@ -14003,7 +13450,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             }
 
             try {
-                const params = email ? `?account_email=${encodeURIComponent(email)}` : '';
+                const params = email ? `? account_email = ${encodeURIComponent(email)} ` : '';
                 await fetch('/api/account/logout' + params, { method: 'POST', headers: getAuthHeaders() });
 
                 // 如果登出的是当前账户，清空当前账户
@@ -14142,7 +13589,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             }
             el.innerHTML = getOverviewLoadingHTML();
             try {
-                const params = currentAccountEmail ? `?account_email=${encodeURIComponent(currentAccountEmail)}` : '';
+                const params = currentAccountEmail ? `? account_email = ${encodeURIComponent(currentAccountEmail)} ` : '';
                 const res = await fetch('/api/account/info' + params, { headers: getAuthHeaders() });
                 if (!res.ok) {
                     if (res.status === 401) {
@@ -14165,7 +13612,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                             <div class="loading-spinner" style="padding: 16px 0;"><div class="spinner"></div><div class="spinner-text">正在加载 API Keys...</div></div>
                         </div>
                     </div>
-                `;
+                    `;
                 accountCache.info = { ts: Date.now(), html };
                 el.innerHTML = html;
 
@@ -14217,7 +13664,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 let apiKeysHtml = '';
                 if (data.api_keys && data.api_keys.length > 0) {
                     apiKeysHtml = `
-                        <strong style="display: block; margin-bottom: 12px;">API Keys (${data.api_keys.length}):</strong>
+                    <strong style="display: block; margin-bottom: 12px;">API Keys(${data.api_keys.length}):</strong>
                         <div style="display: flex; flex-direction: column; gap: 10px;">
                             ${data.api_keys.map((key, idx) => `
                                 <div style="background: var(--card-bg); padding: 12px; border-radius: 6px; border: 1px solid var(--border-color);">
@@ -14240,7 +13687,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                                 </div>
                             `).join('')}
                         </div>
-                    `;
+                `;
                 } else {
                     apiKeysHtml = '<div style="color: var(--text-secondary); font-style: italic;">未找到 API Keys</div>';
                 }
@@ -14256,7 +13703,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
 
             } catch (e) {
                 const errorMsg = e.name === 'AbortError' ? '请求超时，请稍后重试' : e.message;
-                el.innerHTML = `<div class="status error">加载 API Keys 失败: ${errorMsg}<br><button class="btn btn-sm" onclick="loadAccountApiKeys(true)" style="margin-top: 8px;">重试</button></div>`;
+                el.innerHTML = `<div class="status error">加载 API Keys 失败: ${errorMsg} <br><button class="btn btn-sm" onclick="loadAccountApiKeys(true)" style="margin-top: 8px;">重试</button></div>`;
             }
         }
 
@@ -14352,11 +13799,11 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 if (startDate && endDate) {
                     // ending_before 需要是结束日期的第二天（exclusive）
                     const endingBefore = getNextDay(endDate);
-                    return `starting_on=${startDate}&ending_before=${endingBefore}`;
+                    return `starting_on = ${startDate}& ending_before=${endingBefore} `;
                 }
                 return 'window_size=month';
             }
-            return `window_size=${window_size}`;
+            return `window_size = ${window_size} `;
         }
 
         function getCostDateParams() {
@@ -14367,17 +13814,17 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 if (startDate && endDate) {
                     // ending_before 需要是结束日期的第二天（exclusive）
                     const endingBefore = getNextDay(endDate);
-                    return `starting_on=${startDate}&ending_before=${endingBefore}`;
+                    return `starting_on = ${startDate}& ending_before=${endingBefore} `;
                 }
                 return 'window_size=month';
             }
-            return `window_size=${window_size}`;
+            return `window_size = ${window_size} `;
         }
 
         // 生成使用量页面的加载动画HTML
         function getUsageLoadingHTML() {
             return `
-                <div class="skeleton-loader">
+                    <div class="skeleton-loader">
                     <div class="skeleton-card" style="text-align: center;">
                         <div class="skeleton-line short" style="margin: 0 auto 12px;"></div>
                         <div class="skeleton-big-number"></div>
@@ -14398,13 +13845,13 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                         <div class="spinner-text">正在加载使用量数据...</div>
                     </div>
                 </div>
-            `;
+                    `;
         }
 
         // 生成成本页面的加载动画HTML
         function getCostLoadingHTML() {
             return `
-                <div class="skeleton-loader">
+                    <div class="skeleton-loader">
                     <div class="skeleton-card" style="text-align: center;">
                         <div class="skeleton-line short" style="margin: 0 auto 8px;"></div>
                         <div class="skeleton-line short" style="margin: 0 auto 12px;"></div>
@@ -14423,13 +13870,13 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                         <div class="spinner-text">正在加载成本数据...</div>
                     </div>
                 </div>
-            `;
+                    `;
         }
 
         // 生成Cost Details详情区域的加载动画HTML
         function getCostDetailLoadingHTML() {
             return `
-                <div class="skeleton-loader" style="padding: 0;">
+                    <div class="skeleton-loader" style="padding: 0;">
                     <!-- 模拟图表区域 -->
                     <div class="skeleton-card" style="margin: 0; padding: 16px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
@@ -14457,13 +13904,13 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                         <div class="spinner-text">正在加载成本详情...</div>
                     </div>
                 </div>
-            `;
+                    `;
         }
 
         // 生成使用详情区域的加载动画HTML
         function getUsageDetailLoadingHTML() {
             return `
-                <div class="skeleton-loader" style="padding: 0;">
+                    <div class="skeleton-loader" style="padding: 0;">
                     <!-- 模拟图表区域 -->
                     <div class="skeleton-card" style="margin: 0; padding: 16px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
@@ -14503,13 +13950,13 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                         <div class="spinner-text">正在加载使用详情...</div>
                     </div>
                 </div>
-            `;
+                    `;
         }
 
         // 生成费率页面的加载动画HTML
         function getRatesLoadingHTML() {
             return `
-                <div class="skeleton-loader">
+                    <div class="skeleton-loader">
                     <div class="skeleton-card">
                         <div class="skeleton-line medium" style="margin-bottom: 16px;"></div>
                         <div class="skeleton-line long"></div>
@@ -14522,13 +13969,13 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                         <div class="spinner-text">正在加载费率信息...</div>
                     </div>
                 </div>
-            `;
+                    `;
         }
 
         // 生成概览页面的加载动画HTML
         function getOverviewLoadingHTML() {
             return `
-                <div class="skeleton-loader">
+                    <div class="skeleton-loader">
                     <div class="skeleton-card">
                         <div class="skeleton-line medium" style="margin-bottom: 12px;"></div>
                         <div class="skeleton-line long"></div>
@@ -14540,13 +13987,13 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                         <div class="spinner-text">正在加载账户信息...</div>
                     </div>
                 </div>
-            `;
+                    `;
         }
 
         // 生成余额页面的加载动画HTML
         function getBillingLoadingHTML() {
             return `
-                <div class="skeleton-loader">
+                    <div class="skeleton-loader">
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
                         <div class="skeleton-card" style="text-align: center;">
                             <div class="skeleton-line short" style="margin: 0 auto 12px;"></div>
@@ -14561,8 +14008,8 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                         <div class="spinner"></div>
                         <div class="spinner-text">正在加载余额信息...</div>
                     </div>
-                </div>
-            `;
+                </div >
+                    `;
         }
 
         async function loadAccountUsage(force = false, silent = false) {
@@ -15013,7 +14460,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 // 如果还是没有，尝试从 segments 构建（但没有模型名称）
                 if (models.length === 0 && data.segments && data.segments.length > 0) {
                     models = data.segments.map((seg, idx) => ({
-                        model: seg.name || seg.model || `Model ${idx + 1}`,
+                        model: seg.name || seg.model || `Model ${idx + 1} `,
                         tokens: seg.value || seg.tokens || 0,
                         color: seg.color
                     })).filter(m => m.tokens > 0);
@@ -16743,7 +16190,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 const params = buildCostFilterParams();
                 params.append('format', format);
                 params.append('account_email', currentAccountEmail);
-                const res = await fetch(`/api/account/export/cost?${params.toString()}`, { headers: getAuthHeaders() });
+                const res = await fetch(`/ api / account /export/cost?${params.toString()}`, { headers: getAuthHeaders() });
                 if (!res.ok) throw new Error('导出失败');
                 const data = await res.json();
                 const content = format === 'csv' ? data.data : JSON.stringify(data.data, null, 2);
