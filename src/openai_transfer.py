@@ -280,49 +280,87 @@ def assembly_response_to_openai(
 ) -> Dict[str, Any]:
     """
     将 AssemblyAI LLM Gateway 响应转换为 OpenAI 聊天完成格式
+    
+    适配 AssemblyAI 的特殊格式：
+    1. tool_calls 可能分散在多个 choices 中，需要合并
+    2. tool_call.id 可能为空，需要生成
+    3. arguments 可能是对象而非字符串，需要转换
+    4. finish_reason 可能是 "tool_use" 而非 "tool_calls"
     """
-    # choices
-    choices = []
+    import json
+    
     _choices_raw = assembly_response.get("choices")
     if not isinstance(_choices_raw, list):
         _choices_raw = []
-    for idx, choice in enumerate(_choices_raw):
+    
+    # 收集所有内容和工具调用
+    all_content_parts = []
+    all_tool_calls = []
+    final_finish_reason = "stop"
+    
+    for choice in _choices_raw:
         msg = choice.get("message", {})
-        role = msg.get("role", "assistant")
         content = msg.get("content")
         
-        # 处理 content 为 None 的情况
-        if content is None:
-            content = ""
-        elif isinstance(content, list):
-            parts_text = []
-            for part in content:
-                if isinstance(part, dict):
-                    t = part.get("type")
-                    if t in ("text", "output_text") and part.get("text"):
-                        parts_text.append(part["text"])
-            content = "".join(parts_text) if parts_text else ""
-        elif not isinstance(content, str):
-            content = str(content)
-            
-        message = {"role": role, "content": content}
-        # 透传工具调用（若存在）
+        # 收集内容
+        if content:
+            if isinstance(content, str) and content.strip():
+                all_content_parts.append(content)
+            elif isinstance(content, list):
+                for part in content:
+                    if isinstance(part, dict):
+                        t = part.get("type")
+                        if t in ("text", "output_text") and part.get("text"):
+                            all_content_parts.append(part["text"])
+        
+        # 收集工具调用
         tool_calls = msg.get("tool_calls") or []
-        if tool_calls:
-            message["tool_calls"] = tool_calls
-        # 兼容旧式函数调用字段
-        function_call = msg.get("function_call")
-        if function_call:
-            message["function_call"] = function_call
+        for tc in tool_calls:
+            # 修复 tool_call 格式
+            fixed_tc = {
+                "id": tc.get("id") or f"call_{uuid.uuid4().hex[:24]}",  # 生成缺失的 id
+                "type": tc.get("type", "function"),
+                "function": {}
+            }
+            
+            func = tc.get("function", {})
+            fixed_tc["function"]["name"] = func.get("name", "")
+            
+            # 将 arguments 对象转换为 JSON 字符串
+            args = func.get("arguments", {})
+            if isinstance(args, dict):
+                fixed_tc["function"]["arguments"] = json.dumps(args, ensure_ascii=False)
+            elif isinstance(args, str):
+                fixed_tc["function"]["arguments"] = args
+            else:
+                fixed_tc["function"]["arguments"] = json.dumps(args, ensure_ascii=False) if args else "{}"
+            
+            all_tool_calls.append(fixed_tc)
         
-        # 获取 finish_reason，默认为 stop
-        finish_reason = choice.get("finish_reason", "stop")
-        
-        choices.append({
-            "index": idx,
-            "message": message,
-            "finish_reason": finish_reason
-        })
+        # 获取 finish_reason
+        fr = choice.get("finish_reason", "")
+        if fr in ("tool_use", "tool_calls"):
+            final_finish_reason = "tool_calls"  # 标准化为 OpenAI 格式
+        elif fr == "stop" and final_finish_reason != "tool_calls":
+            final_finish_reason = "stop"
+    
+    # 合并内容
+    combined_content = " ".join(all_content_parts) if all_content_parts else ""
+    
+    # 构建单一的 OpenAI 格式 choice
+    message = {"role": "assistant", "content": combined_content if combined_content else None}
+    
+    if all_tool_calls:
+        message["tool_calls"] = all_tool_calls
+        # 如果有工具调用但没有内容，content 应该为 null
+        if not combined_content:
+            message["content"] = None
+    
+    choices = [{
+        "index": 0,
+        "message": message,
+        "finish_reason": final_finish_reason
+    }]
 
     # usage - 兼容多种格式
     usage_raw = assembly_response.get("usage", {})

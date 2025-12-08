@@ -413,22 +413,52 @@ async def fake_stream_response_for_assembly(openai_request: ChatCompletionReques
                     yield b"data: [DONE]\n\n"
                     return
 
-                # 从响应中提取内容和工具调用
-                content = ""
-                reasoning_content = ""
-                tool_calls = None
+                # 从响应中提取内容和工具调用（适配 AssemblyAI 的多 choices 格式）
+                all_content_parts = []
+                all_tool_calls = []
+                has_tool_use = False
                 
                 if "choices" in response_data and response_data["choices"]:
-                    message = response_data["choices"][0].get("message", {})
-                    content = message.get("content") or ""  # 处理 None 的情况
-                    tool_calls = message.get("tool_calls")
+                    for choice in response_data["choices"]:
+                        msg = choice.get("message", {})
+                        content = msg.get("content")
+                        if content and isinstance(content, str) and content.strip():
+                            all_content_parts.append(content)
+                        
+                        # 收集并修复工具调用
+                        raw_tool_calls = msg.get("tool_calls") or []
+                        for tc in raw_tool_calls:
+                            fixed_tc = {
+                                "id": tc.get("id") or f"call_{uuid.uuid4().hex[:24]}",
+                                "type": tc.get("type", "function"),
+                                "function": {}
+                            }
+                            func = tc.get("function", {})
+                            fixed_tc["function"]["name"] = func.get("name", "")
+                            args = func.get("arguments", {})
+                            if isinstance(args, dict):
+                                fixed_tc["function"]["arguments"] = json.dumps(args, ensure_ascii=False)
+                            elif isinstance(args, str):
+                                fixed_tc["function"]["arguments"] = args
+                            else:
+                                fixed_tc["function"]["arguments"] = "{}"
+                            all_tool_calls.append(fixed_tc)
+                        
+                        # 检查 finish_reason
+                        fr = choice.get("finish_reason", "")
+                        if fr in ("tool_use", "tool_calls"):
+                            has_tool_use = True
+                
+                content = " ".join(all_content_parts) if all_content_parts else ""
+                tool_calls = all_tool_calls if all_tool_calls else None
+                reasoning_content = ""
   
                 # 如果没有正常内容但有思维内容，给出警告
                 if not content and reasoning_content:
                     log.warning("Fake stream response contains only thinking content")
                     content = "[模型正在思考中，请稍后再试或重新提问]"
                 
-                log.debug(f"Extracted content length: {len(content)}, tool_calls: {bool(tool_calls)}")
+                log.info(f"[TOOL_DEBUG] Extracted content length: {len(content)}, tool_calls count: {len(all_tool_calls)}")
                 
                 # 如果有内容或工具调用，都需要返回
                 if content or tool_calls:
@@ -445,18 +475,7 @@ async def fake_stream_response_for_assembly(openai_request: ChatCompletionReques
                     
                     # 添加 tool_calls（如果有）
                     if tool_calls:
-                        # 确保 arguments 是 JSON 字符串格式（OpenAI API 要求）
-                        formatted_tool_calls = []
-                        for tool_call in tool_calls:
-                            formatted_call = tool_call.copy()
-                            if "function" in formatted_call:
-                                function = formatted_call["function"].copy()
-                                # 如果 arguments 是对象，转换为 JSON 字符串
-                                if "arguments" in function and isinstance(function["arguments"], dict):
-                                    function["arguments"] = json.dumps(function["arguments"], ensure_ascii=False)
-                                formatted_call["function"] = function
-                            formatted_tool_calls.append(formatted_call)
-                        delta["tool_calls"] = formatted_tool_calls
+                        delta["tool_calls"] = tool_calls
 
                     # 转换usageMetadata为OpenAI格式（兼容多种格式）
                     usage_raw = response_data.get("usage") or {}
@@ -468,16 +487,19 @@ async def fake_stream_response_for_assembly(openai_request: ChatCompletionReques
                         "total_tokens": usage_raw.get("total_tokens", prompt_tokens + completion_tokens)
                     } if usage_raw else None
 
+                    # 确定 finish_reason
+                    finish_reason = "tool_calls" if has_tool_use else "stop"
+
                     # 构建完整的OpenAI格式的流式响应块
                     content_chunk = {
                         "id": str(uuid.uuid4()),
                         "object": "chat.completion.chunk",
                         "created": int(time.time()),
-                        "model": "amb2api-streaming",
+                        "model": openai_request.model,
                         "choices": [{
                             "index": 0,
                             "delta": delta,
-                            "finish_reason": "stop"
+                            "finish_reason": finish_reason
                         }]
                     }
 

@@ -611,10 +611,9 @@ async def send_assembly_request(
                 # INFO 级别：简要日志
                 log.info(f"REQ model={openai_request.model} key={_mask_key(api_key)} attempt={attempt+1}/{max_retries+1} key_idx={idx}")
                 
-                # DEBUG 级别：详细请求信息
-                log.debug(f"REQ Details - Endpoint: {endpoint}")
-                log.debug(f"REQ Details - Headers: {{'Authorization': '{_mask_key(api_key)}', 'Content-Type': 'application/json'}}")
-                log.debug(f"REQ Details - Payload: {post_data[:500]}{'...' if len(post_data) > 500 else ''}")
+                # [TOOL_DEBUG] 完整请求信息 - 用于调试工具调用
+                log.info(f"[TOOL_DEBUG] REQ Endpoint: {endpoint}")
+                log.info(f"[TOOL_DEBUG] REQ Full Payload:\n{post_data}")
                 
                 resp = await client.post(endpoint, content=post_data, headers=headers)
                 
@@ -703,14 +702,14 @@ async def send_assembly_request(
                 # INFO 级别：简要响应
                 log.info(f"RES model={openai_request.model} key={_mask_key(api_key)} status={status_cat}")
                 
-                # DEBUG 级别：详细响应信息
-                log.debug(f"RES Details - Status Code: {resp.status_code}")
-                log.debug(f"RES Details - Headers: {dict(resp.headers)}")
+                # [TOOL_DEBUG] 完整响应信息 - 用于调试工具调用
+                log.info(f"[TOOL_DEBUG] RES Status Code: {resp.status_code}")
+                log.info(f"[TOOL_DEBUG] RES Headers: {dict(resp.headers)}")
                 try:
                     response_text = resp.text if hasattr(resp, 'text') else str(resp.content)
-                    log.debug(f"RES Details - Body: {response_text[:1000]}{'...' if len(response_text) > 1000 else ''}")
+                    log.info(f"[TOOL_DEBUG] RES Full Body:\n{response_text}")
                 except Exception as e:
-                    log.debug(f"RES Details - Body: [Unable to decode: {e}]")
+                    log.info(f"[TOOL_DEBUG] RES Body: [Unable to decode: {e}]")
                 
                 # 记录调用统计（使用统一统计模块）
                 if 200 <= resp.status_code < 400:
