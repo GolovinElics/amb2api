@@ -4421,14 +4421,40 @@
         .donut-legend-name {
             flex: 1;
             overflow: hidden;
-            text-overflow: ellipsis;
+            min-width: 0;
+            position: relative;
+        }
+
+        /* 内部滚动的文字 */
+        .donut-legend-name-inner {
+            display: inline-block;
             white-space: nowrap;
-            max-width: 150px;
+        }
+
+        /* 长名称自动滚动 */
+        .donut-legend-name-inner:not(.no-scroll) {
+            animation: auto-scroll-name 5s linear infinite;
+            animation-delay: 1s;
         }
 
         .donut-legend-count {
             font-weight: 600;
             color: var(--text-color);
+            flex-shrink: 0;
+        }
+
+        /* 自动滚动动画 */
+        @keyframes auto-scroll-name {
+
+            0%,
+            20% {
+                transform: translateX(0);
+            }
+
+            80%,
+            100% {
+                transform: translateX(calc(-100% + 80px));
+            }
         }
 
         .donut-legend-pager {
@@ -4462,17 +4488,128 @@
             background: white;
             border: 1px solid #e0e0e0;
             border-radius: 8px;
-            padding: 10px 14px;
+            padding: 8px 12px;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
             z-index: 10000;
             pointer-events: none;
             white-space: nowrap;
+            font-size: 12px;
         }
 
         [data-theme="dark"] .donut-tooltip {
             background: #2d2d2d;
             border-color: #444;
         }
+
+        /* 模型分布图移动端响应式样式 */
+        @media (max-width: 768px) {
+            .ranking-header {
+                flex-direction: column;
+                gap: 8px;
+                align-items: flex-start;
+            }
+
+            .ranking-title {
+                white-space: nowrap;
+            }
+
+            #distributionChart {
+                flex-direction: column !important;
+                align-items: center !important;
+                gap: 16px !important;
+            }
+
+            #distributionChart>div:first-child {
+                min-width: auto !important;
+                width: 100% !important;
+                overflow: visible;
+                display: flex;
+                justify-content: center;
+                padding: 10px 0;
+            }
+
+            /* JS现在会动态调整移动端尺寸，无需CSS强制宽度 */
+            #distributionChart svg {
+                max-width: 100%;
+            }
+
+            #distributionLegendContainer {
+                width: 100% !important;
+                height: auto !important;
+                max-height: none;
+            }
+
+            .donut-legend {
+                flex-direction: row !important;
+                flex-wrap: wrap;
+                gap: 6px !important;
+                max-height: none;
+                padding-right: 0;
+                justify-content: center;
+            }
+
+            .donut-legend-item {
+                flex: 0 0 auto;
+                width: calc(50% - 6px);
+                font-size: 11px;
+                padding: 5px 8px;
+                background: var(--card-bg);
+                border: 1px solid var(--border-color);
+                border-radius: 6px;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+
+            .donut-legend-dot {
+                flex-shrink: 0;
+                width: 10px;
+                height: 10px;
+                border-radius: 50%;
+            }
+
+            /* 名称容器 - 固定宽度，内部滚动 */
+            .donut-legend-name {
+                flex: 1;
+                min-width: 0;
+                overflow: hidden;
+                position: relative;
+            }
+
+            /* 内部滚动的文字 */
+            .donut-legend-name-inner {
+                display: inline-block;
+                white-space: nowrap;
+                animation: auto-scroll-name 5s linear infinite;
+                animation-delay: 1s;
+            }
+
+            /* 短名称不需要滚动 */
+            .donut-legend-name-inner.no-scroll {
+                animation: none;
+            }
+
+            .donut-legend-count {
+                flex-shrink: 0;
+                font-weight: 600;
+                margin-left: 4px;
+            }
+
+            /* 确保tooltip不被遮挡 */
+            .donut-tooltip {
+                z-index: 99999 !important;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .donut-legend-item {
+                width: calc(50% - 4px);
+                font-size: 10px;
+                padding: 4px 6px;
+            }
+        }
+
+
 
         .ranking-bar-fail {
             position: absolute;
@@ -11376,17 +11513,20 @@
                 return;
             }
 
-            // 环形图参数 - 扩大画布以容纳标签
-            const width = 640;
-            const height = 320;
+            // 检测移动端
+            const isMobile = window.innerWidth <= 768;
+
+            // 环形图参数 - 移动端使用紧凑布局
+            const width = isMobile ? 320 : 640;
+            const height = isMobile ? 220 : 320;
             const cx = width / 2;
             const cy = height / 2;
-            const outerRadius = 90; // 稍微减小半径
-            const innerRadius = 55;
-            const gapAngle = 0.02; // 块间隙角度（弧度）
+            const outerRadius = isMobile ? 70 : 90;
+            const innerRadius = isMobile ? 42 : 55;
+            const gapAngle = 0.05; // 增大间隔角度
 
             // 计算每个块的角度
-            let currentAngle = -Math.PI / 2; // 从顶部开始
+            let currentAngle = -Math.PI / 2;
             const segments = entries.map((e, idx) => {
                 const angleSize = (e.count / total) * 2 * Math.PI - gapAngle;
                 const startAngle = currentAngle;
@@ -11402,8 +11542,19 @@
                 };
             });
 
-            // 生成圆弧路径（带圆角）
+            // 生成圆弧路径 - 带圆角端点
             function arcPath(startAngle, endAngle, outerR, innerR) {
+                // 使用更复杂的路径来实现圆角
+                const midR = (outerR + innerR) / 2;
+                const thickness = outerR - innerR;
+                const cornerR = thickness / 2;
+
+                // 计算圆角端点的位置
+                const startMidX = cx + midR * Math.cos(startAngle);
+                const startMidY = cy + midR * Math.sin(startAngle);
+                const endMidX = cx + midR * Math.cos(endAngle);
+                const endMidY = cy + midR * Math.sin(endAngle);
+
                 const x1 = cx + outerR * Math.cos(startAngle);
                 const y1 = cy + outerR * Math.sin(startAngle);
                 const x2 = cx + outerR * Math.cos(endAngle);
@@ -11413,6 +11564,8 @@
                 const x4 = cx + innerR * Math.cos(startAngle);
                 const y4 = cy + innerR * Math.sin(startAngle);
                 const largeArc = endAngle - startAngle > Math.PI ? 1 : 0;
+
+                // 使用简单路径，通过filter实现圆角
                 return `M ${x1} ${y1} A ${outerR} ${outerR} 0 ${largeArc} 1 ${x2} ${y2} L ${x3} ${y3} A ${innerR} ${innerR} 0 ${largeArc} 0 ${x4} ${y4} Z`;
             }
 
@@ -11426,90 +11579,162 @@
                 style="cursor:pointer; transition: transform 0.2s, filter 0.2s;" />`;
             });
 
-            // 生成标签连线 - 左右分布
-            // 生成标签连线 - 优化防重叠算法
+            // 生成标签 - 移动端使用径向分布，桌面端使用左右分布
             let labelsHtml = '';
-            const labelRadius = outerRadius + 20; // 拐点半径
-            const textRadius = outerRadius + 40;  // 文字基准半径
-            const minLabelSpacing = 14;           // 最小垂直间距(font-size 10 + padding)
 
-            // 1. 预计算所有标签的理想位置
-            const allLabels = segments.map((seg, idx) => {
-                const midAngle = seg.midAngle;
-                const isRight = Math.cos(midAngle) >= 0;
-                // 理想Y坐标
-                const idealY = cy + labelRadius * Math.sin(midAngle);
-                return {
-                    idx,
-                    seg,
-                    midAngle,
-                    isRight,
-                    y: idealY,
-                    originalY: idealY
-                };
-            });
+            if (isMobile) {
+                // 移动端：径向分布标签，均匀围绕在环形图四周
+                // 只显示前5个主要模型的标签，避免拥挤
+                const topSegments = segments.slice(0, 5);
+                const labelRadius = outerRadius + 20;  // 增加距离
 
-            // 2. 分组并应用松弛算法
-            const relaxLabels = (labels) => {
-                if (labels.length <= 1) return;
-                // 按Y坐标排序
-                labels.sort((a, b) => a.y - b.y);
+                topSegments.forEach((seg, idx) => {
+                    const midAngle = seg.midAngle;
 
-                // 迭代多次以解决冲突
-                const iterations = 5;
-                for (let iter = 0; iter < iterations; iter++) {
-                    let changed = false;
-                    for (let i = 0; i < labels.length - 1; i++) {
-                        const top = labels[i];
-                        const bottom = labels[i + 1];
-                        const dist = bottom.y - top.y;
+                    // 标签位置 - 沿着中角方向向外延伸
+                    const labelX = cx + labelRadius * Math.cos(midAngle);
+                    const labelY = cy + labelRadius * Math.sin(midAngle);
 
-                        if (dist < minLabelSpacing) {
-                            const overlap = minLabelSpacing - dist;
-                            // 互相推开
-                            top.y -= overlap / 2;
-                            bottom.y += overlap / 2;
-                            changed = true;
-                        }
+                    // 根据角度决定文字对齐方式和滚动方向
+                    const isRight = Math.cos(midAngle) > 0.3;
+                    const isLeft = Math.cos(midAngle) < -0.3;
+                    let textAnchor = 'middle';
+                    let offsetX = 0;
+
+                    if (isRight) {
+                        textAnchor = 'start';
+                        offsetX = 5;
+                    } else if (isLeft) {
+                        textAnchor = 'end';
+                        offsetX = -5;
                     }
-                    if (!changed) break;
-                }
-            };
 
-            const rightLabels = allLabels.filter(l => l.isRight);
-            const leftLabels = allLabels.filter(l => !l.isRight);
+                    // 检测是否需要滚动
+                    const needsScroll = seg.name.length > 12;
+                    const displayName = needsScroll ? seg.name : seg.name;
 
-            relaxLabels(rightLabels);
-            relaxLabels(leftLabels);
+                    // 使用段落颜色，更大字体
+                    if (needsScroll) {
+                        // 长名称使用 SVG animate 滚动
+                        const scrollDistance = isLeft ? 60 : -60;  // 滚动距离
+                        labelsHtml += `
+                            <text x="${labelX + offsetX}" y="${labelY + 4}" 
+                                text-anchor="${textAnchor}" 
+                                fill="${seg.color}" 
+                                font-size="11" 
+                                font-weight="600"
+                                class="donut-label donut-label-scroll" 
+                                data-idx="${idx}">
+                                ${displayName}
+                                <animate attributeName="x" 
+                                    values="${labelX + offsetX};${labelX + offsetX + scrollDistance};${labelX + offsetX}" 
+                                    dur="4s" 
+                                    repeatCount="indefinite" 
+                                    calcMode="spline"
+                                    keySplines="0.4 0 0.6 1; 0.4 0 0.6 1" />
+                            </text>
+                        `;
+                    } else {
+                        // 短名称不滚动
+                        labelsHtml += `
+                            <text x="${labelX + offsetX}" y="${labelY + 4}" 
+                                text-anchor="${textAnchor}" 
+                                fill="${seg.color}" 
+                                font-size="11" 
+                                font-weight="600"
+                                class="donut-label" 
+                                data-idx="${idx}">${displayName}</text>
+                        `;
+                    }
+                });
+            } else {
+                // 桌面端：显示外延标签 - 更大字体和更多间距
+                const labelRadius = outerRadius + 20;  // 折线第一段距离
+                const textRadius = outerRadius + 30;   // 折线第二段水平距离（缩短）
+                const minLabelSpacing = 22;            // 增加最小间距
 
-            // 3. 生成HTML
-            [...rightLabels, ...leftLabels].forEach(label => {
-                const { seg, midAngle, isRight, y: finalY, idx } = label;
+                const allLabels = segments.map((seg, idx) => {
+                    const midAngle = seg.midAngle;
+                    const isRight = Math.cos(midAngle) >= 0;
+                    const idealY = cy + labelRadius * Math.sin(midAngle);
+                    return {
+                        idx,
+                        seg,
+                        midAngle,
+                        isRight,
+                        y: idealY,
+                        originalY: idealY
+                    };
+                });
 
-                // 连线起点（圆弧边缘）
-                const x1 = cx + (outerRadius + 5) * Math.cos(midAngle);
-                const y1 = cy + (outerRadius + 5) * Math.sin(midAngle);
+                const relaxLabels = (labels) => {
+                    if (labels.length <= 1) return;
+                    labels.sort((a, b) => a.y - b.y);
+                    const iterations = 10;  // 更多迭代次数
+                    for (let iter = 0; iter < iterations; iter++) {
+                        let changed = false;
+                        for (let i = 0; i < labels.length - 1; i++) {
+                            const top = labels[i];
+                            const bottom = labels[i + 1];
+                            const dist = bottom.y - top.y;
+                            if (dist < minLabelSpacing) {
+                                const overlap = minLabelSpacing - dist;
+                                top.y -= overlap / 2;
+                                bottom.y += overlap / 2;
+                                changed = true;
+                            }
+                        }
+                        if (!changed) break;
+                    }
+                };
 
-                // 连线拐点
-                // X坐标跟随原始角度，Y坐标使用调整后的位置
-                const x2 = cx + labelRadius * Math.cos(midAngle);
-                const y2 = finalY;
+                const rightLabels = allLabels.filter(l => l.isRight);
+                const leftLabels = allLabels.filter(l => !l.isRight);
 
-                // 连线终点（文字位置）
-                const x3 = isRight ? cx + textRadius + 40 : cx - textRadius - 40;
-                const y3 = finalY;
+                relaxLabels(rightLabels);
+                relaxLabels(leftLabels);
 
-                // 文字位置
-                const textX = isRight ? x3 + 5 : x3 - 5;
-                const textAnchor = isRight ? 'start' : 'end';
+                [...rightLabels, ...leftLabels].forEach(label => {
+                    const { seg, midAngle, isRight, y: finalY, idx } = label;
+                    const x1 = cx + (outerRadius + 5) * Math.cos(midAngle);
+                    const y1 = cy + (outerRadius + 5) * Math.sin(midAngle);
+                    const x2 = cx + labelRadius * Math.cos(midAngle);
+                    const y2 = finalY;
+                    // 缩短水平延伸距离，避免超出边界
+                    const x3 = isRight ? cx + textRadius + 20 : cx - textRadius - 20;
+                    const y3 = finalY;
+                    const textX = isRight ? x3 + 5 : x3 - 5;
+                    const textAnchor = isRight ? 'start' : 'end';
 
-                labelsHtml += `
-                    <polyline points="${x1},${y1} ${x2},${y2} ${x3},${y3}" fill="none" stroke="${seg.color}" stroke-width="1.5" opacity="0.6" />
-                        <text x="${textX}" y="${y3 + 4}" text-anchor="${textAnchor}" fill="var(--text-secondary)" font-size="10" class="donut-label" data-idx="${idx}">${seg.name}</text>
+                    labelsHtml += `
+                        <polyline points="${x1},${y1} ${x2},${y2} ${x3},${y3}" fill="none" stroke="${seg.color}" stroke-width="1.5" opacity="0.8" />
+                        <text x="${textX}" y="${y3 + 5}" 
+                            text-anchor="${textAnchor}" 
+                            fill="${seg.color}" 
+                            font-size="13" 
+                            font-weight="500"
+                            class="donut-label" 
+                            data-idx="${idx}">${seg.name}</text>
+                    `;
+                });
+            }
+
+            // 移动端和桌面端共用的布局，区别在于尺寸和标签
+            if (isMobile) {
+                container.innerHTML = `
+                    <div style="width:100%; display:flex; justify-content:center;">
+                        <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+                            <g id="donutArcs">${arcsHtml}</g>
+                            <g id="donutLabels">${labelsHtml}</g>
+                            <circle cx="${cx}" cy="${cy}" r="${innerRadius - 5}" fill="var(--card-bg)" />
+                            <text x="${cx}" y="${cy - 5}" text-anchor="middle" fill="var(--text-color)" font-size="18" font-weight="600">${total}</text>
+                            <text x="${cx}" y="${cy + 12}" text-anchor="middle" fill="var(--text-secondary)" font-size="10">总计</text>
+                        </svg>
+                    </div>
+                    <div id="distributionLegendContainer" style="width:100%; display:flex; flex-direction:column;"></div>
                 `;
-            });
-
-            container.innerHTML = `
+            } else {
+                container.innerHTML = `
                     <div style="flex:1; min-width:400px; display:flex; justify-content:center;">
                         <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
                             <g id="donutArcs">${arcsHtml}</g>
@@ -11521,8 +11746,9 @@
                     </div>
                     <div id="distributionLegendContainer" style="width: 200px; display: flex; flex-direction: column; justify-content: center; height: ${height}px;"></div>
                 `;
+            }
 
-            // 渲染图例
+            // 渲染图例 (for both mobile and desktop)
             renderDistributionLegend(entries);
 
             // 悬浮效果
@@ -11550,9 +11776,9 @@
                         tooltip.style.position = 'fixed';
                         document.body.appendChild(tooltip);
                     }
-                    tooltip.innerHTML = `<div style="font-weight:600;margin-bottom:4px;">${name}</div>
-                    <div style="display:flex;align-items:center;gap:6px;">
-                        <span style="width:10px;height:10px;border-radius:50%;background:${color};"></span>
+                    tooltip.innerHTML = `<div style="font-weight:500;font-size:13px;margin-bottom:3px;">${name}</div>
+                    <div style="display:flex;align-items:center;gap:5px;font-size:12px;">
+                        <span style="width:8px;height:8px;border-radius:50%;background:${color};"></span>
                         <span>${count} (${percent}%)</span>
                     </div>`;
                     tooltip.style.left = (e.clientX + 15) + 'px';
@@ -11569,6 +11795,7 @@
             const container = document.getElementById('distributionLegendContainer');
             if (!container) return;
 
+            const isMobile = window.innerWidth <= 768;
             const legendPageSize = 7;
             const legendTotalPages = Math.ceil(entries.length / legendPageSize);
             // Ensure current page is valid
@@ -11580,10 +11807,18 @@
             let legendHtml = '<div class="donut-legend" style="flex:1; display:flex; flex-direction:column; justify-content:center;">';
             legendEntries.forEach((e, idx) => {
                 const color = DONUT_COLORS[(legendStart + idx) % DONUT_COLORS.length];
+                // 长名称需要滚动（移动端>15字符，桌面端>20字符）
+                const nameLength = e.name.length;
+                const scrollThreshold = isMobile ? 15 : 20;
+                const needsScroll = nameLength > scrollThreshold;
+                const scrollClass = needsScroll ? '' : 'no-scroll';
+
                 legendHtml += `<div class="donut-legend-item" data-idx="${legendStart + idx}" style="margin: 4px 0;">
                     <span class="donut-legend-dot" style="background:${color};"></span>
-                    <span class="donut-legend-name" title="${e.name}" style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${e.name}</span>
-                    <span class="donut-legend-count" style="font-weight:600;">${e.count}</span>
+                    <span class="donut-legend-name" title="${e.name}">
+                        <span class="donut-legend-name-inner ${scrollClass}">${e.name}</span>
+                    </span>
+                    <span class="donut-legend-count">${e.count}</span>
                 </div>`;
             });
             legendHtml += '</div>';
