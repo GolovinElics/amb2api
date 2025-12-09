@@ -495,6 +495,7 @@ async def send_assembly_request(
     # 检测模型类型
     model_lower = openai_request.model.lower()
     is_claude = "claude" in model_lower
+    is_gemini = "gemini" in model_lower
     # Claude 4.5 系列模型对参数更严格
     is_claude_45 = is_claude and ("4-5" in model_lower or "4.5" in model_lower or "45" in model_lower)
     
@@ -525,6 +526,16 @@ async def send_assembly_request(
             payload["temperature"] = temp
             # 如果设置了 temperature，不传递 top_p
         elif top_p is not None:
+            payload["top_p"] = top_p
+    elif is_gemini:
+        # Gemini 模型特殊处理：
+        # temperature=1.0 可能导致某些模型返回空响应，降低到 0.7
+        if temp is not None:
+            if temp >= 1.0:
+                log.info(f"[GEMINI] Adjusting temperature from {temp} to 0.7 for better compatibility")
+                temp = 0.7
+            payload["temperature"] = temp
+        if top_p is not None:
             payload["top_p"] = top_p
     else:
         # 其他模型：正常传递

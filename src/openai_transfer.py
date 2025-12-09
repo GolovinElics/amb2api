@@ -328,6 +328,21 @@ def assembly_response_to_openai(
             
             # 将 arguments 对象转换为 JSON 字符串
             args = func.get("arguments", {})
+            
+            # [修复] 参数名映射: 模型生成的 XML 可能使用错误的参数名
+            # 例如 read_file: file_path -> path
+            if fixed_tc["function"]["name"] == "read_file":
+                if isinstance(args, dict) and "file_path" in args:
+                    args["path"] = args.pop("file_path")
+                elif isinstance(args, str):
+                    try:
+                        args_dict = json.loads(args)
+                        if "file_path" in args_dict:
+                            args_dict["path"] = args_dict.pop("file_path")
+                            args = args_dict
+                    except json.JSONDecodeError:
+                        pass
+
             if isinstance(args, dict):
                 fixed_tc["function"]["arguments"] = json.dumps(args, ensure_ascii=False)
             elif isinstance(args, str):
