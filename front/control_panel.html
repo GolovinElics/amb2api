@@ -9564,7 +9564,6 @@
 
         async function saveConfig() {
             const payload = {
-                use_assembly: true, // 始终为 true，项目基于 AssemblyAI 开发
                 override_env: document.getElementById('overrideEnv').checked,
                 api_password: document.getElementById('configApiPassword').value.trim(),
                 panel_password: document.getElementById('configPanelPassword').value.trim(),
@@ -9770,7 +9769,6 @@
                     proxy: '代理',
                     assembly_api_keys: '密钥列表',
                     assembly_api_key: 'API密钥',
-                    use_assembly: '启用上游',
                     override_env: '面板优先',
                     calls_per_rotation: '轮换次数',
                     retry_429_enabled: '429重试',

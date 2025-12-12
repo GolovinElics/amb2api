@@ -14,7 +14,6 @@ from config import (
     get_panel_password,
     get_assembly_api_key,
     get_assembly_api_keys,
-    get_use_assembly,
     get_server_port,
     get_server_host,
 )
@@ -60,7 +59,7 @@ async def get_config(token: str = Depends(authenticate)):
     # 读取关键配置
     cfg["assembly_api_key"] = await get_assembly_api_key()
     cfg["assembly_api_keys"] = await get_assembly_api_keys()
-    cfg["use_assembly"] = await get_use_assembly()
+
     # 密码
     cfg["api_password"] = await get_api_password()
     cfg["panel_password"] = await get_panel_password()
@@ -85,7 +84,7 @@ async def get_config(token: str = Depends(authenticate)):
     except Exception:
         cfg["override_env"] = False
     env_locked = [k for k in [
-        "USE_ASSEMBLY","API_PASSWORD","PANEL_PASSWORD","PORT","HOST",
+        "API_PASSWORD","PANEL_PASSWORD","PORT","HOST",
         "CALLS_PER_ROTATION","RETRY_429_ENABLED","RETRY_429_MAX_RETRIES","RETRY_429_INTERVAL","AUTO_BAN","AUTO_BAN_ERROR_CODES"
     ] if os.getenv(k)]
     return JSONResponse(content={"config": cfg, "env_locked": env_locked})
@@ -134,8 +133,7 @@ async def save_config(payload: Dict[str, Any], token: str = Depends(authenticate
         updates["assembly_api_keys"] = items
     if payload.get("assembly_api_key") is not None:
         updates["assembly_api_key"] = payload.get("assembly_api_key")
-    if payload.get("use_assembly") is not None:
-        updates["use_assembly"] = bool(payload.get("use_assembly"))
+
     if payload.get("api_password") is not None:
         updates["api_password"] = payload.get("api_password")
     if payload.get("panel_password") is not None:
