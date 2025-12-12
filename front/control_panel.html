@@ -12103,7 +12103,7 @@
             document.getElementById('playgroundTemperatureValue').value = value;
             const slider = document.getElementById('playgroundTemperature');
             const percent = (value / 2) * 100;
-            slider.style.background = `linear - gradient(to right, #4285f4 0 %, #4285f4 ${percent} %, #e0e0e0 ${percent} %, #e0e0e0 100 %)`;
+            slider.style.background = `linear-gradient(to right, #4285f4 0%, #4285f4 ${percent}%, #e0e0e0 ${percent}%, #e0e0e0 100%)`;
             // 实时更新预览
             updateRequestPreview();
         }
@@ -12119,7 +12119,7 @@
             const slider = document.getElementById('playgroundMaxTokens');
             const max = parseInt(slider.max);
             const percent = (value / max) * 100;
-            slider.style.background = `linear - gradient(to right, #4285f4 0 %, #4285f4 ${percent} %, #e0e0e0 ${percent} %, #e0e0e0 100 %)`;
+            slider.style.background = `linear-gradient(to right, #4285f4 0%, #4285f4 ${percent}%, #e0e0e0 ${percent}%, #e0e0e0 100%)`;
             // 实时更新预览
             updateRequestPreview();
         }
@@ -14329,11 +14329,12 @@
                 el.innerHTML = getUsageLoadingHTML();
             }
             try {
-                // 强制刷新时添加force参数和时间戳防止缓存
-                const timestamp = Date.now();
+                // 构建请求参数，只有 force=true 时才强制刷新
                 const params = new URLSearchParams();
-                params.append('force', '1');
-                params.append('_t', timestamp);
+                if (force) {
+                    params.append('force', '1');
+                    params.append('_t', Date.now());  // 防止浏览器缓存
+                }
                 if (currentAccountEmail) params.append('account_email', currentAccountEmail);
                 console.log('Fetching usage data for:', currentAccountEmail, 'force:', force, 'silent:', silent);
                 const res = await fetch('/api/account/usage?' + params.toString(), { headers: getAuthHeaders() });
@@ -14636,8 +14637,10 @@
 
             try {
                 const params = new URLSearchParams();
-                params.append('force', force ? '1' : '0');
-                params.append('_t', Date.now());
+                if (force) {
+                    params.append('force', '1');
+                    params.append('_t', Date.now());  // 防止浏览器缓存
+                }
                 params.append('account_email', currentAccountEmail);
 
                 const res = await fetch('/api/account/usage?' + params.toString(), { headers: getAuthHeaders() });
@@ -14674,8 +14677,10 @@
 
             try {
                 const params = buildUsageFilterParams();
-                params.append('force', force ? '1' : '0');
-                params.append('_t', Date.now());
+                if (force) {
+                    params.append('force', '1');
+                    params.append('_t', Date.now());  // 防止浏览器缓存
+                }
                 params.append('account_email', currentAccountEmail);
 
                 const res = await fetch('/api/account/usage?' + params.toString(), { headers: getAuthHeaders() });
@@ -14957,15 +14962,18 @@
                         dailyByModel: dailyByModel,
                         modelColors: modelColors,
                         yMax: yMax,
-                        chartHeight: chartHeight - 20
+                        chartHeight: chartHeight - 20,
+                        svgWidth: width,
+                        svgHeight: height,
+                        dataPointCount: dataPointCount
                     };
                 }
 
                 html += '</div>';
 
-                // X轴标签
+                // X轴标签（添加 5% padding 与曲线对齐）
                 if (dates.length > 0) {
-                    html += '<div style="margin-left: 55px; display: flex; justify-content: space-between; font-size: 10px; color: var(--text-secondary); padding-top: 4px;">';
+                    html += '<div style="margin-left: 55px; display: flex; justify-content: space-between; font-size: 10px; color: var(--text-secondary); padding-top: 4px; padding-left: 5%; padding-right: 5%;">';
                     const step = Math.max(1, Math.floor(dates.length / 8));
                     for (let i = 0; i < dates.length; i += step) {
                         const d = new Date(dates[i]);
@@ -15003,9 +15011,11 @@
 
             if (idx < 0 || !dailyByModel[idx]) return;
 
-            // 显示垂直指示线
+            // 显示垂直指示线（考虑 5% padding 与曲线绘制一致）
             if (indicator) {
-                const indicatorX = (idx / Math.max(dailyByModel.length - 1, 1)) * rect.width;
+                const padding = rect.width * 0.05;
+                const innerWidth = rect.width - padding * 2;
+                const indicatorX = padding + (idx / Math.max(dailyByModel.length - 1, 1)) * innerWidth;
                 indicator.style.display = 'block';
                 indicator.style.left = indicatorX + 'px';
             }
@@ -15014,14 +15024,23 @@
             if (dotsContainer && window.usageChartPoints) {
                 const modelColors = window.usageChartData.modelColors || {};
                 const yMax = window.usageChartData.yMax || 1;
-                const chartHeight = rect.height;
+                const svgHeight = window.usageChartData.svgHeight || 180;
+                const containerHeight = rect.height;
                 let dotsHtml = '';
+
+                // X 坐标使用与指示线完全相同的计算方式，确保对齐
+                const padding = rect.width * 0.05;
+                const innerWidth = rect.width - padding * 2;
+                const dotX = padding + (idx / Math.max(dailyByModel.length - 1, 1)) * innerWidth;
+
+                // Y 坐标需要考虑 SVG viewBox 到容器的缩放
+                const scaleY = containerHeight / svgHeight;
 
                 Object.entries(window.usageChartPoints).forEach(([model, points]) => {
                     if (points[idx] && points[idx].value > 0) {
                         const color = modelColors[model] || '#4285f4';
-                        const dotX = (idx / Math.max(points.length - 1, 1)) * rect.width;
-                        const dotY = chartHeight - (points[idx].value / yMax) * chartHeight;
+                        const svgY = svgHeight - (points[idx].value / yMax) * svgHeight;
+                        const dotY = svgY * scaleY;
                         dotsHtml += '<div style="position: absolute; left: ' + (dotX - 4) + 'px; top: ' + (dotY - 4) + 'px; width: 8px; height: 8px; border-radius: 50%; background: ' + color + '; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.3);"></div>';
                     }
                 });
@@ -15062,18 +15081,37 @@
             tooltip.innerHTML = tooltipHtml;
             tooltip.style.display = 'block';
 
-            // 智能定位
+            // 智能定位：鼠标位于 tooltip 的角落（对话框样式）
             const tooltipRect = tooltip.getBoundingClientRect();
-            let left = event.clientX + 15;
-            let top = event.clientY - tooltipRect.height / 2;
+            const margin = 12;
+            const viewW = window.innerWidth;
+            const viewH = window.innerHeight;
+            const tipW = tooltipRect.width;
+            const tipH = tooltipRect.height;
+            const mouseX = event.clientX;
+            const mouseY = event.clientY;
 
-            if (left + tooltipRect.width > window.innerWidth - 10) {
-                left = event.clientX - tooltipRect.width - 15;
+            let left, top;
+
+            // 水平定位：优先右下角 -> 左下角
+            if (mouseX + margin + tipW < viewW - 10) {
+                left = mouseX + margin;  // 鼠标在左侧
+            } else {
+                left = mouseX - margin - tipW;  // 鼠标在右侧
             }
+
+            // 垂直定位：优先下方 -> 上方
+            if (mouseY + margin + tipH < viewH - 10) {
+                top = mouseY + margin;  // 鼠标在上方
+            } else {
+                top = mouseY - margin - tipH;  // 鼠标在下方
+            }
+
+            // 边界检查
+            if (left < 10) left = 10;
+            if (left + tipW > viewW - 10) left = viewW - tipW - 10;
             if (top < 10) top = 10;
-            if (top + tooltipRect.height > window.innerHeight - 10) {
-                top = window.innerHeight - tooltipRect.height - 10;
-            }
+            if (top + tipH > viewH - 10) top = viewH - tipH - 10;
 
             tooltip.style.left = left + 'px';
             tooltip.style.top = top + 'px';
@@ -15759,8 +15797,10 @@
 
             try {
                 const params = new URLSearchParams();
-                params.append('force', force ? '1' : '0');
-                params.append('_t', Date.now());
+                if (force) {
+                    params.append('force', '1');
+                    params.append('_t', Date.now());  // 防止浏览器缓存
+                }
                 params.append('account_email', currentAccountEmail);
 
                 const res = await fetch('/api/account/cost?' + params.toString(), { headers: getAuthHeaders() });
@@ -15828,8 +15868,10 @@
 
             try {
                 const params = buildCostFilterParams();
-                params.append('force', force ? '1' : '0');
-                params.append('_t', Date.now());
+                if (force) {
+                    params.append('force', '1');
+                    params.append('_t', Date.now());  // 防止浏览器缓存
+                }
                 params.append('account_email', currentAccountEmail);
 
                 const res = await fetch('/api/account/cost?' + params.toString(), { headers: getAuthHeaders() });
@@ -16151,9 +16193,9 @@
 
                 html += '</div>';
 
-                // X轴标签
+                // X轴标签（添加 5% padding 与曲线对齐）
                 if (dates.length > 0) {
-                    html += '<div style="margin-left: 55px; display: flex; justify-content: space-between; font-size: 10px; color: var(--text-secondary); padding-top: 4px;">';
+                    html += '<div style="margin-left: 55px; display: flex; justify-content: space-between; font-size: 10px; color: var(--text-secondary); padding-top: 4px; padding-left: 5%; padding-right: 5%;">';
                     const step = Math.max(1, Math.floor(dates.length / 8));
                     for (let i = 0; i < dates.length; i += step) {
                         const d = new Date(dates[i]);
@@ -16174,7 +16216,9 @@
                     dailyByModel: data.daily_by_model || [],
                     modelColors: modelColors,
                     yMax: yMax,
-                    chartHeight: chartHeight - 20
+                    chartHeight: chartHeight - 20,
+                    svgWidth: chartWidth,
+                    svgHeight: chartHeight - 20
                 };
 
                 el.innerHTML = html;
@@ -16202,9 +16246,11 @@
 
             if (idx < 0 || !trend[idx]) return;
 
-            // 显示垂直指示线
+            // 显示垂直指示线（考虑 5% padding 与曲线绘制一致）
             if (indicator) {
-                const indicatorX = (idx / Math.max(trend.length - 1, 1)) * rect.width;
+                const padding = rect.width * 0.05;
+                const innerWidth = rect.width - padding * 2;
+                const indicatorX = padding + (idx / Math.max(trend.length - 1, 1)) * innerWidth;
                 indicator.style.display = 'block';
                 indicator.style.left = indicatorX + 'px';
             }
@@ -16213,14 +16259,23 @@
             if (dotsContainer && window.costChartPoints) {
                 const modelColors = window.costChartData.modelColors || {};
                 const yMax = window.costChartData.yMax || 1;
-                const chartHeight = rect.height;
+                const svgHeight = window.costChartData.svgHeight || 180;
+                const containerHeight = rect.height;
                 let dotsHtml = '';
+
+                // X 坐标使用与指示线完全相同的计算方式，确保对齐
+                const padding = rect.width * 0.05;
+                const innerWidth = rect.width - padding * 2;
+                const dotX = padding + (idx / Math.max(trend.length - 1, 1)) * innerWidth;
+
+                // Y 坐标需要考虑 SVG viewBox 到容器的缩放
+                const scaleY = containerHeight / svgHeight;
 
                 Object.entries(window.costChartPoints).forEach(([model, points]) => {
                     if (points[idx] && points[idx].value > 0) {
                         const color = modelColors[model] || '#4285f4';
-                        const dotX = (idx / Math.max(points.length - 1, 1)) * rect.width;
-                        const dotY = chartHeight - (points[idx].value / yMax) * chartHeight;
+                        const svgY = svgHeight - (points[idx].value / yMax) * svgHeight;
+                        const dotY = svgY * scaleY;
                         dotsHtml += '<div style="position: absolute; left: ' + (dotX - 4) + 'px; top: ' + (dotY - 4) + 'px; width: 8px; height: 8px; border-radius: 50%; background: ' + color + '; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.3);"></div>';
                     }
                 });
@@ -16294,9 +16349,9 @@
             tooltip.innerHTML = html;
             tooltip.style.display = 'block';
 
-            // 智能定位：优先右侧，空间不够则左侧，再不够则上下布局
+            // 智能定位：鼠标位于 tooltip 的角落（对话框样式）
             const tooltipRect = tooltip.getBoundingClientRect();
-            const margin = 15;
+            const margin = 12;
             const viewW = window.innerWidth;
             const viewH = window.innerHeight;
             const tipW = tooltipRect.width;
@@ -16314,27 +16369,19 @@
                 left = Math.max(10, (viewW - tipW) / 2);
                 top = viewH - tipH - 20;
             } else {
-                // 桌面端：智能定位
-                // 水平定位：优先右侧 -> 左侧 -> 居中
+                // 桌面端：鼠标位于角落
+                // 水平定位：优先右侧 -> 左侧
                 if (mouseX + margin + tipW < viewW - 10) {
-                    left = mouseX + margin;
-                } else if (mouseX - margin - tipW > 10) {
-                    left = mouseX - margin - tipW;
+                    left = mouseX + margin;  // 鼠标在左侧
                 } else {
-                    left = Math.max(10, Math.min(viewW - tipW - 10, mouseX - tipW / 2));
+                    left = mouseX - margin - tipW;  // 鼠标在右侧
                 }
 
-                // 垂直定位：优先垂直居中于鼠标位置
-                top = mouseY - tipH / 2;
-
-                // 如果左右都放不下，尝试上下布局
-                if (tipW > viewW - 40) {
-                    left = 10;
-                    if (mouseY + margin + tipH < viewH - 10) {
-                        top = mouseY + margin;
-                    } else if (mouseY - margin - tipH > 10) {
-                        top = mouseY - margin - tipH;
-                    }
+                // 垂直定位：优先下方 -> 上方
+                if (mouseY + margin + tipH < viewH - 10) {
+                    top = mouseY + margin;  // 鼠标在上方
+                } else {
+                    top = mouseY - margin - tipH;  // 鼠标在下方
                 }
             }
 
