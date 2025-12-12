@@ -25,23 +25,23 @@ from config import (
 
 def _sanitize_messages(messages) -> list:
     """
-    清理和标准化消息格式，转换为 OpenAI 协议格式
+    清理和标准化消息格式，转换为 AssemblyAI LLM Gateway 格式
     
-    AssemblyAI LLM Gateway 支持完整的 OpenAI 协议，包括：
-    1. 所有角色类型（user、assistant、system、tool）
-    2. tool_calls 字段
-    3. tool_call_id 字段
+    关键转换：
+    1. OpenAI 的 role="assistant" + tool_calls -> AssemblyAI 的 type="function_call"
+    2. OpenAI 的 role="tool" -> AssemblyAI 的 type="function_call_output"
+    3. 普通消息保持 role 格式（user、assistant、system）
     
-    处理：
-    1. 多模态内容（提取文本）
-    2. 保留所有角色类型
-    3. 保留 tool_calls 和 tool_call_id
-    4. 空 content + tool_calls（保留，这是合法的）
+    参考文档：https://www.assemblyai.com/docs/llm-gateway/tool-calling
     """
     sanitized = []
+    
+    # 用于存储 tool_call_id 到 function name 的映射
+    tool_call_id_to_name = {}
+    
     for m in messages:
-        role = getattr(m, "role", "user")
-        content = getattr(m, "content", None)
+        role = getattr(m, "role", None) or (m.get("role") if isinstance(m, dict) else "user")
+        content = getattr(m, "content", None) if hasattr(m, "content") else (m.get("content") if isinstance(m, dict) else None)
         
         # 处理多模态内容
         if isinstance(content, list):
@@ -51,36 +51,77 @@ def _sanitize_messages(messages) -> list:
                     parts_text.append(part["text"])
             content = "\n".join(parts_text) if parts_text else ""
         
-        # 确保 content 是字符串或 None（对于有 tool_calls 的消息）
+        # 确保 content 是字符串
         if content is None:
             content = ""
         
-        # 构建消息 - 保留所有角色类型
-        message = {"role": role, "content": content}
+        # 获取 tool_calls（如果存在）
+        tool_calls = getattr(m, "tool_calls", None) if hasattr(m, "tool_calls") else (m.get("tool_calls") if isinstance(m, dict) else None)
         
-        # 保留 tool_calls（如果存在）
-        tool_calls = getattr(m, "tool_calls", None)
-        if tool_calls:
-            # 确保 tool_calls 格式正确
+        # 获取 tool_call_id（对于 tool 角色的消息）
+        tool_call_id = getattr(m, "tool_call_id", None) if hasattr(m, "tool_call_id") else (m.get("tool_call_id") if isinstance(m, dict) else None)
+        
+        # 情况1: assistant 消息带有 tool_calls -> 转换为 function_call 格式
+        if role == "assistant" and tool_calls:
+            # 先添加 assistant 的文本内容（如果有）
+            if content and content.strip():
+                sanitized.append({"role": "assistant", "content": content})
+            
+            # 将每个 tool_call 转换为 function_call 格式
             if isinstance(tool_calls, list):
-                formatted_calls = []
                 for tc in tool_calls:
-                    if isinstance(tc, dict):
-                        formatted_calls.append(tc)
-                    elif hasattr(tc, "model_dump"):
-                        formatted_calls.append(tc.model_dump())
+                    # 处理不同的 tool_call 格式
+                    if hasattr(tc, "model_dump"):
+                        tc_dict = tc.model_dump()
                     elif hasattr(tc, "dict"):
-                        formatted_calls.append(tc.dict())
-                message["tool_calls"] = formatted_calls
-            else:
-                message["tool_calls"] = tool_calls
+                        tc_dict = tc.dict()
+                    elif isinstance(tc, dict):
+                        tc_dict = tc
+                    else:
+                        continue
+                    
+                    tc_id = tc_dict.get("id", "")
+                    func_info = tc_dict.get("function", {})
+                    func_name = func_info.get("name", "")
+                    func_args = func_info.get("arguments", "{}")
+                    
+                    # 记录映射，用于后续处理 tool 消息
+                    if tc_id:
+                        tool_call_id_to_name[tc_id] = func_name
+                    
+                    # 创建 AssemblyAI function_call 格式
+                    function_call_msg = {
+                        "type": "function_call",
+                        "tool_call_id": tc_id,
+                        "name": func_name,
+                        "arguments": func_args
+                    }
+                    sanitized.append(function_call_msg)
+                    log.debug(f"Converted tool_call to function_call: {func_name} (id={tc_id})")
         
-        # 保留 tool_call_id（对于 tool 角色的消息）
-        tool_call_id = getattr(m, "tool_call_id", None)
-        if tool_call_id:
-            message["tool_call_id"] = tool_call_id
+        # 情况2: tool 消息 -> 转换为 function_call_output 格式
+        elif role == "tool" and tool_call_id:
+            # 获取对应的 function name
+            func_name = tool_call_id_to_name.get(tool_call_id, "")
+            
+            # 如果没有找到映射的 name，尝试从消息本身获取
+            if not func_name:
+                func_name = getattr(m, "name", None) if hasattr(m, "name") else (m.get("name") if isinstance(m, dict) else "")
+            
+            # 创建 AssemblyAI function_call_output 格式
+            function_output_msg = {
+                "type": "function_call_output",
+                "tool_call_id": tool_call_id,
+                "name": func_name or "unknown_function",
+                "output": content if content else "{}"
+            }
+            sanitized.append(function_output_msg)
+            log.debug(f"Converted tool message to function_call_output: {func_name} (id={tool_call_id})")
         
-        sanitized.append(message)
+        # 情况3: 普通消息（user、assistant、system）
+        else:
+            message = {"role": role, "content": content}
+            sanitized.append(message)
     
     return sanitized
 
