@@ -2516,11 +2516,29 @@
             .config-group {
                 padding: 12px;
                 margin: 10px 0;
+                overflow: hidden;
+                word-break: break-word;
+                overflow-wrap: break-word;
             }
 
             .config-group h4 {
                 font-size: 16px;
                 margin-bottom: 10px;
+            }
+
+            /* 移动端标签栏与内容框间距 */
+            #configMetaBar {
+                margin-bottom: 16px !important;
+            }
+
+            /* 配置内容防止溢出 */
+            .config-group pre,
+            .config-group code,
+            .config-group .config-value {
+                max-width: 100%;
+                overflow-x: auto;
+                white-space: pre-wrap;
+                word-break: break-all;
             }
 
             /* 移动端表格通用优化 */
@@ -3674,7 +3692,8 @@
         .config-floating-actions {
             position: fixed;
             bottom: 50px;
-            right: calc(50% - 480px);
+            right: calc(50% - 450px);
+            /* 向左移动，避免覆盖滚动条 */
             display: none;
             flex-direction: column;
             gap: 10px;
@@ -6083,7 +6102,7 @@
                 <div style="position: relative; width: 100%;">
                     <h1 style="margin: 0; text-align: center;">AMB2API 管理面板</h1>
                     <button class="btn btn-sm" onclick="logout()"
-                        style="position: absolute; right: 0; top: 50%; transform: translateY(-50%); background: #6c757d; font-size: 12px; padding: 6px 12px;">退出登录</button>
+                        style="position: absolute; right: 0; top: 50%; transform: translateY(-50%); background: #6c757d; font-size: 12px; padding: 6px 12px;">退出</button>
                 </div>
 
                 <!-- 标签页 -->
@@ -16582,40 +16601,128 @@
 
                 // LLM Gateway - 合并输入/输出两列并优先展示
                 if ((data.llm_gateway_input && data.llm_gateway_input.length > 0) || (data.llm_gateway_output && data.llm_gateway_output.length > 0)) {
+                    // 标准化模型名称用于匹配：忽略大小写、空格、连字符、下划线
+                    const normalizeModelName = (name) => (name || '').toLowerCase().replace(/[\s\-_]/g, '');
+
                     const map = {};
+                    const modelDisplayNames = {}; // 保存原始模型名用于显示
                     (data.llm_gateway_input || []).forEach(item => {
-                        const k = item.model || '-';
+                        const originalName = item.model || '-';
+                        const k = normalizeModelName(originalName);
+                        if (!modelDisplayNames[k]) modelDisplayNames[k] = originalName;
                         if (!map[k]) map[k] = { in: 0, out: 0, inDisplay: '-', outDisplay: '-', unit: item.unit || '' };
                         map[k].in = item.rate || 0;
                         map[k].inDisplay = item.rate_display || ('$' + (item.rate || 0).toFixed(2));
                         map[k].unit = item.unit || map[k].unit || '';
                     });
                     (data.llm_gateway_output || []).forEach(item => {
-                        const k = item.model || '-';
+                        const originalName = item.model || '-';
+                        const k = normalizeModelName(originalName);
+                        if (!modelDisplayNames[k]) modelDisplayNames[k] = originalName;
                         if (!map[k]) map[k] = { in: 0, out: 0, inDisplay: '-', outDisplay: '-', unit: item.unit || '' };
                         map[k].out = item.rate || 0;
                         map[k].outDisplay = item.rate_display || ('$' + (item.rate || 0).toFixed(2));
                         map[k].unit = item.unit || map[k].unit || '';
                     });
                     const rows = Object.keys(map).map(k => ({
-                        model: k,
+                        model: modelDisplayNames[k] || k, // 使用原始模型名称用于显示
                         in: map[k].in,
                         out: map[k].out,
                         inDisplay: map[k].inDisplay,
                         outDisplay: map[k].outDisplay,
                         unit: map[k].unit
                     })).sort((a, b) => {
-                        function vendor(n) { const s = (n || '').toLowerCase(); if (s.includes('gpt')) return 0; if (s.includes('claude')) return 1; if (s.includes('gemini')) return 2; return 3; }
-                        const v = vendor(a.model) - vendor(b.model); if (v !== 0) return v; return (b.out || 0) - (a.out || 0);
+                        // 厂商分类：GPT/OpenAI(0), Claude(1), Gemini(2), 其他(3)
+                        function vendor(n) {
+                            const s = (n || '').toLowerCase();
+                            if (s.includes('gpt') || s.includes('chatgpt')) return 0;
+                            if (s.includes('claude')) return 1;
+                            if (s.includes('gemini')) return 2;
+                            return 3;
+                        }
+                        // GPT 系列排序：GPT 5 > GPT 4.1 > ChatGPT > GPT OSS
+                        function gptOrder(n) {
+                            const s = (n || '').toLowerCase();
+                            if (s.includes('gpt 5') || s.includes('gpt-5')) return 0;
+                            if (s.includes('gpt 4.1') || s.includes('gpt-4.1')) return 1;
+                            if (s.includes('chatgpt')) return 2;
+                            if (s.includes('gpt oss')) return 3;
+                            return 4;
+                        }
+                        // Claude 系列排序：Opus > Sonnet > Haiku，版本高的优先
+                        function claudeOrder(n) {
+                            const s = (n || '').toLowerCase();
+                            if (s.includes('opus')) return 0;
+                            if (s.includes('sonnet')) {
+                                if (s.includes('4.5')) return 1;
+                                if (s.includes('4')) return 2;
+                                return 3;
+                            }
+                            if (s.includes('haiku')) {
+                                if (s.includes('4.5')) return 4;
+                                if (s.includes('3.5')) return 5;
+                                if (s.includes('3')) return 6;
+                                return 7;
+                            }
+                            return 8;
+                        }
+                        // Gemini 系列排序：版本高的优先
+                        function geminiOrder(n) {
+                            const s = (n || '').toLowerCase();
+                            if (s.includes('3 pro')) return 0;
+                            if (s.includes('2.5 pro')) return 1;
+                            if (s.includes('2.5 flash') && !s.includes('lite')) return 2;
+                            if (s.includes('2.5 flash lite')) return 3;
+                            return 4;
+                        }
+                        const v = vendor(a.model) - vendor(b.model);
+                        if (v !== 0) return v;
+                        // 同厂商内按系列排序
+                        const vendorType = vendor(a.model);
+                        if (vendorType === 0) {
+                            const gptDiff = gptOrder(a.model) - gptOrder(b.model);
+                            if (gptDiff !== 0) return gptDiff;
+                        } else if (vendorType === 1) {
+                            const claudeDiff = claudeOrder(a.model) - claudeOrder(b.model);
+                            if (claudeDiff !== 0) return claudeDiff;
+                        } else if (vendorType === 2) {
+                            const geminiDiff = geminiOrder(a.model) - geminiOrder(b.model);
+                            if (geminiDiff !== 0) return geminiDiff;
+                        }
+                        // 同系列内按输出费率从高到低
+                        return (b.out || 0) - (a.out || 0);
                     });
+
+                    // 按厂商分组渲染
+                    const vendorGroups = { 'GPT / OpenAI': [], 'Claude': [], 'Gemini': [], '其他': [] };
+                    rows.forEach(r => {
+                        const s = (r.model || '').toLowerCase();
+                        if (s.includes('gpt') || s.includes('chatgpt')) vendorGroups['GPT / OpenAI'].push(r);
+                        else if (s.includes('claude')) vendorGroups['Claude'].push(r);
+                        else if (s.includes('gemini')) vendorGroups['Gemini'].push(r);
+                        else vendorGroups['其他'].push(r);
+                    });
+
                     html += '<div class="rates-card" style="padding: 16px; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color);">';
                     html += '<h5 style="color: var(--text-color);">LLM Gateway</h5>';
                     html += '<div class="rates-table-wrap">';
                     html += '<table class="table rates-table"><thead><tr><th>模型</th><th>输入</th><th>输出</th><th class="rates-unit-col">单位</th></tr></thead><tbody>';
-                    rows.forEach(r => {
-                        const inTxt = r.inDisplay || '-';
-                        const outTxt = r.outDisplay || '-';
-                        html += `<tr><td>${r.model}</td><td>${inTxt}</td><td>${outTxt}</td><td class="rates-unit-col">${r.unit || '-'}</td></tr>`;
+
+                    // 按分组渲染，每组加分隔行
+                    let isFirstGroup = true;
+                    Object.entries(vendorGroups).forEach(([groupName, groupRows]) => {
+                        if (groupRows.length === 0) return;
+                        // 添加分组标题行
+                        if (!isFirstGroup) {
+                            html += '<tr><td colspan="4" style="height: 8px; background: transparent;"></td></tr>';
+                        }
+                        html += `<tr class="rates-group-header"><td colspan="4" style="font-weight: 600; color: var(--text-secondary); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; padding: 8px 0 4px 0; border-bottom: none;">${groupName}</td></tr>`;
+                        groupRows.forEach(r => {
+                            const inTxt = r.inDisplay || '-';
+                            const outTxt = r.outDisplay || '-';
+                            html += `<tr><td>${r.model}</td><td>${inTxt}</td><td>${outTxt}</td><td class="rates-unit-col">${r.unit || '-'}</td></tr>`;
+                        });
+                        isFirstGroup = false;
                     });
                     html += '</tbody></table>';
                     html += '</div>';

@@ -1639,42 +1639,46 @@ async def get_rates(region: str = "US", force: bool = False, account_email: Opti
             {"feature": "Auto Chapters", "rate": 0.10, "unit": "hour"},
         ],
         "llm_gateway_input": [
-            {"model": "GPT OSS 120b", "rate": 0.15, "unit": "1M tokens"},
-            {"model": "Claude Opus 4", "rate": 15.00, "unit": "1M tokens"},
+            # GPT / OpenAI
+            {"model": "ChatGPT-4o", "rate": 5.00, "unit": "1M tokens"},
+            {"model": "GPT 4.1", "rate": 2.00, "unit": "1M tokens"},
             {"model": "GPT-5", "rate": 1.25, "unit": "1M tokens"},
-            {"model": "GPT-5 Mini", "rate": 0.25, "unit": "1M tokens"},
-            {"model": "Claude Haiku 4.5", "rate": 1.00, "unit": "1M tokens"},
-            {"model": "GPT OSS 20b", "rate": 0.07, "unit": "1M tokens"},
+            {"model": "GPT-5-Mini", "rate": 0.25, "unit": "1M tokens"},
+            {"model": "gpt-oss-120b", "rate": 0.15, "unit": "1M tokens"},
+            {"model": "gpt-oss-20b", "rate": 0.07, "unit": "1M tokens"},
             {"model": "GPT-5 Nano", "rate": 0.05, "unit": "1M tokens"},
+            # Claude
+            {"model": "Claude 4 Opus", "rate": 15.00, "unit": "1M tokens"},
+            {"model": "Claude 4.5 Sonnet", "rate": 3.00, "unit": "1M tokens"},
+            {"model": "Claude 4 Sonnet", "rate": 3.00, "unit": "1M tokens"},
+            {"model": "Claude 4.5 Haiku", "rate": 1.00, "unit": "1M tokens"},
             {"model": "Claude 3.5 Haiku", "rate": 0.80, "unit": "1M tokens"},
-            {"model": "Claude Sonnet 4.5", "rate": 3.00, "unit": "1M tokens"},
-            {"model": "ChatGPT 4o Latest", "rate": 5.00, "unit": "1M tokens"},
-            {"model": "GPT-4.1", "rate": 2.00, "unit": "1M tokens"},
-            {"model": "Gemini 3 Pro Preview <200k Tokens", "rate": 2.00, "unit": "1M tokens"},
-            {"model": "Claude Sonnet 4", "rate": 3.00, "unit": "1M tokens"},
             {"model": "Claude 3 Haiku", "rate": 0.25, "unit": "1M tokens"},
-            {"model": "Gemini 2.5 Flash Lite", "rate": 0.10, "unit": "1M tokens"},
+            # Gemini
+            {"model": "Gemini 3 Pro", "rate": 2.00, "unit": "1M tokens"},
             {"model": "Gemini 2.5 Pro", "rate": 1.25, "unit": "1M tokens"},
+            {"model": "Gemini 2.5 Flash", "rate": 0.30, "unit": "1M tokens"},
         ],
         "llm_gateway_output": [
-            {"model": "GPT-5", "rate": 10.00, "unit": "1M tokens"},
-            {"model": "GPT-4.1", "rate": 8.00, "unit": "1M tokens"},
-            {"model": "GPT-4.1 mini", "rate": 1.60, "unit": "1M tokens"},
-            {"model": "GPT-4.1 nano", "rate": 0.40, "unit": "1M tokens"},
-            {"model": "ChatGPT 4o Latest", "rate": 15.00, "unit": "1M tokens"},
-            {"model": "GPT-5 Mini", "rate": 2.00, "unit": "1M tokens"},
-            {"model": "GPT-5 Nano", "rate": 0.40, "unit": "1M tokens"},
-            {"model": "GPT OSS 120b", "rate": 0.60, "unit": "1M tokens"},
-            {"model": "GPT OSS 20b", "rate": 0.30, "unit": "1M tokens"},
-            {"model": "Gemini 3 Pro Preview <200k Tokens", "rate": 12.00, "unit": "1M tokens"},
-            {"model": "Gemini 3 Pro Preview >200k Tokens", "rate": 18.00, "unit": "1M tokens"},
-            {"model": "Gemini 2.5 Flash", "rate": 2.50, "unit": "1M tokens"},
-            {"model": "Gemini 2.5 Flash Lite", "rate": 0.40, "unit": "1M tokens"},
-            {"model": "Gemini 2.5 Pro", "rate": 10.00, "unit": "1M tokens"},
-            {"model": "Claude Sonnet 4", "rate": 15.00, "unit": "1M tokens"},
+            # Claude
+            {"model": "Claude 4 Opus", "rate": 75.00, "unit": "1M tokens"},
+            {"model": "Claude 4.5 Sonnet", "rate": 15.00, "unit": "1M tokens"},
+            {"model": "Claude 4 Sonnet", "rate": 15.00, "unit": "1M tokens"},
+            {"model": "Claude 4.5 Haiku", "rate": 5.00, "unit": "1M tokens"},
             {"model": "Claude 3.5 Haiku", "rate": 4.00, "unit": "1M tokens"},
             {"model": "Claude 3 Haiku", "rate": 1.25, "unit": "1M tokens"},
-            {"model": "Claude Opus 4", "rate": 75.00, "unit": "1M tokens"},
+            # GPT / OpenAI
+            {"model": "ChatGPT-4o", "rate": 15.00, "unit": "1M tokens"},
+            {"model": "GPT-5", "rate": 10.00, "unit": "1M tokens"},
+            {"model": "GPT 4.1", "rate": 8.00, "unit": "1M tokens"},
+            {"model": "GPT-5-Mini", "rate": 2.00, "unit": "1M tokens"},
+            {"model": "gpt-oss-120b", "rate": 0.60, "unit": "1M tokens"},
+            {"model": "GPT-5 Nano", "rate": 0.40, "unit": "1M tokens"},
+            {"model": "gpt-oss-20b", "rate": 0.30, "unit": "1M tokens"},
+            # Gemini
+            {"model": "Gemini 3 Pro", "rate": 12.00, "unit": "1M tokens"},
+            {"model": "Gemini 2.5 Pro", "rate": 10.00, "unit": "1M tokens"},
+            {"model": "Gemini 2.5 Flash", "rate": 2.50, "unit": "1M tokens"},
         ],
         "notes": [
             "LLM Gateway pricing is per million tokens",
@@ -1692,6 +1696,88 @@ async def get_rates(region: str = "US", force: bool = False, account_email: Opti
                 item["rate_display"] = format_price(item["rate"], region)
         return items
     
+    def merge_rates_with_fallback(api_rates, fallback_rates):
+        """
+        合并 API 返回的费率与 fallback 费率
+        - 保留 API 返回的所有数据
+        - 对于 API 中没有的模型，从 fallback 中补充
+        - 使用别名映射处理同一模型的不同名称
+        - 使用规范显示名称
+        """
+        # 模型别名映射（将各种名称映射到规范名称）
+        MODEL_ALIASES = {
+            # ChatGPT-4o 系列别名
+            "chatgpt4olatest": "chatgpt4o",
+            "chatgpt4o": "chatgpt4o",
+            # GPT OSS 系列别名（标准化后的键）
+            "gptoss120b": "gptoss120b",
+            "gptoss20b": "gptoss20b",
+        }
+        
+        # 规范显示名称（使用更美观的格式）
+        CANONICAL_DISPLAY_NAMES = {
+            "chatgpt4o": "ChatGPT 4o",
+            "gptoss120b": "GPT OSS 120b",
+            "gptoss20b": "GPT OSS 20b",
+            "gpt5": "GPT 5",
+            "gpt5mini": "GPT 5 Mini",
+            "gpt5nano": "GPT 5 Nano",
+            "gpt41": "GPT 4.1",
+            "claude4opus": "Claude 4 Opus",
+            "claude45sonnet": "Claude 4.5 Sonnet",
+            "claude4sonnet": "Claude 4 Sonnet",
+            "claude45haiku": "Claude 4.5 Haiku",
+            "claude35haiku": "Claude 3.5 Haiku",
+            "claude3haiku": "Claude 3 Haiku",
+            "gemini3pro": "Gemini 3 Pro",
+            "gemini25pro": "Gemini 2.5 Pro",
+            "gemini25flash": "Gemini 2.5 Flash",
+        }
+        
+        def normalize_model_name(name):
+            """标准化模型名称用于匹配：小写，移除空格、连字符、下划线"""
+            normalized = name.lower().replace(" ", "").replace("-", "").replace("_", "")
+            # 应用别名映射
+            return MODEL_ALIASES.get(normalized, normalized)
+        
+        def get_display_name(normalized_key, original_name):
+            """获取规范显示名称"""
+            return CANONICAL_DISPLAY_NAMES.get(normalized_key, original_name)
+        
+        if not api_rates:
+            # 如果 API 没有数据，使用 fallback 并应用规范显示名称
+            result = []
+            for item in fallback_rates:
+                new_item = dict(item)
+                normalized = normalize_model_name(item.get("model", ""))
+                new_item["model"] = get_display_name(normalized, item.get("model", ""))
+                result.append(new_item)
+            return result
+        
+        # 创建 API 数据的模型名索引（标准化后）
+        api_models = {}
+        for item in api_rates:
+            normalized = normalize_model_name(item.get("model", ""))
+            api_models[normalized] = item
+        
+        # 合并结果，应用规范显示名称
+        result = []
+        for item in api_rates:
+            new_item = dict(item)
+            normalized = normalize_model_name(item.get("model", ""))
+            new_item["model"] = get_display_name(normalized, item.get("model", ""))
+            result.append(new_item)
+        
+        # 从 fallback 中补充 API 没有的模型
+        for fb_item in fallback_rates:
+            fb_normalized = normalize_model_name(fb_item.get("model", ""))
+            if fb_normalized and fb_normalized not in api_models:
+                new_item = dict(fb_item)
+                new_item["model"] = get_display_name(fb_normalized, fb_item.get("model", ""))
+                result.append(new_item)
+        
+        return result
+    
     result = {"region": region}
     result["speech_to_text"] = add_price_display(
         parsed.get("speech_to_text") or fallback["speech_to_text"], region
@@ -1702,11 +1788,12 @@ async def get_rates(region: str = "US", force: bool = False, account_email: Opti
     result["speech_understanding"] = add_price_display(
         parsed.get("speech_understanding") or fallback["speech_understanding"], region
     )
+    # LLM Gateway: 合并 API 数据与 fallback，补充缺失的模型
     result["llm_gateway_input"] = add_price_display(
-        parsed.get("llm_gateway_input") or fallback["llm_gateway_input"], region
+        merge_rates_with_fallback(parsed.get("llm_gateway_input"), fallback["llm_gateway_input"]), region
     )
     result["llm_gateway_output"] = add_price_display(
-        parsed.get("llm_gateway_output") or fallback["llm_gateway_output"], region
+        merge_rates_with_fallback(parsed.get("llm_gateway_output"), fallback["llm_gateway_output"]), region
     )
     result["notes"] = fallback["notes"]
 
