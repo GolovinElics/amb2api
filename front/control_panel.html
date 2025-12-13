@@ -6603,6 +6603,21 @@
                                     <small class="config-note">开启后将覆盖客户端发送的 max_tokens 参数</small>
                                 </div>
 
+                                <div class="form-group">
+                                    <label>
+                                        <input type="checkbox" id="fakeStreamEnabled" class="config-checkbox" />
+                                        启用全局假流式
+                                    </label>
+                                    <small class="config-note">将非流式响应转换为渐进式流式输出</small>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="fakeStreamSpeed">假流式速度（字符/秒）:</label>
+                                    <input type="number" id="fakeStreamSpeed" class="config-input" min="10" max="2000"
+                                        value="100" />
+                                    <small class="config-note">每秒向客户端输出的字符数，越大越快</small>
+                                </div>
+
                             </div>
 
                             <div class="config-group">
@@ -9550,6 +9565,11 @@
             // Max Tokens 自适应模式
             const maxTokensModeEl = document.getElementById('maxTokensMode');
             if (maxTokensModeEl) maxTokensModeEl.value = currentConfig.max_tokens_mode || 'off';
+            // 全局假流式配置
+            const fakeStreamEnEl = document.getElementById('fakeStreamEnabled');
+            const fakeStreamSpeedEl = document.getElementById('fakeStreamSpeed');
+            if (fakeStreamEnEl) fakeStreamEnEl.checked = !!currentConfig.fake_stream_enabled;
+            if (fakeStreamSpeedEl) fakeStreamSpeedEl.value = currentConfig.fake_stream_speed ?? 100;
             // 秘钥配置不做锁定
             lockField('useAssembly', 'USE_ASSEMBLY');
             lockField('configApiPassword', 'API_PASSWORD');
@@ -9624,7 +9644,9 @@
                 retry_429_interval: parseFloat(document.getElementById('retry429Interval').value) || 1.0,
                 auto_ban_enabled: !!document.getElementById('autoBanEnabled').checked,
                 auto_ban_error_codes: document.getElementById('autoBanErrorCodes').value,
-                max_tokens_mode: document.getElementById('maxTokensMode')?.value || 'off'
+                max_tokens_mode: document.getElementById('maxTokensMode')?.value || 'off',
+                fake_stream_enabled: !!document.getElementById('fakeStreamEnabled')?.checked,
+                fake_stream_speed: parseInt(document.getElementById('fakeStreamSpeed')?.value) || 100
             };
             const generalPwd = document.getElementById('configPassword').value.trim();
             if (generalPwd) payload.password = generalPwd;

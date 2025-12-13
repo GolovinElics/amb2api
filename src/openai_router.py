@@ -567,51 +567,144 @@ async def fake_stream_response_for_assembly(openai_request: ChatCompletionReques
                 # 如果有内容或工具调用，都需要返回
                 if content or tool_calls:
                     # 构建响应块，包括思维内容（如果有）和工具调用
-                    delta = {"role": "assistant"}
                     
-                    # 添加 content（如果有）
-                    if content:
-                        delta["content"] = content
-                    
-                    # 添加 reasoning_content（如果有）
-                    if reasoning_content:
-                        delta["reasoning_content"] = reasoning_content
-                    
-                    # 添加 tool_calls（如果有）
-                    if tool_calls:
-                        delta["tool_calls"] = tool_calls
-
                     # 转换usageMetadata为OpenAI格式（兼容多种格式）
                     usage_raw = response_data.get("usage") or {}
                     prompt_tokens = usage_raw.get("prompt_tokens") or usage_raw.get("input_tokens", 0)
                     completion_tokens = usage_raw.get("completion_tokens") or usage_raw.get("output_tokens", 0)
+                    cached_tokens = usage_raw.get("cached_tokens") or usage_raw.get("input_cached_tokens", 0)
+                    
                     usage = {
                         "prompt_tokens": prompt_tokens,
                         "completion_tokens": completion_tokens,
-                        "total_tokens": usage_raw.get("total_tokens", prompt_tokens + completion_tokens)
+                        "total_tokens": usage_raw.get("total_tokens", prompt_tokens + completion_tokens),
+                        # 添加详细的 token 信息以支持 LobeChat 等客户端显示
+                        "prompt_tokens_details": {
+                            "cached_tokens": cached_tokens,
+                            "audio_tokens": 0
+                        },
+                        "completion_tokens_details": {
+                            "reasoning_tokens": 0,
+                            "audio_tokens": 0,
+                            "accepted_prediction_tokens": 0,
+                            "rejected_prediction_tokens": 0
+                        }
                     } if usage_raw else None
 
                     # 确定 finish_reason
                     finish_reason = "tool_calls" if has_tool_use else "stop"
+                    
+                    # 检查是否启用全局假流式渐进输出
+                    try:
+                        from src.storage_adapter import get_storage_adapter
+                        adapter = await get_storage_adapter()
+                        fake_stream_enabled = await adapter.get_config("fake_stream_enabled", False)
+                        fake_stream_speed = await adapter.get_config("fake_stream_speed", 100)
+                    except Exception:
+                        fake_stream_enabled = False
+                        fake_stream_speed = 100
+                    
+                    if fake_stream_enabled and content and not tool_calls:
+                        # 渐进式流式输出：按速度逐块返回内容
+                        log.info(f"Fake stream progressive output: speed={fake_stream_speed} chars/s, content_len={len(content)}")
+                        
+                        # 计算每块大小和间隔
+                        # 例如: 100 chars/s, 每 50ms 输出 5 个字符
+                        interval_ms = 50  # 每 50ms 输出一次
+                        chars_per_chunk = max(1, int(fake_stream_speed * interval_ms / 1000))
+                        
+                        response_id = str(uuid.uuid4())
+                        
+                        # 逐块输出内容（所有 chunk 的 finish_reason 都为 null）
+                        for i in range(0, len(content), chars_per_chunk):
+                            chunk_content = content[i:i + chars_per_chunk]
+                            is_last_content_chunk = (i + chars_per_chunk >= len(content))
+                            
+                            chunk_delta = {"role": "assistant", "content": chunk_content}
+                            
+                            # 最后一块内容添加 reasoning_content（如果有）
+                            if is_last_content_chunk and reasoning_content:
+                                chunk_delta["reasoning_content"] = reasoning_content
+                            
+                            content_chunk = {
+                                "id": response_id,
+                                "object": "chat.completion.chunk",
+                                "created": int(time.time()),
+                                "model": openai_request.model,
+                                "choices": [{
+                                    "index": 0,
+                                    "delta": chunk_delta,
+                                    "finish_reason": None  # 内容 chunk 不设置 finish_reason
+                                }]
+                            }
+                            
+                            yield f"data: {json.dumps(content_chunk)}\n\n".encode()
+                            
+                            # 等待间隔（非最后一块）
+                            if not is_last_content_chunk:
+                                await asyncio.sleep(interval_ms / 1000)
+                        
+                        # 发送单独的结束 chunk（包含 finish_reason 和 usage）
+                        finish_chunk = {
+                            "id": response_id,
+                            "object": "chat.completion.chunk",
+                            "created": int(time.time()),
+                            "model": openai_request.model,
+                            "choices": [{
+                                "index": 0,
+                                "delta": {},  # 空 delta
+                                "finish_reason": finish_reason
+                            }]
+                        }
+                        if usage:
+                            finish_chunk["usage"] = usage
+                        yield f"data: {json.dumps(finish_chunk)}\n\n".encode()
+                    else:
+                        # 一次性输出（原逻辑，但分离结束 chunk）
+                        response_id = str(uuid.uuid4())
+                        delta = {"role": "assistant"}
+                        
+                        # 添加 content（如果有）
+                        if content:
+                            delta["content"] = content
+                        
+                        # 添加 reasoning_content（如果有）
+                        if reasoning_content:
+                            delta["reasoning_content"] = reasoning_content
+                        
+                        # 添加 tool_calls（如果有）
+                        if tool_calls:
+                            delta["tool_calls"] = tool_calls
 
-                    # 构建完整的OpenAI格式的流式响应块
-                    content_chunk = {
-                        "id": str(uuid.uuid4()),
-                        "object": "chat.completion.chunk",
-                        "created": int(time.time()),
-                        "model": openai_request.model,
-                        "choices": [{
-                            "index": 0,
-                            "delta": delta,
-                            "finish_reason": finish_reason
-                        }]
-                    }
+                        # 发送内容 chunk（finish_reason 为 null）
+                        content_chunk = {
+                            "id": response_id,
+                            "object": "chat.completion.chunk",
+                            "created": int(time.time()),
+                            "model": openai_request.model,
+                            "choices": [{
+                                "index": 0,
+                                "delta": delta,
+                                "finish_reason": None
+                            }]
+                        }
+                        yield f"data: {json.dumps(content_chunk)}\n\n".encode()
 
-                    # 只有在有usage数据时才添加usage字段（确保在最后一个chunk中）
-                    if usage:
-                        content_chunk["usage"] = usage
-
-                    yield f"data: {json.dumps(content_chunk)}\n\n".encode()
+                        # 发送单独的结束 chunk（包含 finish_reason 和 usage）
+                        finish_chunk = {
+                            "id": response_id,
+                            "object": "chat.completion.chunk",
+                            "created": int(time.time()),
+                            "model": openai_request.model,
+                            "choices": [{
+                                "index": 0,
+                                "delta": {},
+                                "finish_reason": finish_reason
+                            }]
+                        }
+                        if usage:
+                            finish_chunk["usage"] = usage
+                        yield f"data: {json.dumps(finish_chunk)}\n\n".encode()
                 else:
                     log.warning(f"No content found in response: {response_data}")
                     # 如果完全没有内容，提供默认回复

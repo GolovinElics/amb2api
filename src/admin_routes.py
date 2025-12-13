@@ -74,6 +74,8 @@ async def get_config(token: str = Depends(authenticate)):
         cfg["auto_ban_enabled"] = await adapter.get_config("auto_ban_enabled", False)
         cfg["auto_ban_error_codes"] = await adapter.get_config("auto_ban_error_codes", [401,403])
         cfg["max_tokens_mode"] = await adapter.get_config("max_tokens_mode", "off")
+        cfg["fake_stream_enabled"] = await adapter.get_config("fake_stream_enabled", False)
+        cfg["fake_stream_speed"] = await adapter.get_config("fake_stream_speed", 100)
     except Exception:
         pass
     try:
@@ -182,6 +184,16 @@ async def save_config(payload: Dict[str, Any], token: str = Depends(authenticate
         mode = payload.get("max_tokens_mode")
         if mode in ("off", "low", "medium", "high"):
             updates["max_tokens_mode"] = mode
+    # 全局假流式配置
+    if payload.get("fake_stream_enabled") is not None:
+        updates["fake_stream_enabled"] = bool(payload.get("fake_stream_enabled"))
+    if payload.get("fake_stream_speed") is not None:
+        try:
+            speed = int(payload.get("fake_stream_speed"))
+            if speed >= 10 and speed <= 2000:
+                updates["fake_stream_speed"] = speed
+        except (ValueError, TypeError):
+            pass
     # 写入
     for k, v in updates.items():
         ok = await adapter.set_config(k, v)
