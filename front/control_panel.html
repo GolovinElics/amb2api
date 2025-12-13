@@ -6592,6 +6592,17 @@
                                     <small class="config-note">每个凭证使用多少次后轮换到下一个</small>
                                 </div>
 
+                                <div class="form-group">
+                                    <label for="maxTokensMode">Max Tokens 自适应模式:</label>
+                                    <select id="maxTokensMode" class="config-input">
+                                        <option value="off">关闭（使用客户端参数）</option>
+                                        <option value="low">低档（默认值）</option>
+                                        <option value="medium">中档（模型最大值的一半）</option>
+                                        <option value="high">高档（模型最大值）</option>
+                                    </select>
+                                    <small class="config-note">开启后将覆盖客户端发送的 max_tokens 参数</small>
+                                </div>
+
                             </div>
 
                             <div class="config-group">
@@ -9536,6 +9547,9 @@
             if (r429IntEl) r429IntEl.value = currentConfig.retry_429_interval ?? 1.0;
             if (banEnEl) banEnEl.checked = !!currentConfig.auto_ban_enabled;
             if (banCodesEl) banCodesEl.value = Array.isArray(currentConfig.auto_ban_error_codes) ? currentConfig.auto_ban_error_codes.join(',') : (currentConfig.auto_ban_error_codes || '');
+            // Max Tokens 自适应模式
+            const maxTokensModeEl = document.getElementById('maxTokensMode');
+            if (maxTokensModeEl) maxTokensModeEl.value = currentConfig.max_tokens_mode || 'off';
             // 秘钥配置不做锁定
             lockField('useAssembly', 'USE_ASSEMBLY');
             lockField('configApiPassword', 'API_PASSWORD');
@@ -9609,7 +9623,8 @@
                 retry_429_max_retries: parseInt(document.getElementById('retry429MaxRetries').value) || 5,
                 retry_429_interval: parseFloat(document.getElementById('retry429Interval').value) || 1.0,
                 auto_ban_enabled: !!document.getElementById('autoBanEnabled').checked,
-                auto_ban_error_codes: document.getElementById('autoBanErrorCodes').value
+                auto_ban_error_codes: document.getElementById('autoBanErrorCodes').value,
+                max_tokens_mode: document.getElementById('maxTokensMode')?.value || 'off'
             };
             const generalPwd = document.getElementById('configPassword').value.trim();
             if (generalPwd) payload.password = generalPwd;

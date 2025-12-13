@@ -140,6 +140,30 @@ async def chat_completions(
     # 限制max_tokens
     if getattr(request_data, "max_tokens", None) is not None and request_data.max_tokens > 65535:
         request_data.max_tokens = 65535
+    
+    # Max Tokens 自适应处理
+    try:
+        from src.storage_adapter import get_storage_adapter
+        from .model_limits import get_model_max_tokens
+        
+        adapter = await get_storage_adapter()
+        max_tokens_mode = await adapter.get_config("max_tokens_mode", "off")
+        
+        if max_tokens_mode != "off":
+            model_max = await get_model_max_tokens(request_data.model)
+            
+            if max_tokens_mode == "high":
+                target_max_tokens = model_max
+            elif max_tokens_mode == "medium":
+                target_max_tokens = model_max // 2
+            else:  # low
+                target_max_tokens = min(4096, model_max)
+            
+            original_max_tokens = getattr(request_data, "max_tokens", None)
+            request_data.max_tokens = target_max_tokens
+            log.info(f"Max tokens adaptive: mode={max_tokens_mode}, model_max={model_max}, original={original_max_tokens}, target={target_max_tokens}")
+    except Exception as e:
+        log.warning(f"Max tokens adaptive processing failed: {e}")
         
     # 覆写 top_k 为 64
     setattr(request_data, "top_k", 64)

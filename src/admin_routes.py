@@ -73,6 +73,7 @@ async def get_config(token: str = Depends(authenticate)):
         cfg["retry_429_interval"] = await adapter.get_config("retry_429_interval", 1.0)
         cfg["auto_ban_enabled"] = await adapter.get_config("auto_ban_enabled", False)
         cfg["auto_ban_error_codes"] = await adapter.get_config("auto_ban_error_codes", [401,403])
+        cfg["max_tokens_mode"] = await adapter.get_config("max_tokens_mode", "off")
     except Exception:
         pass
     try:
@@ -176,6 +177,11 @@ async def save_config(payload: Dict[str, Any], token: str = Depends(authenticate
         except Exception:
             codes = [401,403]
         updates["auto_ban_error_codes"] = codes
+    # Max Tokens 自适应模式
+    if payload.get("max_tokens_mode") is not None:
+        mode = payload.get("max_tokens_mode")
+        if mode in ("off", "low", "medium", "high"):
+            updates["max_tokens_mode"] = mode
     # 写入
     for k, v in updates.items():
         ok = await adapter.set_config(k, v)
