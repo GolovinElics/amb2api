@@ -15128,26 +15128,57 @@
 
             if (item.models && Object.keys(item.models).length > 0) {
                 const modelColors = window.usageChartData.modelColors || {};
-                tooltipHtml += '<div style="display: flex; gap: 24px;">';
-                tooltipHtml += '<div style="flex: 1;"><div style="font-weight: 500; margin-bottom: 4px; color: var(--text-secondary); font-size: 11px;">INPUT</div>';
+                const isMobile = window.innerWidth < 500;
 
-                Object.entries(item.models).forEach(([model, data]) => {
-                    const color = modelColors[model] || '#4285f4';
+                // 过滤掉输入和输出都为0的模型
+                const filteredModels = Object.entries(item.models).filter(([model, data]) => {
                     const inputTokens = typeof data === 'object' ? (data.input || 0) : 0;
-                    tooltipHtml += '<div style="color: ' + color + '; font-size: 11px;">' + model + ': ' + inputTokens.toLocaleString() + '</div>';
-                });
-
-                tooltipHtml += '</div>';
-                tooltipHtml += '<div style="width: 1px; background: var(--border-color);"></div>';
-                tooltipHtml += '<div style="flex: 1;"><div style="font-weight: 500; margin-bottom: 4px; color: var(--text-secondary); font-size: 11px;">OUTPUT</div>';
-
-                Object.entries(item.models).forEach(([model, data]) => {
-                    const color = modelColors[model] || '#4285f4';
                     const outputTokens = typeof data === 'object' ? (data.output || 0) : 0;
-                    tooltipHtml += '<div style="color: ' + color + '; font-size: 11px;">' + model + ': ' + outputTokens.toLocaleString() + '</div>';
+                    return inputTokens > 0 || outputTokens > 0;
                 });
 
-                tooltipHtml += '</div></div>';
+                if (filteredModels.length === 0) {
+                    tooltipHtml += '<div style="color: var(--text-secondary); font-size: 11px;">该日期无使用数据</div>';
+                } else if (isMobile) {
+                    // 移动端：单列布局，模型名后用括号标注输入/输出，隐藏值为0的行
+                    filteredModels.forEach(([model, data]) => {
+                        const color = modelColors[model] || '#4285f4';
+                        const inputTokens = typeof data === 'object' ? (data.input || 0) : 0;
+                        const outputTokens = typeof data === 'object' ? (data.output || 0) : 0;
+                        if (inputTokens > 0) {
+                            tooltipHtml += '<div style="color: ' + color + '; font-size: 11px; padding: 1px 0;">' + model + ' (输入): ' + inputTokens.toLocaleString() + '</div>';
+                        }
+                        if (outputTokens > 0) {
+                            tooltipHtml += '<div style="color: ' + color + '; font-size: 11px; padding: 1px 0; margin-bottom: ' + (inputTokens > 0 ? '4px' : '0') + ';">' + model + ' (输出): ' + outputTokens.toLocaleString() + '</div>';
+                        }
+                    });
+                } else {
+                    // 桌面端：两列布局，隐藏值为0的行
+                    tooltipHtml += '<div style="display: flex; gap: 24px;">';
+                    tooltipHtml += '<div style="flex: 1;"><div style="font-weight: 500; margin-bottom: 4px; color: var(--text-secondary); font-size: 11px;">INPUT</div>';
+
+                    filteredModels.forEach(([model, data]) => {
+                        const color = modelColors[model] || '#4285f4';
+                        const inputTokens = typeof data === 'object' ? (data.input || 0) : 0;
+                        if (inputTokens > 0) {
+                            tooltipHtml += '<div style="color: ' + color + '; font-size: 11px;">' + model + ': ' + inputTokens.toLocaleString() + '</div>';
+                        }
+                    });
+
+                    tooltipHtml += '</div>';
+                    tooltipHtml += '<div style="width: 1px; background: var(--border-color);"></div>';
+                    tooltipHtml += '<div style="flex: 1;"><div style="font-weight: 500; margin-bottom: 4px; color: var(--text-secondary); font-size: 11px;">OUTPUT</div>';
+
+                    filteredModels.forEach(([model, data]) => {
+                        const color = modelColors[model] || '#4285f4';
+                        const outputTokens = typeof data === 'object' ? (data.output || 0) : 0;
+                        if (outputTokens > 0) {
+                            tooltipHtml += '<div style="color: ' + color + '; font-size: 11px;">' + model + ': ' + outputTokens.toLocaleString() + '</div>';
+                        }
+                    });
+
+                    tooltipHtml += '</div></div>';
+                }
             }
 
             tooltip.innerHTML = tooltipHtml;
@@ -15165,18 +15196,28 @@
 
             let left, top;
 
-            // 水平定位：优先右下角 -> 左下角
-            if (mouseX + margin + tipW < viewW - 10) {
-                left = mouseX + margin;  // 鼠标在左侧
-            } else {
-                left = mouseX - margin - tipW;  // 鼠标在右侧
-            }
+            // 移动端检测
+            const isMobilePos = viewW < 500;
 
-            // 垂直定位：优先下方 -> 上方
-            if (mouseY + margin + tipH < viewH - 10) {
-                top = mouseY + margin;  // 鼠标在上方
+            if (isMobilePos) {
+                // 移动端：固定在屏幕底部中央
+                left = Math.max(10, (viewW - tipW) / 2);
+                top = viewH - tipH - 20;
             } else {
-                top = mouseY - margin - tipH;  // 鼠标在下方
+                // 桌面端：鼠标位于角落
+                // 水平定位：优先右下角 -> 左下角
+                if (mouseX + margin + tipW < viewW - 10) {
+                    left = mouseX + margin;  // 鼠标在左侧
+                } else {
+                    left = mouseX - margin - tipW;  // 鼠标在右侧
+                }
+
+                // 垂直定位：优先下方 -> 上方
+                if (mouseY + margin + tipH < viewH - 10) {
+                    top = mouseY + margin;  // 鼠标在上方
+                } else {
+                    top = mouseY - margin - tipH;  // 鼠标在下方
+                }
             }
 
             // 边界检查
@@ -16382,23 +16423,27 @@
                 const isMobile = window.innerWidth < 500;
 
                 if (isMobile) {
-                    // 移动端：单列紧凑布局，显示模型名和总额
+                    // 移动端：单列紧凑布局，模型名后用括号标注输入/输出，隐藏值为0的行
                     sortedModels.forEach((m, i) => {
                         const color = modelColors[m.model] || defaultColors[i % defaultColors.length];
-                        html += '<div style="color: ' + color + '; font-size: 11px; padding: 2px 0; display: flex; justify-content: space-between; gap: 8px;">';
-                        html += '<span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 120px;">' + m.model + '</span>';
-                        html += '<strong>$' + m.total.toFixed(4) + '</strong>';
-                        html += '</div>';
+                        if (m.input > 0) {
+                            html += '<div style="color: ' + color + '; font-size: 11px; padding: 1px 0;">' + m.model + ' (输入): <strong>$' + m.input.toFixed(4) + '</strong></div>';
+                        }
+                        if (m.output > 0) {
+                            html += '<div style="color: ' + color + '; font-size: 11px; padding: 1px 0; margin-bottom: ' + (m.input > 0 ? '4px' : '0') + ';">' + m.model + ' (输出): <strong>$' + m.output.toFixed(4) + '</strong></div>';
+                        }
                     });
                 } else {
-                    // 桌面端：两列布局，左边 Input，右边 Output，中间有分隔线
+                    // 桌面端：两列布局，左边 Input，右边 Output，中间有分隔线，隐藏值为0的行
                     html += '<div style="display: flex; gap: 0; align-items: stretch;">';
                     // 左列 - Input
                     html += '<div style="flex: 1; padding-right: 12px;">';
                     html += '<div style="font-size: 10px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">Input</div>';
                     sortedModels.forEach((m, i) => {
-                        const color = modelColors[m.model] || defaultColors[i % defaultColors.length];
-                        html += '<div style="color: ' + color + '; white-space: nowrap; font-size: 11px; padding: 2px 0;">' + m.model + ': <strong>$' + m.input.toFixed(4) + '</strong></div>';
+                        if (m.input > 0) {
+                            const color = modelColors[m.model] || defaultColors[i % defaultColors.length];
+                            html += '<div style="color: ' + color + '; white-space: nowrap; font-size: 11px; padding: 2px 0;">' + m.model + ': <strong>$' + m.input.toFixed(4) + '</strong></div>';
+                        }
                     });
                     html += '</div>';
                     // 分隔线
@@ -16407,8 +16452,10 @@
                     html += '<div style="flex: 1; padding-left: 0;">';
                     html += '<div style="font-size: 10px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">Output</div>';
                     sortedModels.forEach((m, i) => {
-                        const color = modelColors[m.model] || defaultColors[i % defaultColors.length];
-                        html += '<div style="color: ' + color + '; white-space: nowrap; font-size: 11px; padding: 2px 0;">' + m.model + ': <strong>$' + m.output.toFixed(4) + '</strong></div>';
+                        if (m.output > 0) {
+                            const color = modelColors[m.model] || defaultColors[i % defaultColors.length];
+                            html += '<div style="color: ' + color + '; white-space: nowrap; font-size: 11px; padding: 2px 0;">' + m.model + ': <strong>$' + m.output.toFixed(4) + '</strong></div>';
+                        }
                     });
                     html += '</div>';
                     html += '</div>';
