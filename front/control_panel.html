@@ -2654,6 +2654,22 @@
             .config-value-full {
                 display: block;
                 margin-bottom: 0;
+                word-break: break-all;
+                overflow-wrap: break-word;
+                max-width: 100%;
+                white-space: pre-wrap;
+            }
+
+            /* 移动端配置表格容器 */
+            #allConfigTable {
+                table-layout: fixed;
+                width: 100%;
+            }
+
+            .config-value-cell {
+                max-width: 0;
+                overflow: hidden;
+                text-overflow: ellipsis;
             }
 
             /* 移动端账户管理标签栏优化 */
