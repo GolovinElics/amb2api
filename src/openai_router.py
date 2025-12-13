@@ -20,6 +20,7 @@ from .assembly_client import send_assembly_request
 from .models import ChatCompletionRequest, ModelList, Model
 from .task_manager import create_managed_task
 from .openai_transfer import assembly_response_to_openai
+from .performance_tracker import get_performance_tracker
 
 def _parse_xml_tool_calls(content: str):
     """
@@ -101,6 +102,14 @@ async def chat_completions(
 ):
     """处理OpenAI格式的聊天完成请求"""
     
+    # 性能追踪：开始追踪
+    trace_id = str(uuid.uuid4())
+    tracker = await get_performance_tracker()
+    trace = tracker.start_trace(trace_id, "pending")  # 模型名稍后更新
+    
+    # 标记认证完成
+    trace.mark("auth_complete")
+    
     # 获取原始请求数据
     try:
         raw_data = await request.json()
@@ -115,6 +124,9 @@ async def chat_completions(
     # 创建请求对象
     try:
         request_data = ChatCompletionRequest(**raw_data)
+        # 更新追踪的模型名称
+        trace.model = request_data.model
+        
         log.debug(f"Request validated - model: {request_data.model}, messages: {len(request_data.messages)}, stream: {getattr(request_data, 'stream', False)}")
         
         # 详细记录接收到的消息结构
@@ -224,6 +236,9 @@ async def chat_completions(
     except Exception as e:
         log.warning(f"Message optimization failed: {e}, using original messages")
     
+    # 标记预处理完成
+    trace.mark("preprocessing_complete")
+    
     # 处理模型名称和功能检测
     model = request_data.model
     use_fake_streaming = is_fake_streaming_model(model)
@@ -234,7 +249,7 @@ async def chat_completions(
     # 处理假流式
     if use_fake_streaming and getattr(request_data, "stream", False):
         request_data.stream = False
-        return await fake_stream_response_for_assembly(request_data)
+        return await fake_stream_response_for_assembly(request_data, trace=trace)
     
     # 处理抗截断 (仅流式传输时有效)
     is_streaming = getattr(request_data, "stream", False)
@@ -258,12 +273,17 @@ async def chat_completions(
             return await convert_streaming_response(response, model)
         else:
             log.info("使用假流式模式")
-            return await fake_stream_response_for_assembly(request_data)
+            return await fake_stream_response_for_assembly(request_data, trace=trace)
     
     log.info(f"REQ model={model}")
     log.debug(f"Sending request to AssemblyAI - stream: {is_streaming}, messages: {len(request_data.messages)}")
     
     response = await send_assembly_request(request_data, False)
+    
+    # 性能追踪：上游响应完成
+    if trace:
+        trace.mark("upstream_first_byte")
+        trace.mark("upstream_response_complete")
     
     # 如果是流式响应，直接返回
     if is_streaming:
@@ -271,6 +291,8 @@ async def chat_completions(
         return await convert_streaming_response(response, model)
     
     # 转换非流式响应（AssemblyAI → OpenAI）
+    completion_tokens = 0
+    prompt_tokens = 0
     try:
         try:
             if hasattr(response, 'text') and isinstance(getattr(response, 'text'), str):
@@ -319,6 +341,11 @@ async def chat_completions(
                     detail=f"AssemblyAI error: {error_message}"
                 )
             
+            # 提取 token 数量
+            usage = parsed.get('usage', {})
+            completion_tokens = usage.get('output_tokens') or usage.get('completion_tokens', 0)
+            prompt_tokens = usage.get('input_tokens') or usage.get('prompt_tokens', 0)
+            
             # AssemblyAI 返回 OpenAI 格式，直接使用或进行微调
             openai_response = assembly_response_to_openai(parsed, model)
         else:
@@ -333,6 +360,12 @@ async def chat_completions(
                     "finish_reason": "stop"
                 }]
             }
+        
+        # 性能追踪：格式转换完成
+        if trace:
+            trace.mark("conversion_complete")
+            trace.mark("first_chunk_sent")
+        
         # 如果最终choices为空，构造一个兜底消息避免前端空白
         try:
             if isinstance(openai_response, dict):
@@ -353,6 +386,11 @@ async def chat_completions(
 
         log.info(f"RES model={model} status=OK")
         log.debug(f"RES Details - Converted response: {json.dumps(openai_response, ensure_ascii=False)[:1000]}...")
+        
+        # 性能追踪：响应完成
+        if trace:
+            await tracker.end_trace(trace.trace_id, completion_tokens=completion_tokens, prompt_tokens=prompt_tokens)
+        
         return JSONResponse(content=openai_response)
     except Exception as e:
         try:
@@ -363,9 +401,13 @@ async def chat_completions(
             log.error(f"RES model={model} status=FAIL conversion_error")
         raise HTTPException(status_code=500, detail="Response conversion failed")
 
-async def fake_stream_response_for_assembly(openai_request: ChatCompletionRequest) -> StreamingResponse:
+async def fake_stream_response_for_assembly(openai_request: ChatCompletionRequest, trace=None) -> StreamingResponse:
     """AssemblyAI 的假流式：周期心跳 + 最终内容块"""
     async def stream_generator():
+        nonlocal trace
+        completion_tokens = 0
+        prompt_tokens = 0
+        
         try:
             log.debug(f"Starting fake stream for model: {openai_request.model}")
             
@@ -399,6 +441,12 @@ async def fake_stream_response_for_assembly(openai_request: ChatCompletionReques
                 
                 # 获取响应结果
                 response = await response_task
+                
+                # 性能追踪：上游响应完成
+                if trace:
+                    trace.mark("upstream_first_byte")
+                    trace.mark("upstream_response_complete")
+                
                 log.debug(f"Received response after {heartbeat_count} heartbeats")
                 
             except asyncio.CancelledError:
@@ -564,6 +612,10 @@ async def fake_stream_response_for_assembly(openai_request: ChatCompletionReques
                 
                 log.info(f"[TOOL_DEBUG] Extracted content length: {len(content)}, tool_calls count: {len(all_tool_calls)}")
                 
+                # 性能追踪：格式转换完成
+                if trace:
+                    trace.mark("conversion_complete")
+                
                 # 如果有内容或工具调用，都需要返回
                 if content or tool_calls:
                     # 构建响应块，包括思维内容（如果有）和工具调用
@@ -590,6 +642,10 @@ async def fake_stream_response_for_assembly(openai_request: ChatCompletionReques
                             "rejected_prediction_tokens": 0
                         }
                     } if usage_raw else None
+                    
+                    # 记录 token 数用于追踪
+                    completion_tokens = usage_raw.get("completion_tokens") or usage_raw.get("output_tokens", 0)
+                    prompt_tokens = usage_raw.get("prompt_tokens") or usage_raw.get("input_tokens", 0)
 
                     # 确定 finish_reason
                     finish_reason = "tool_calls" if has_tool_use else "stop"
@@ -640,6 +696,10 @@ async def fake_stream_response_for_assembly(openai_request: ChatCompletionReques
                             
                             yield f"data: {json.dumps(content_chunk)}\n\n".encode()
                             
+                            # 性能追踪：首块发送
+                            if i == 0 and trace:
+                                trace.mark("first_chunk_sent")
+                            
                             # 等待间隔（非最后一块）
                             if not is_last_content_chunk:
                                 await asyncio.sleep(interval_ms / 1000)
@@ -689,6 +749,10 @@ async def fake_stream_response_for_assembly(openai_request: ChatCompletionReques
                             }]
                         }
                         yield f"data: {json.dumps(content_chunk)}\n\n".encode()
+                        
+                        # 性能追踪：首块发送
+                        if trace:
+                            trace.mark("first_chunk_sent")
 
                         # 发送单独的结束 chunk（包含 finish_reason 和 usage）
                         finish_chunk = {
@@ -735,6 +799,11 @@ async def fake_stream_response_for_assembly(openai_request: ChatCompletionReques
                 yield f"data: {json.dumps(error_chunk)}\n\n".encode()
             
             yield "data: [DONE]\n\n".encode()
+            
+            # 性能追踪：响应完成
+            if trace:
+                tracker = await get_performance_tracker()
+                await tracker.end_trace(trace.trace_id, completion_tokens=completion_tokens, prompt_tokens=prompt_tokens)
             
         except Exception as e:
             log.error(f"Fake streaming error: {e}")

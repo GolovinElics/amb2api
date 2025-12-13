@@ -763,6 +763,129 @@
             border-color: #4285f4;
         }
 
+        /* ========== 性能分析页面样式 ========== */
+        .perf-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 16px;
+        }
+
+        .perf-stat-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .perf-stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px var(--shadow-color);
+        }
+
+        .perf-stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #4285f4;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .perf-stat-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .perf-pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        /* 瀑布图样式 */
+        .perf-waterfall-row {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+            font-size: 13px;
+        }
+
+        .perf-waterfall-label {
+            width: 120px;
+            min-width: 120px;
+            text-align: right;
+            padding-right: 12px;
+            color: var(--text-secondary);
+            font-size: 12px;
+        }
+
+        .perf-waterfall-bar-container {
+            flex: 1;
+            height: 24px;
+            background: var(--card-bg);
+            border-radius: 4px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .perf-waterfall-bar {
+            height: 100%;
+            border-radius: 4px;
+            position: absolute;
+            display: flex;
+            align-items: center;
+            padding-left: 8px;
+            color: white;
+            font-size: 11px;
+            font-weight: 500;
+            min-width: 40px;
+            box-sizing: border-box;
+        }
+
+        .perf-waterfall-bar.auth {
+            background: linear-gradient(90deg, #4285f4, #5a9cf4);
+        }
+
+        .perf-waterfall-bar.preprocess {
+            background: linear-gradient(90deg, #34a853, #4cba6a);
+        }
+
+        .perf-waterfall-bar.key-select {
+            background: linear-gradient(90deg, #fbbc05, #fcc934);
+        }
+
+        .perf-waterfall-bar.upstream-wait {
+            background: linear-gradient(90deg, #ea4335, #ef6157);
+        }
+
+        .perf-waterfall-bar.upstream-recv {
+            background: linear-gradient(90deg, #ff6d01, #ff8a33);
+        }
+
+        .perf-waterfall-bar.conversion {
+            background: linear-gradient(90deg, #46bdc6, #5fcdd5);
+        }
+
+        .perf-waterfall-bar.first-chunk {
+            background: linear-gradient(90deg, #7b1fa2, #9c27b0);
+        }
+
+        .perf-waterfall-bar.streaming {
+            background: linear-gradient(90deg, #0d47a1, #1565c0);
+        }
+
+        [data-theme="dark"] .perf-stat-card {
+            background-color: var(--card-bg);
+        }
+
+        [data-theme="dark"] .perf-waterfall-bar-container {
+            background: var(--border-color);
+        }
+
         /* 暗黑模式切换按钮 */
         .theme-toggle {
             position: fixed;
@@ -6129,6 +6252,7 @@
                         <button class="tab" onclick="switchTab('ratelimit')">速率限制</button>
                         <button class="tab" onclick="switchTab('usage')">使用统计</button>
                         <button class="tab" onclick="switchTab('playground')">操练场</button>
+                        <button class="tab" onclick="switchTab('performance')">性能分析</button>
                         <button class="tab" onclick="switchTab('logs')">实时日志</button>
                     </div>
                 </div>
@@ -6866,6 +6990,123 @@
                     </div>
                 </div>
 
+                <!-- 性能分析标签页 -->
+                <div id="performanceTab" class="tab-content">
+                    <h3>性能分析</h3>
+                    <div id="performanceStatus" class="playground-status"></div>
+
+                    <!-- 统计卡片 -->
+                    <div class="config-group">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                            <h4 style="margin: 0;">概览统计</h4>
+                            <div style="display: flex; gap: 8px;">
+                                <button class="btn btn-sm" onclick="loadPerfStats()"
+                                    style="background: #4285f4;">刷新</button>
+                                <button class="btn btn-sm" onclick="clearPerfData()"
+                                    style="background: #dc3545;">清空数据</button>
+                            </div>
+                        </div>
+                        <div class="perf-stats-grid" id="perfStatsGrid">
+                            <div class="perf-stat-card">
+                                <div class="perf-stat-value" id="perfTotalCount">0</div>
+                                <div class="perf-stat-label">总请求数</div>
+                            </div>
+                            <div class="perf-stat-card">
+                                <div class="perf-stat-value" id="perfAvgTTFB">-</div>
+                                <div class="perf-stat-label">平均 TTFB</div>
+                            </div>
+                            <div class="perf-stat-card">
+                                <div class="perf-stat-value" id="perfAvgTTFT">-</div>
+                                <div class="perf-stat-label">平均 TTFT</div>
+                            </div>
+                            <div class="perf-stat-card">
+                                <div class="perf-stat-value" id="perfP95Latency">-</div>
+                                <div class="perf-stat-label">P95 延迟</div>
+                            </div>
+                            <div class="perf-stat-card">
+                                <div class="perf-stat-value" id="perfAvgTPS">-</div>
+                                <div class="perf-stat-label">平均 TPS</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 筛选器 -->
+                    <div class="config-group">
+                        <div style="display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end;">
+                            <div>
+                                <label
+                                    style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 4px;">模型筛选</label>
+                                <select id="perfModelFilter" class="config-input" style="width: 180px;"
+                                    onchange="loadPerfTraces(1)">
+                                    <option value="">全部模型</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label
+                                    style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 4px;">搜索
+                                    Trace ID</label>
+                                <input type="text" id="perfSearchInput" class="config-input"
+                                    placeholder="输入 Trace ID..." style="width: 220px;"
+                                    onkeypress="if(event.key==='Enter')loadPerfTraces(1)" />
+                            </div>
+                            <div>
+                                <label
+                                    style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 4px;">每页条数</label>
+                                <select id="perfPageSize" class="config-input" style="width: 100px;"
+                                    onchange="loadPerfTraces(1)">
+                                    <option value="10">10 条</option>
+                                    <option value="20" selected>20 条</option>
+                                    <option value="50">50 条</option>
+                                    <option value="100">100 条</option>
+                                    <option value="200">200 条</option>
+                                    <option value="500">500 条</option>
+                                </select>
+                            </div>
+                            <div>
+                                <button class="btn btn-sm" onclick="loadPerfTraces(1)"
+                                    style="background: #28a745; height: 36px;">搜索</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 追踪记录表格 -->
+                    <div class="config-group">
+                        <h4>请求追踪记录</h4>
+                        <div style="overflow-x: auto;">
+                            <table class="table" id="perfTracesTable">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 160px;">时间</th>
+                                        <th>模型</th>
+                                        <th style="width: 80px;">TTFB</th>
+                                        <th style="width: 80px;">TTFT</th>
+                                        <th style="width: 80px;">TPS</th>
+                                        <th style="width: 100px;">总耗时</th>
+                                        <th style="width: 80px;">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="perfTracesBody">
+                                    <tr>
+                                        <td colspan="7" style="text-align: center; color: var(--text-secondary);">暂无数据
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- 分页控件 -->
+                        <div class="perf-pagination" id="perfPagination" style="display: none;">
+                            <button class="btn btn-sm" onclick="loadPerfTraces(currentPerfPage - 1)" id="perfPrevBtn"
+                                style="background: #6c757d;">上一页</button>
+                            <span id="perfPageInfo" style="margin: 0 12px; color: var(--text-secondary);">第 1 / 1 页 (共 0
+                                条)</span>
+                            <button class="btn btn-sm" onclick="loadPerfTraces(currentPerfPage + 1)" id="perfNextBtn"
+                                style="background: #6c757d;">下一页</button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- 账户管理标签页 -->
                 <div id="accountTab" class="tab-content">
                     <h3>账户管理</h3>
@@ -7575,6 +7816,66 @@
         </div>
     </div>
 
+    <!-- 性能链路分析弹窗 -->
+    <div id="perfWaterfallModal" class="modal">
+        <div class="modal-content" style="max-width: 700px; width: 95%; box-sizing: border-box;">
+            <div class="modal-header">
+                <h3 class="modal-title">请求链路分析</h3>
+                <button class="modal-close" onclick="closePerfWaterfallModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- 基本信息 - 两列布局 -->
+                <div style="margin-bottom: 16px; padding: 16px; background: var(--card-bg); border-radius: 8px;">
+                    <!-- 第一行：Trace ID -->
+                    <div style="margin-bottom: 12px;">
+                        <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 4px;">Trace ID</div>
+                        <div id="wfTraceId"
+                            style="font-family: 'SF Mono', 'Monaco', 'Consolas', monospace; font-size: 14px; font-weight: 600; color: var(--text-color); word-break: break-all; background: var(--border-color); padding: 8px 12px; border-radius: 4px;">
+                        </div>
+                    </div>
+                    <!-- 第二行：模型和时间 -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div>
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 2px;">模型</div>
+                            <div id="wfModel" style="font-size: 14px; font-weight: 600; color: #4285f4;"></div>
+                        </div>
+                        <div>
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 2px;">时间</div>
+                            <div id="wfTime" style="font-size: 14px; color: var(--text-color);"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 链路瀑布图 -->
+                <div id="perfWaterfallChart" style="margin-bottom: 16px;"></div>
+
+                <!-- 指标汇总 -->
+                <div
+                    style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; padding: 12px; background: var(--card-bg); border-radius: 6px;">
+                    <div style="text-align: center;">
+                        <div style="font-size: 11px; color: var(--text-secondary);">TTFB</div>
+                        <div id="wfTTFB" style="font-size: 18px; font-weight: bold; color: #4285f4;">-</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 11px; color: var(--text-secondary);">TTFT</div>
+                        <div id="wfTTFT" style="font-size: 18px; font-weight: bold; color: #34a853;">-</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 11px; color: var(--text-secondary);">TPS</div>
+                        <div id="wfTPS" style="font-size: 18px; font-weight: bold; color: #fbbc05;">-</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 11px; color: var(--text-secondary);">总耗时</div>
+                        <div id="wfTotal" style="font-size: 18px; font-weight: bold; color: #ea4335;">-</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="justify-content: center;">
+                <button class="btn" onclick="closePerfWaterfallModal()" style="width: 120px;">关闭</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let currentProjectId = '';
         let authInProgress = false;
@@ -8069,6 +8370,9 @@
             }
             if (tabName === 'account') {
                 initAccountTab();
+            }
+            if (tabName === 'performance') {
+                initPerformanceTab();
             }
         }
 
@@ -12267,6 +12571,263 @@
             } catch (e) {
                 showStatus('加载模型失败: ' + e.message, 'error');
             }
+        }
+
+        // ==================== 性能分析相关函数 ====================
+        let currentPerfPage = 1;
+        let perfTotalPages = 1;
+        let perfInitialized = false;
+
+        async function initPerformanceTab() {
+            // 每次进入都刷新数据
+            await loadPerfModels();
+            await loadPerfStats();
+            await loadPerfTraces(1);
+        }
+
+        async function loadPerfModels() {
+            try {
+                const res = await fetch('/api/playground/performance/models', { headers: getAuthHeaders() });
+                const data = await res.json();
+                const select = document.getElementById('perfModelFilter');
+                if (select && data.models) {
+                    const currentValue = select.value;
+                    select.innerHTML = '<option value="">全部模型</option>';
+                    data.models.forEach(model => {
+                        const opt = document.createElement('option');
+                        opt.value = model;
+                        opt.textContent = model;
+                        select.appendChild(opt);
+                    });
+                    // 保持之前的选择
+                    if (currentValue) select.value = currentValue;
+                }
+            } catch (e) {
+                console.error('加载性能模型列表失败:', e);
+            }
+        }
+
+        async function loadPerfStats() {
+            try {
+                const model = document.getElementById('perfModelFilter')?.value || '';
+                let url = '/api/playground/performance/stats';
+                if (model) url += `?model=${encodeURIComponent(model)}`;
+
+                const res = await fetch(url, { headers: getAuthHeaders() });
+                const data = await res.json();
+
+                document.getElementById('perfTotalCount').textContent = data.count || 0;
+                document.getElementById('perfAvgTTFB').textContent = data.ttfb?.avg ? formatMs(data.ttfb.avg) : '-';
+                document.getElementById('perfAvgTTFT').textContent = data.ttft?.avg ? formatMs(data.ttft.avg) : '-';
+                document.getElementById('perfP95Latency').textContent = data.latency?.p95 ? formatMs(data.latency.p95) : '-';
+                document.getElementById('perfAvgTPS').textContent = data.tps?.avg ? data.tps.avg.toFixed(1) : '-';
+            } catch (e) {
+                console.error('加载性能统计失败:', e);
+            }
+        }
+
+        async function loadPerfTraces(page) {
+            try {
+                page = Math.max(1, page);
+                currentPerfPage = page;
+
+                const model = document.getElementById('perfModelFilter')?.value || '';
+                const search = document.getElementById('perfSearchInput')?.value || '';
+                const pageSize = parseInt(document.getElementById('perfPageSize')?.value || '20');
+
+                const params = new URLSearchParams();
+                params.append('page', page);
+                params.append('page_size', pageSize);
+                if (model) params.append('model', model);
+                if (search) params.append('search', search);
+
+                const res = await fetch(`/api/playground/performance/traces?${params}`, { headers: getAuthHeaders() });
+                const data = await res.json();
+
+                perfTotalPages = data.total_pages || 1;
+                currentPerfPage = data.page || 1;
+
+                const tbody = document.getElementById('perfTracesBody');
+                if (!data.traces || data.traces.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-secondary);">暂无数据</td></tr>';
+                    document.getElementById('perfPagination').style.display = 'none';
+                    return;
+                }
+
+                tbody.innerHTML = data.traces.map(trace => {
+                    const time = new Date(trace.start_time * 1000).toLocaleString('zh-CN');
+                    const metrics = trace.metrics || {};
+                    return `
+                        <tr>
+                            <td style="font-size: 12px;">${time}</td>
+                            <td style="font-size: 12px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${trace.model}">${trace.model}</td>
+                            <td>${metrics.ttfb ? formatMs(metrics.ttfb) : '-'}</td>
+                            <td>${metrics.ttft ? formatMs(metrics.ttft) : '-'}</td>
+                            <td>${metrics.tps ? metrics.tps.toFixed(1) : '-'}</td>
+                            <td>${metrics.total_latency ? formatMs(metrics.total_latency) : '-'}</td>
+                            <td><button class="btn btn-sm" onclick="showPerfWaterfall('${trace.trace_id}')" style="background: #17a2b8; padding: 2px 8px; font-size: 11px;">详情</button></td>
+                        </tr>
+                    `;
+                }).join('');
+
+                // 更新分页
+                document.getElementById('perfPagination').style.display = 'flex';
+                document.getElementById('perfPageInfo').textContent = `第 ${currentPerfPage} / ${perfTotalPages} 页 (共 ${data.total} 条)`;
+                document.getElementById('perfPrevBtn').disabled = currentPerfPage <= 1;
+                document.getElementById('perfNextBtn').disabled = currentPerfPage >= perfTotalPages;
+
+                // 刷新模型列表和统计
+                await loadPerfModels();
+                await loadPerfStats();
+            } catch (e) {
+                console.error('加载性能追踪失败:', e);
+                document.getElementById('perfTracesBody').innerHTML = '<tr><td colspan="7" style="text-align: center; color: #dc3545;">加载失败</td></tr>';
+            }
+        }
+
+        async function showPerfWaterfall(traceId) {
+            try {
+                const res = await fetch(`/api/playground/performance/trace/${traceId}`, { headers: getAuthHeaders() });
+                if (!res.ok) {
+                    throw new Error('Trace not found');
+                }
+                const trace = await res.json();
+
+                // 填充基本信息
+                document.getElementById('wfTraceId').textContent = trace.trace_id;
+                document.getElementById('wfModel').textContent = trace.model;
+                document.getElementById('wfTime').textContent = new Date(trace.start_time * 1000).toLocaleString('zh-CN');
+
+                // 填充指标
+                const metrics = trace.metrics || {};
+                document.getElementById('wfTTFB').textContent = metrics.ttfb ? formatMs(metrics.ttfb) : '-';
+                document.getElementById('wfTTFT').textContent = metrics.ttft ? formatMs(metrics.ttft) : '-';
+                document.getElementById('wfTPS').textContent = metrics.tps ? metrics.tps.toFixed(1) : '-';
+                document.getElementById('wfTotal').textContent = metrics.total_latency ? formatMs(metrics.total_latency) : '-';
+
+                // 渲染瀑布图
+                renderWaterfall(trace);
+
+                // 显示弹窗
+                document.getElementById('perfWaterfallModal').style.display = 'block';
+            } catch (e) {
+                console.error('加载追踪详情失败:', e);
+                alert('加载失败: ' + e.message);
+            }
+        }
+
+        function renderWaterfall(trace) {
+            const stages = [
+                { key: 'auth_complete', label: '认证验证', className: 'auth', prevKey: 'request_received' },
+                { key: 'preprocessing_complete', label: '消息预处理', className: 'preprocess', prevKey: 'auth_complete' },
+                { key: 'key_selection_complete', label: '密钥选择', className: 'key-select', prevKey: 'preprocessing_complete' },
+                { key: 'upstream_first_byte', label: '上游等待 (TTFB)', className: 'upstream-wait', prevKey: 'key_selection_complete' },
+                { key: 'upstream_response_complete', label: '上游响应', className: 'upstream-recv', prevKey: 'upstream_first_byte' },
+                { key: 'conversion_complete', label: '格式转换', className: 'conversion', prevKey: 'upstream_response_complete' },
+                { key: 'first_chunk_sent', label: '首块发送', className: 'first-chunk', prevKey: 'conversion_complete' },
+                { key: 'response_complete', label: '响应完成', className: 'streaming', prevKey: 'first_chunk_sent' }
+            ];
+
+            const ts = trace.timestamps || {};
+            const startTime = ts.request_received || 0;
+            const endTime = ts.response_complete || startTime;
+            const totalDuration = endTime - startTime;
+
+            if (totalDuration <= 0) {
+                document.getElementById('perfWaterfallChart').innerHTML = '<div style="text-align: center; color: var(--text-secondary);">无链路数据</div>';
+                return;
+            }
+
+            let html = '';
+            let lastEndTime = startTime;  // 追踪上一个阶段的结束时间
+
+            for (const stage of stages) {
+                if (!(stage.key in ts)) {
+                    // 如果这个阶段不存在，更新 prevKey 以跳过
+                    continue;
+                }
+
+                const stageEndTime = ts[stage.key];
+                // 这个阶段从上一个已完成阶段的结束时间开始
+                const stageStartTime = lastEndTime;
+                const duration = stageEndTime - stageStartTime;
+
+                if (duration < 0) {
+                    lastEndTime = stageEndTime;
+                    continue;
+                }
+
+                // 使用时间戳计算精确位置
+                const startPercent = ((stageStartTime - startTime) / totalDuration) * 100;
+                const widthPercent = (duration / totalDuration) * 100;
+
+                // 显示宽度：至少 4%（让短阶段可见），但不超过剩余空间
+                const remainingSpace = 100 - startPercent;
+                const displayWidth = Math.min(Math.max(widthPercent, 4), remainingSpace);
+
+                // 确定显示文本
+                let durationText = formatMs(duration);
+                if (duration > 0 && duration < 1) {
+                    durationText = '<1ms';
+                } else if (duration === 0) {
+                    durationText = '0ms';
+                }
+
+                html += `
+                    <div class="perf-waterfall-row">
+                        <div class="perf-waterfall-label">${stage.label}</div>
+                        <div class="perf-waterfall-bar-container">
+                            <div class="perf-waterfall-bar ${stage.className}" 
+                                 style="left: ${startPercent}%; width: ${displayWidth}%;"
+                                 title="${stage.label}: ${formatMs(duration)}">
+                                ${durationText}
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                // 更新上一个阶段的结束时间
+                lastEndTime = stageEndTime;
+            }
+
+            if (!html) {
+                html = '<div style="text-align: center; color: var(--text-secondary);">无链路数据</div>';
+            }
+
+            document.getElementById('perfWaterfallChart').innerHTML = html;
+        }
+
+        function closePerfWaterfallModal() {
+            document.getElementById('perfWaterfallModal').style.display = 'none';
+        }
+
+        async function clearPerfData() {
+            if (!confirm('确定要清空所有性能追踪数据吗？此操作不可恢复。')) {
+                return;
+            }
+            try {
+                const res = await fetch('/api/playground/performance/clear', {
+                    method: 'DELETE',
+                    headers: getAuthHeaders()
+                });
+                if (res.ok) {
+                    alert('数据已清空');
+                    perfInitialized = false;
+                    await initPerformanceTab();
+                } else {
+                    const data = await res.json();
+                    alert('清空失败: ' + (data.detail || '未知错误'));
+                }
+            } catch (e) {
+                console.error('清空数据失败:', e);
+                alert('清空失败: ' + e.message);
+            }
+        }
+
+        function formatMs(ms) {
+            if (ms === undefined || ms === null) return '-';
+            if (ms < 1000) return Math.round(ms) + 'ms';
+            return (ms / 1000).toFixed(2) + 's';
         }
 
         async function loadPlaygroundApiKeys() {

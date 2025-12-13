@@ -205,3 +205,130 @@ async def generate_initial_request(request: PreviewRequest):
     except Exception as e:
         log.error(f"Failed to generate initial request: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================
+# 性能监控 API 端点
+# ============================================================
+
+@router.get("/performance/stats")
+async def get_performance_stats(model: Optional[str] = None):
+    """
+    获取性能统计数据
+    
+    Args:
+        model: 可选，按模型筛选
+    
+    Returns:
+        统计数据，包含 TTFB/TTFT/TPS/延迟的平均值和百分位数
+    """
+    try:
+        from .performance_tracker import get_performance_tracker
+        tracker = await get_performance_tracker()
+        stats = await tracker.get_stats(model=model)
+        return stats
+    except Exception as e:
+        log.error(f"Failed to get performance stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/performance/traces")
+async def get_performance_traces(
+    page: int = 1,
+    page_size: int = 20,
+    model: Optional[str] = None,
+    search: Optional[str] = None,
+    start_time: Optional[float] = None,
+    end_time: Optional[float] = None
+):
+    """
+    分页查询追踪记录
+    
+    Args:
+        page: 页码（从 1 开始）
+        page_size: 每页记录数（默认 20）
+        model: 模型筛选
+        search: 搜索 trace_id
+        start_time: 开始时间戳筛选
+        end_time: 结束时间戳筛选
+    
+    Returns:
+        分页结果，包含 traces、page、page_size、total、total_pages
+    """
+    try:
+        from .performance_tracker import get_performance_tracker
+        tracker = await get_performance_tracker()
+        result = await tracker.get_traces_paginated(
+            page=page,
+            page_size=page_size,
+            model=model,
+            search=search,
+            start_time=start_time,
+            end_time=end_time
+        )
+        return result
+    except Exception as e:
+        log.error(f"Failed to get performance traces: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/performance/trace/{trace_id}")
+async def get_performance_trace_detail(trace_id: str):
+    """
+    获取单条追踪详情
+    
+    Args:
+        trace_id: 追踪 ID
+    
+    Returns:
+        追踪详情，包含 timestamps、metrics、durations
+    """
+    try:
+        from .performance_tracker import get_performance_tracker
+        tracker = await get_performance_tracker()
+        trace = await tracker.get_trace_by_id(trace_id)
+        if not trace:
+            raise HTTPException(status_code=404, detail="Trace not found")
+        return trace
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"Failed to get trace detail: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/performance/models")
+async def get_performance_models():
+    """
+    获取所有有追踪记录的模型列表
+    
+    Returns:
+        模型名称列表
+    """
+    try:
+        from .performance_tracker import get_performance_tracker
+        tracker = await get_performance_tracker()
+        models = await tracker.get_models()
+        return {"models": models}
+    except Exception as e:
+        log.error(f"Failed to get performance models: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/performance/clear")
+async def clear_performance_data():
+    """
+    清除所有性能追踪数据
+    
+    Returns:
+        操作结果
+    """
+    try:
+        from .performance_tracker import get_performance_tracker
+        tracker = await get_performance_tracker()
+        await tracker.clear_all()
+        return {"success": True, "message": "All performance data cleared"}
+    except Exception as e:
+        log.error(f"Failed to clear performance data: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
