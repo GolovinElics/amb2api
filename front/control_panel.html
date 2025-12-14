@@ -3924,12 +3924,12 @@
         @media (max-width: 480px) {
             .config-floating-actions {
                 bottom: 25px;
-                right: 15px;
+                right: 30px;
             }
 
             .config-floating-btn {
-                padding: 8px 16px;
-                font-size: 13px;
+                padding: 8px 14px;
+                font-size: 12px;
             }
         }
 
@@ -7452,14 +7452,15 @@
                                                         onclick="setCostWindow('hour')"
                                                         style="padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg); cursor: pointer; font-size: 11px;">hour</button>
                                                 </div>
-                                                <div style="display: flex; gap: 6px; align-items: center;">
+                                                <div
+                                                    style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
                                                     <input type="date" id="costStartDate" class="config-input"
-                                                        style="width: 140px; padding: 4px 8px; font-size: 12px;"
+                                                        style="width: 120px; padding: 4px 6px; font-size: 12px;"
                                                         onchange="validateCostDateRange()">
                                                     <span
                                                         style="color: var(--text-secondary); font-size: 12px;">-</span>
                                                     <input type="date" id="costEndDate" class="config-input"
-                                                        style="width: 140px; padding: 4px 8px; font-size: 12px;"
+                                                        style="width: 120px; padding: 4px 6px; font-size: 12px;"
                                                         onchange="validateCostDateRange()">
                                                 </div>
                                                 <div id="costDateError"
@@ -15463,12 +15464,12 @@
 
                 // 计算合适的Y轴刻度
                 let yMax = maxAmount;
-                let yStep = yMax / 4;
+                let yStep = yMax / 5;
                 const yTicks = [];
 
                 try {
                     if (maxAmount > 1) {
-                        const yTickCount = 4;
+                        const yTickCount = 5;
                         const rawStep = maxAmount / yTickCount;
                         if (rawStep > 0 && isFinite(rawStep)) {
                             const logVal = Math.log10(rawStep);
@@ -15490,7 +15491,7 @@
                 }
 
                 if (!isFinite(yMax) || yMax <= 0) yMax = 1000;
-                if (!isFinite(yStep) || yStep <= 0) yStep = yMax / 4;
+                if (!isFinite(yStep) || yStep <= 0) yStep = yMax / 5;
 
                 for (let v = 0; v <= yMax * 1.001; v += yStep) {
                     yTicks.push(Math.round(v));
@@ -15501,10 +15502,16 @@
                 const chartHeight = 200;
                 const chartWidth = 100;
 
+                // 移动端/平板使用更紧凑的Y轴（提高阈值到768px覆盖平板）
+                const isMobileChart = window.innerWidth < 768;
+                const yAxisWidth = isMobileChart ? 28 : 50;
+                const yAxisMargin = isMobileChart ? 32 : 55;
+                const yAxisFontSize = isMobileChart ? 8 : 10;
+
                 let html = '<div style="position: relative;">';
 
                 // Y轴标签
-                html += '<div style="position: absolute; left: 0; top: 0; bottom: 30px; width: 50px; display: flex; flex-direction: column; justify-content: space-between; font-size: 10px; color: var(--text-secondary); text-align: right; padding-right: 8px;">';
+                html += '<div style="position: absolute; left: 0; top: 0; bottom: 30px; width: ' + yAxisWidth + 'px; display: flex; flex-direction: column; justify-content: space-between; font-size: ' + yAxisFontSize + 'px; color: var(--text-secondary); text-align: right; padding-right: 3px;">';
                 for (let i = yTicks.length - 1; i >= 0; i--) {
                     const formatted = yTicks[i] >= 1000000 ? (yTicks[i] / 1000000).toFixed(1) + 'M' :
                         yTicks[i] >= 1000 ? (yTicks[i] / 1000).toFixed(0) + 'K' :
@@ -15514,7 +15521,7 @@
                 html += '</div>';
 
                 // 图表区域
-                html += '<div id="usageChartContainer" style="margin-left: 55px; position: relative; height: ' + chartHeight + 'px; border-bottom: 1px solid var(--border-color);">';
+                html += '<div id="usageChartContainer" style="margin-left: ' + yAxisMargin + 'px; position: relative; height: ' + chartHeight + 'px; border-bottom: 1px solid var(--border-color);">';
 
                 if (dataPointCount > 0) {
                     const width = chartWidth;
@@ -15586,8 +15593,8 @@
                     // 数据点圆点容器
                     html += '<div id="usageChartDots" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none;"></div>';
 
-                    // 交互层
-                    html += '<div id="usageChartOverlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; cursor: crosshair; z-index: 10;" onmousemove="showUsageTooltip(event)" onmouseleave="hideUsageTooltip()"></div>';
+                    // 交互层（支持触摸事件）
+                    html += '<div id="usageChartOverlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; cursor: crosshair; z-index: 10;" onmousemove="showUsageTooltip(event)" onmouseleave="hideUsageTooltip()" ontouchstart="handleUsageTouch(event)" ontouchmove="handleUsageTouch(event)"></div>';
 
                     // 存储点数据
                     window.usageChartPoints = allModelPoints;
@@ -15604,14 +15611,50 @@
 
                 html += '</div>';
 
-                // X轴标签（添加 5% padding 与曲线对齐）
+                // X轴标签（使用绝对定位确保与数据点对齐）
                 if (dates.length > 0) {
-                    html += '<div style="margin-left: 55px; display: flex; justify-content: space-between; font-size: 10px; color: var(--text-secondary); padding-top: 4px; padding-left: 5%; padding-right: 5%;">';
-                    const step = Math.max(1, Math.floor(dates.length / 8));
-                    for (let i = 0; i < dates.length; i += step) {
-                        const d = new Date(dates[i]);
-                        html += '<div>' + (d.getMonth() + 1) + '/' + d.getDate() + '</div>';
+                    const xLabelFontSize = isMobileChart ? 8 : 10;
+                    html += '<div style="margin-left: ' + yAxisMargin + 'px; position: relative; height: 20px; font-size: ' + xLabelFontSize + 'px; color: var(--text-secondary); padding-top: 4px; overflow: hidden;">';
+
+                    // 移动端显示更少标签，避免重叠
+                    const maxLabels = isMobileChart ? 4 : 8;
+                    const step = Math.max(1, Math.ceil(dates.length / maxLabels));
+
+                    // 计算要显示的标签索引，确保包含首尾
+                    const labelIndices = [];
+                    labelIndices.push(0);  // 始终显示第一个
+                    for (let i = step; i < dates.length - 1; i += step) {
+                        // 跳过太靠近最后一个标签的索引（避免重叠）
+                        const posPercent = (i / (dates.length - 1)) * 90;
+                        const lastPosPercent = 90;  // 最后一个在95%位置
+                        if (lastPosPercent - posPercent < 18) continue;  // 太近则跳过（提高阈值避免重叠）
+                        labelIndices.push(i);
                     }
+                    if (dates.length > 1) {
+                        labelIndices.push(dates.length - 1);  // 始终显示最后一个
+                    }
+
+                    // 使用与曲线相同的定位计算方式（5% padding）
+                    labelIndices.forEach((idx) => {
+                        const d = new Date(dates[idx]);
+                        const dateStr = (d.getMonth() + 1) + '/' + d.getDate();
+
+                        // 第一个标签左对齐，最后一个右对齐，中间的按位置居中
+                        let posStyle = '';
+                        if (idx === 0) {
+                            posStyle = 'left: 5%;';
+                        } else if (idx === dates.length - 1) {
+                            posStyle = 'right: 5%;';  // 最后一个使用right定位避免溢出
+                        } else {
+                            // 中间标签使用left定位并居中
+                            const position = dates.length > 1
+                                ? 5 + (idx / (dates.length - 1)) * 90  // 5% 到 95%
+                                : 50;
+                            posStyle = 'left: ' + position + '%; transform: translateX(-50%);';
+                        }
+
+                        html += '<div style="position: absolute; white-space: nowrap; ' + posStyle + '">' + dateStr + '</div>';
+                    });
                     html += '</div>';
                 }
 
@@ -15761,9 +15804,14 @@
             const isMobilePos = viewW < 500;
 
             if (isMobilePos) {
-                // 移动端：固定在屏幕底部中央
-                left = Math.max(10, (viewW - tipW) / 2);
-                top = viewH - tipH - 20;
+                // 移动端：悬浮框显示在触摸点上方，水平居中但不超出屏幕
+                left = Math.max(10, Math.min((viewW - tipW) / 2, viewW - tipW - 10));
+                // 在触摸点上方显示，留出足够间距
+                top = mouseY - tipH - 20;
+                // 如果上方空间不足，则显示在下方
+                if (top < 10) {
+                    top = mouseY + 20;
+                }
             } else {
                 // 桌面端：鼠标位于角落
                 // 水平定位：优先右下角 -> 左下角
@@ -15800,6 +15848,24 @@
             if (tooltip) tooltip.style.display = 'none';
             if (indicator) indicator.style.display = 'none';
             if (dotsContainer) dotsContainer.innerHTML = '';
+        }
+
+        // 存储触摸位置用于tooltip定位
+        window.lastTouchY = 0;
+
+        // 处理触摸事件
+        function handleUsageTouch(event) {
+            // 不再阻止默认滚动行为，允许页面正常滚动
+            if (event.touches && event.touches.length > 0) {
+                const touch = event.touches[0];
+                window.lastTouchY = touch.clientY;
+                // 创建一个模拟的事件对象
+                const fakeEvent = {
+                    clientX: touch.clientX,
+                    clientY: touch.clientY
+                };
+                showUsageTooltip(fakeEvent);
+            }
         }
 
         // 渲染使用量表格（带分布图和分类）
@@ -16747,17 +16813,25 @@
                 const chartHeight = 200;
                 const chartWidth = 100; // SVG viewBox width
 
+                // 移动端/平板使用更紧凑的Y轴（提高阈值到768px覆盖平板）
+                const isMobileChart = window.innerWidth < 768;
+                const yAxisWidth = isMobileChart ? 28 : 50;
+                const yAxisMargin = isMobileChart ? 32 : 55;
+                const yAxisFontSize = isMobileChart ? 8 : 10;
+
                 let html = '<div style="position: relative;">';
 
-                // Y轴标签
-                html += '<div style="position: absolute; left: 0; top: 0; bottom: 30px; width: 50px; display: flex; flex-direction: column; justify-content: space-between; font-size: 10px; color: var(--text-secondary); text-align: right; padding-right: 8px;">';
+                // Y轴标签（移动端使用更紧凑格式）
+                html += '<div style="position: absolute; left: 0; top: 0; bottom: 30px; width: ' + yAxisWidth + 'px; display: flex; flex-direction: column; justify-content: space-between; font-size: ' + yAxisFontSize + 'px; color: var(--text-secondary); text-align: right; padding-right: 3px;">';
                 for (let i = yTicks.length - 1; i >= 0; i--) {
-                    html += '<div>$' + yTicks[i].toFixed(2) + '</div>';
+                    // 移动端用更紧凑的格式
+                    const formatted = isMobileChart ? yTicks[i].toFixed(2) : '$' + yTicks[i].toFixed(2);
+                    html += '<div>' + formatted + '</div>';
                 }
                 html += '</div>';
 
                 // 图表区域
-                html += '<div id="costChartContainer" style="margin-left: 55px; position: relative; height: ' + chartHeight + 'px; border-bottom: 1px solid var(--border-color);">';
+                html += '<div id="costChartContainer" style="margin-left: ' + yAxisMargin + 'px; position: relative; height: ' + chartHeight + 'px; border-bottom: 1px solid var(--border-color);">';
 
                 // 渲染曲线图
                 if (trendData.length > 0 || Object.keys(modelDailyData).length > 0 || (data.by_model && data.by_model.length > 0)) {
@@ -16858,8 +16932,8 @@
                     // 数据点圆点容器
                     html += '<div id="costChartDots" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none;"></div>';
 
-                    // 交互层（添加 z-index 确保在最上层）
-                    html += '<div id="costChartOverlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; cursor: crosshair; z-index: 10;" onmousemove="showCostTooltip(event)" onmouseleave="hideCostTooltip()"></div>';
+                    // 交互层（支持触摸事件）
+                    html += '<div id="costChartOverlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; cursor: crosshair; z-index: 10;" onmousemove="showCostTooltip(event)" onmouseleave="hideCostTooltip()" ontouchstart="handleCostTouch(event)" ontouchmove="handleCostTouch(event)"></div>';
 
                     // 存储点数据
                     window.costChartPoints = allModelPoints;
@@ -16867,14 +16941,50 @@
 
                 html += '</div>';
 
-                // X轴标签（添加 5% padding 与曲线对齐）
+                // X轴标签（使用绝对定位确保与数据点对齐）
                 if (dates.length > 0) {
-                    html += '<div style="margin-left: 55px; display: flex; justify-content: space-between; font-size: 10px; color: var(--text-secondary); padding-top: 4px; padding-left: 5%; padding-right: 5%;">';
-                    const step = Math.max(1, Math.floor(dates.length / 8));
-                    for (let i = 0; i < dates.length; i += step) {
-                        const d = new Date(dates[i]);
-                        html += '<div>' + (d.getMonth() + 1) + '/' + d.getDate() + '</div>';
+                    const xLabelFontSize = isMobileChart ? 8 : 10;
+                    html += '<div style="margin-left: ' + yAxisMargin + 'px; position: relative; height: 20px; font-size: ' + xLabelFontSize + 'px; color: var(--text-secondary); padding-top: 4px; overflow: hidden;">';
+
+                    // 移动端显示更少标签，避免重叠
+                    const maxLabels = isMobileChart ? 4 : 8;
+                    const step = Math.max(1, Math.ceil(dates.length / maxLabels));
+
+                    // 计算要显示的标签索引，确保包含首尾
+                    const labelIndices = [];
+                    labelIndices.push(0);  // 始终显示第一个
+                    for (let i = step; i < dates.length - 1; i += step) {
+                        // 跳过太靠近最后一个标签的索引（避免重叠）
+                        const posPercent = (i / (dates.length - 1)) * 90;
+                        const lastPosPercent = 90;  // 最后一个在95%位置
+                        if (lastPosPercent - posPercent < 18) continue;  // 太近则跳过（提高阈值避免重叠）
+                        labelIndices.push(i);
                     }
+                    if (dates.length > 1) {
+                        labelIndices.push(dates.length - 1);  // 始终显示最后一个
+                    }
+
+                    // 使用与曲线相同的定位计算方式（5% padding）
+                    labelIndices.forEach((idx) => {
+                        const d = new Date(dates[idx]);
+                        const dateStr = (d.getMonth() + 1) + '/' + d.getDate();
+
+                        // 第一个标签左对齐，最后一个右对齐，中间的按位置居中
+                        let posStyle = '';
+                        if (idx === 0) {
+                            posStyle = 'left: 5%;';
+                        } else if (idx === dates.length - 1) {
+                            posStyle = 'right: 5%;';  // 最后一个使用right定位避免溢出
+                        } else {
+                            // 中间标签使用left定位并居中
+                            const position = dates.length > 1
+                                ? 5 + (idx / (dates.length - 1)) * 90  // 5% 到 95%
+                                : 50;
+                            posStyle = 'left: ' + position + '%; transform: translateX(-50%);';
+                        }
+
+                        html += '<div style="position: absolute; white-space: nowrap; ' + posStyle + '">' + dateStr + '</div>';
+                    });
                     html += '</div>';
                 }
 
@@ -17045,9 +17155,14 @@
             const isMobile = viewW < 500;
 
             if (isMobile) {
-                // 移动端：固定在屏幕底部中央
-                left = Math.max(10, (viewW - tipW) / 2);
-                top = viewH - tipH - 20;
+                // 移动端：悬浮框显示在触摸点上方，水平居中但不超出屏幕
+                left = Math.max(10, Math.min((viewW - tipW) / 2, viewW - tipW - 10));
+                // 在触摸点上方显示，留出足够间距
+                top = mouseY - tipH - 20;
+                // 如果上方空间不足，则显示在下方
+                if (top < 10) {
+                    top = mouseY + 20;
+                }
             } else {
                 // 桌面端：鼠标位于角落
                 // 水平定位：优先右侧 -> 左侧
@@ -17082,6 +17197,21 @@
             if (tooltip) tooltip.style.display = 'none';
             if (indicator) indicator.style.display = 'none';
             if (dotsContainer) dotsContainer.innerHTML = '';
+        }
+
+        // 处理成本图表触摸事件
+        function handleCostTouch(event) {
+            // 不再阻止默认滚动行为，允许页面正常滚动
+            if (event.touches && event.touches.length > 0) {
+                const touch = event.touches[0];
+                window.lastTouchY = touch.clientY;
+                // 创建一个模拟的事件对象
+                const fakeEvent = {
+                    clientX: touch.clientX,
+                    clientY: touch.clientY
+                };
+                showCostTooltip(fakeEvent);
+            }
         }
 
         // 渲染表格视图
