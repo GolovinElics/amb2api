@@ -511,10 +511,18 @@ async def fetch_assembly_models() -> Dict[str, Any]:
 async def send_assembly_request(
     openai_request: ChatCompletionRequest,
     is_streaming: bool = False,
+    trace = None,  # Optional: 性能追踪对象，用于记录使用的密钥信息
+    account_email: str = "",  # Optional: 当前账户邮箱
 ):
     """
     调用 AssemblyAI LLM Gateway，支持与 OpenAI 兼容的请求格式。
     目前实现非流式调用；如需流式，建议结合假流式。
+    
+    Args:
+        openai_request: 请求对象
+        is_streaming: 是否流式
+        trace: 可选的性能追踪对象，用于记录使用的密钥信息
+        account_email: 可选的当前账户邮箱
     """
     # 构造请求体
     sanitized_messages = _sanitize_messages(openai_request.messages)
@@ -659,6 +667,12 @@ async def send_assembly_request(
                 
                 api_key = keys[idx]
                 headers = {"Authorization": api_key, "Content-Type": "application/json"}
+                
+                # 记录密钥信息到性能追踪
+                if trace:
+                    trace.key_index = idx
+                    trace.key_masked = _mask_key(api_key)
+                    trace.account_email = account_email
                 
                 # INFO 级别：简要日志
                 log.info(f"REQ model={openai_request.model} key={_mask_key(api_key)} attempt={attempt+1}/{max_retries+1} key_idx={idx}")

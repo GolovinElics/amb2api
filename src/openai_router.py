@@ -22,6 +22,19 @@ from .task_manager import create_managed_task
 from .openai_transfer import assembly_response_to_openai
 from .performance_tracker import get_performance_tracker
 
+
+async def _get_current_account_email() -> str:
+    """获取当前账户邮箱，用于性能追踪"""
+    try:
+        from .storage_adapter import get_storage_adapter
+        adapter = await get_storage_adapter()
+        current_account = await adapter.get_config("assembly_current_account")
+        if current_account and isinstance(current_account, dict):
+            return current_account.get("email", "")
+    except Exception as e:
+        log.debug(f"Failed to get current account email: {e}")
+    return ""
+
 def _parse_xml_tool_calls(content: str):
     """
     解析 content 中的 XML 格式工具调用 (兼容 Anthropic 手动工具调用格式)
@@ -239,6 +252,9 @@ async def chat_completions(
     # 标记预处理完成
     trace.mark("preprocessing_complete")
     
+    # 获取当前账户邮箱（用于性能追踪）
+    account_email = await _get_current_account_email()
+    
     # 处理模型名称和功能检测
     model = request_data.model
     use_fake_streaming = is_fake_streaming_model(model)
@@ -249,7 +265,7 @@ async def chat_completions(
     # 处理假流式
     if use_fake_streaming and getattr(request_data, "stream", False):
         request_data.stream = False
-        return await fake_stream_response_for_assembly(request_data, trace=trace)
+        return await fake_stream_response_for_assembly(request_data, trace=trace, account_email=account_email)
     
     # 处理抗截断 (仅流式传输时有效)
     is_streaming = getattr(request_data, "stream", False)
@@ -269,16 +285,16 @@ async def chat_completions(
             log.info("使用真实流式模式（实验性）")
             # 真实流式模式：直接发送流式请求到 AssemblyAI
             # 注意：当前 AssemblyAI 的流式响应可能存在解析问题
-            response = await send_assembly_request(request_data, True)
+            response = await send_assembly_request(request_data, True, trace=trace, account_email=account_email)
             return await convert_streaming_response(response, model)
         else:
             log.info("使用假流式模式")
-            return await fake_stream_response_for_assembly(request_data, trace=trace)
+            return await fake_stream_response_for_assembly(request_data, trace=trace, account_email=account_email)
     
     log.info(f"REQ model={model}")
     log.debug(f"Sending request to AssemblyAI - stream: {is_streaming}, messages: {len(request_data.messages)}")
     
-    response = await send_assembly_request(request_data, False)
+    response = await send_assembly_request(request_data, False, trace=trace, account_email=account_email)
     
     # 性能追踪：上游响应完成
     if trace:
@@ -401,10 +417,10 @@ async def chat_completions(
             log.error(f"RES model={model} status=FAIL conversion_error")
         raise HTTPException(status_code=500, detail="Response conversion failed")
 
-async def fake_stream_response_for_assembly(openai_request: ChatCompletionRequest, trace=None) -> StreamingResponse:
+async def fake_stream_response_for_assembly(openai_request: ChatCompletionRequest, trace=None, account_email: str = "") -> StreamingResponse:
     """AssemblyAI 的假流式：周期心跳 + 最终内容块"""
     async def stream_generator():
-        nonlocal trace
+        nonlocal trace, account_email
         completion_tokens = 0
         prompt_tokens = 0
         
@@ -424,7 +440,7 @@ async def fake_stream_response_for_assembly(openai_request: ChatCompletionReques
             
             # 异步发送实际请求
             async def get_response():
-                return await send_assembly_request(openai_request, False)
+                return await send_assembly_request(openai_request, False, trace=trace, account_email=account_email)
             
             # 创建请求任务
             response_task = create_managed_task(get_response(), name="openai_fake_stream_request")

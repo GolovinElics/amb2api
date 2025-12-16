@@ -7077,18 +7077,19 @@
                             <table class="table" id="perfTracesTable">
                                 <thead>
                                     <tr>
-                                        <th style="width: 160px;">时间</th>
+                                        <th style="width: 85px;">时间</th>
                                         <th>模型</th>
-                                        <th style="width: 80px;">TTFB</th>
-                                        <th style="width: 80px;">TTFT</th>
-                                        <th style="width: 80px;">TPS</th>
-                                        <th style="width: 100px;">总耗时</th>
-                                        <th style="width: 80px;">操作</th>
+                                        <th style="width: 65px;">TTFB</th>
+                                        <th style="width: 65px;">TTFT</th>
+                                        <th style="width: 55px;">TPS</th>
+                                        <th style="width: 70px;">总耗时</th>
+                                        <th style="width: 90px;">密钥</th>
+                                        <th style="width: 50px;">操作</th>
                                     </tr>
                                 </thead>
                                 <tbody id="perfTracesBody">
                                     <tr>
-                                        <td colspan="7" style="text-align: center; color: var(--text-secondary);">暂无数据
+                                        <td colspan="8" style="text-align: center; color: var(--text-secondary);">暂无数据
                                         </td>
                                     </tr>
                                 </tbody>
@@ -7843,6 +7844,19 @@
                         <div>
                             <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 2px;">时间</div>
                             <div id="wfTime" style="font-size: 14px; color: var(--text-color);"></div>
+                        </div>
+                    </div>
+                    <!-- 第三行：密钥和账户 -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px;">
+                        <div>
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 2px;">使用密钥</div>
+                            <div id="wfKey"
+                                style="font-size: 14px; font-weight: 600; color: #9c27b0; font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;">
+                                -</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 2px;">归属账户</div>
+                            <div id="wfAccount" style="font-size: 14px; color: var(--text-color);">-</div>
                         </div>
                     </div>
                 </div>
@@ -12650,23 +12664,29 @@
 
                 const tbody = document.getElementById('perfTracesBody');
                 if (!data.traces || data.traces.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-secondary);">暂无数据</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-secondary);">暂无数据</td></tr>';
                     document.getElementById('perfPagination').style.display = 'none';
                     return;
                 }
 
                 tbody.innerHTML = data.traces.map(trace => {
-                    const time = new Date(trace.start_time * 1000).toLocaleString('zh-CN');
+                    const date = new Date(trace.start_time * 1000);
+                    // 使用更紧凑的时间格式，日期和时间分两行显示
+                    const dateStr = date.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' });
+                    const timeStr = date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                    const fullTime = date.toLocaleString('zh-CN');
                     const metrics = trace.metrics || {};
+                    const keyDisplay = trace.key_masked || (trace.key_index >= 0 ? `Key #${trace.key_index}` : '-');
                     return `
                         <tr>
-                            <td style="font-size: 12px;">${time}</td>
-                            <td style="font-size: 12px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${trace.model}">${trace.model}</td>
-                            <td>${metrics.ttfb ? formatMs(metrics.ttfb) : '-'}</td>
-                            <td>${metrics.ttft ? formatMs(metrics.ttft) : '-'}</td>
-                            <td>${metrics.tps ? metrics.tps.toFixed(1) : '-'}</td>
-                            <td>${metrics.total_latency ? formatMs(metrics.total_latency) : '-'}</td>
-                            <td><button class="btn btn-sm" onclick="showPerfWaterfall('${trace.trace_id}')" style="background: #17a2b8; padding: 2px 8px; font-size: 11px;">详情</button></td>
+                            <td style="font-size: 11px; white-space: nowrap;" title="${fullTime}">${dateStr}<br/>${timeStr}</td>
+                            <td style="font-size: 11px; max-width: 150px; word-break: break-all;" title="${trace.model}">${trace.model}</td>
+                            <td style="font-size: 11px;">${metrics.ttfb ? formatMs(metrics.ttfb) : '-'}</td>
+                            <td style="font-size: 11px;">${metrics.ttft ? formatMs(metrics.ttft) : '-'}</td>
+                            <td style="font-size: 11px;">${metrics.tps ? metrics.tps.toFixed(1) : '-'}</td>
+                            <td style="font-size: 11px;">${metrics.total_latency ? formatMs(metrics.total_latency) : '-'}</td>
+                            <td style="font-size: 10px; font-family: 'SF Mono', 'Monaco', 'Consolas', monospace; color: #9c27b0;" title="${trace.account_email || ''}">${keyDisplay}</td>
+                            <td><button class="btn btn-sm" onclick="showPerfWaterfall('${trace.trace_id}')" style="background: #17a2b8; padding: 2px 6px; font-size: 10px;">详情</button></td>
                         </tr>
                     `;
                 }).join('');
@@ -12698,6 +12718,11 @@
                 document.getElementById('wfTraceId').textContent = trace.trace_id;
                 document.getElementById('wfModel').textContent = trace.model;
                 document.getElementById('wfTime').textContent = new Date(trace.start_time * 1000).toLocaleString('zh-CN');
+
+                // 填充密钥和账户信息
+                const keyDisplay = trace.key_masked || (trace.key_index >= 0 ? `Key #${trace.key_index}` : '-');
+                document.getElementById('wfKey').textContent = keyDisplay;
+                document.getElementById('wfAccount').textContent = trace.account_email || '-';
 
                 // 填充指标
                 const metrics = trace.metrics || {};

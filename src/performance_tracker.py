@@ -29,6 +29,11 @@ class RequestTrace:
     completion_tokens: int = 0
     prompt_tokens: int = 0
     
+    # Key and account tracking
+    key_index: int = -1  # 使用的密钥索引，-1 表示未设置
+    key_masked: str = ""  # 脱敏后的密钥（如 "sk-ab...xy"）
+    account_email: str = ""  # 归属账户邮箱
+    
     # 内部计时基准（用于高精度计时）
     _base_time: float = field(default=0.0, repr=False)
     
@@ -97,7 +102,10 @@ class RequestTrace:
             "timestamps": self.timestamps,
             "metadata": self.metadata,
             "completion_tokens": self.completion_tokens,
-            "prompt_tokens": self.prompt_tokens
+            "prompt_tokens": self.prompt_tokens,
+            "key_index": self.key_index,
+            "key_masked": self.key_masked,
+            "account_email": self.account_email
         }
     
     @classmethod
@@ -112,6 +120,9 @@ class RequestTrace:
         trace.metadata = data.get("metadata", {})
         trace.completion_tokens = data.get("completion_tokens", 0)
         trace.prompt_tokens = data.get("prompt_tokens", 0)
+        trace.key_index = data.get("key_index", -1)
+        trace.key_masked = data.get("key_masked", "")
+        trace.account_email = data.get("account_email", "")
         return trace
 
 
