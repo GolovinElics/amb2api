@@ -14,7 +14,7 @@ import time
 import pytest
 from hypothesis import given, strategies as st, settings, assume
 
-from src.account_preload import (
+from src.services.account_preload import (
     PreloadTask,
     PreloadTaskStatus,
     PreloadDataType,
@@ -311,7 +311,7 @@ class TestAccountDataCacheLRU:
         **Feature: account-preload-queue, Property 10: Cache Size Limit with LRU Eviction**
         缓存账户数不应超过 max_accounts 限制
         """
-        from src.account_preload import AccountDataCache
+        from src.services.account_preload import AccountDataCache
         
         cache = AccountDataCache(max_accounts=max_accounts, default_ttl=300.0)
         
@@ -337,7 +337,7 @@ class TestAccountDataCacheLRU:
         **Feature: account-preload-queue, Property 10: Cache Size Limit with LRU Eviction**
         LRU 淘汰应移除最早访问的账户
         """
-        from src.account_preload import AccountDataCache
+        from src.services.account_preload import AccountDataCache
         
         cache = AccountDataCache(max_accounts=max_accounts, default_ttl=300.0)
         
@@ -396,7 +396,7 @@ class TestAccountDataCacheCleanup:
         **Feature: account-preload-queue, Property 11: Cache Cleanup on Logout**
         清除账户应移除该账户的所有缓存数据
         """
-        from src.account_preload import AccountDataCache
+        from src.services.account_preload import AccountDataCache
         
         cache = AccountDataCache(max_accounts=20, default_ttl=300.0)
         
@@ -427,7 +427,7 @@ class TestAccountDataCacheCleanup:
         **Feature: account-preload-queue, Property 11: Cache Cleanup on Logout**
         清除一个账户不应影响其他账户的缓存
         """
-        from src.account_preload import AccountDataCache
+        from src.services.account_preload import AccountDataCache
         
         cache = AccountDataCache(max_accounts=20, default_ttl=300.0)
         
@@ -467,8 +467,8 @@ class TestTaskManagerIntegration:
         **Feature: account-preload-queue, Property 12: TaskManager Integration**
         预加载队列应将任务注册到 TaskManager
         """
-        from src.account_preload import AccountPreloadQueue, PreloadQueueConfig
-        from src.task_manager import task_manager
+        from src.services.account_preload import AccountPreloadQueue, PreloadQueueConfig
+        from src.core.task_manager import task_manager
         
         # 记录启动前的任务数
         initial_tasks = task_manager.get_stats()["active_tasks"]
@@ -509,7 +509,7 @@ class TestDynamicReprioritization:
         **Feature: account-preload-queue, Property 5: Dynamic Reprioritization**
         重排序应将指定账户移到队首
         """
-        from src.account_preload import AccountPreloadQueue, PreloadQueueConfig
+        from src.services.account_preload import AccountPreloadQueue, PreloadQueueConfig
         
         config = PreloadQueueConfig(refresh_interval=3600.0)
         queue = AccountPreloadQueue(config=config)
@@ -535,7 +535,7 @@ class TestDynamicReprioritization:
         **Feature: account-preload-queue, Property 5: Dynamic Reprioritization**
         重排序不在队列中的账户应添加到队首
         """
-        from src.account_preload import AccountPreloadQueue, PreloadQueueConfig
+        from src.services.account_preload import AccountPreloadQueue, PreloadQueueConfig
         
         config = PreloadQueueConfig(refresh_interval=3600.0)
         queue = AccountPreloadQueue(config=config)
@@ -577,7 +577,7 @@ class TestConcurrencyLimit:
         **Feature: account-preload-queue, Property 7: Concurrency Limit**
         并发任务数不应超过配置的限制
         """
-        from src.account_preload import AccountPreloadQueue, PreloadQueueConfig
+        from src.services.account_preload import AccountPreloadQueue, PreloadQueueConfig
         
         concurrent_count = 0
         max_observed = 0
@@ -687,7 +687,7 @@ class TestCacheFirstLookup:
         **Feature: account-preload-queue, Property 4: Cache-First Lookup**
         缓存命中时应返回缓存数据
         """
-        from src.account_preload import AccountDataCache
+        from src.services.account_preload import AccountDataCache
         
         assume(len(data) > 0)
         

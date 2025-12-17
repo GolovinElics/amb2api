@@ -3,7 +3,7 @@ import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 def test_cost_merge_input_output_unknown():
-    from src.account_api import _parse_cost_rsc_data
+    from src.api.account_api import _parse_cost_rsc_data
     # 构造包含 chartExportData 的 RSC 片段：输入、输出、未标注方向
     raw = (
         '{"chartExportData":[\n'

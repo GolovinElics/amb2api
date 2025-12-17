@@ -15,7 +15,7 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.models_key import KeyInfo, KeyStatus
+from src.models.models_key import KeyInfo, KeyStatus
 
 
 def create_key_info(index: int, key: str, enabled: bool = True) -> KeyInfo:

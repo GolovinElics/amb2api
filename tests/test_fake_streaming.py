@@ -6,7 +6,7 @@ Feature: openai-protocol-refactor, Property 11: 假流式模式启用
 import pytest
 import json
 from unittest.mock import AsyncMock, patch, MagicMock
-from src.models import ChatCompletionRequest, OpenAIChatMessage
+from src.models.models import ChatCompletionRequest, OpenAIChatMessage
 
 
 class TestFakeStreaming:

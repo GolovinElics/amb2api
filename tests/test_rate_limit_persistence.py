@@ -12,8 +12,8 @@ from typing import Dict, Any
 import time
 
 # Import the functions we're testing
-from src.assembly_client import _save_rate_limit_info, _load_rate_limit_info, _rate_limit_info, _rate_limit_loaded
-from src.storage_adapter import get_storage_adapter
+from src.services.assembly_client import _save_rate_limit_info, _load_rate_limit_info, _rate_limit_info, _rate_limit_loaded
+from src.storage.storage_adapter import get_storage_adapter
 
 
 # Strategy for generating valid rate limit info
@@ -47,7 +47,7 @@ def rate_limit_info_dict(draw):
 async def clean_rate_limit_state():
     """Clean up rate limit state before and after tests"""
     # Import the global variables
-    import src.assembly_client as ac
+    import src.services.assembly_client as ac
     
     # Save original state
     original_info = ac._rate_limit_info.copy()
@@ -77,7 +77,7 @@ async def test_rate_limit_round_trip(test_data: Dict[int, Dict[str, Any]]):
     Feature: rate-limit-usage-display-fix, Property 1: Rate limit data persistence round-trip
     Validates: Requirements 4.1, 4.2, 4.3
     """
-    import src.assembly_client as ac
+    import src.services.assembly_client as ac
     
     # Reset state
     ac._rate_limit_info = {}
@@ -181,7 +181,7 @@ def test_rate_limit_round_trip_sync():
 
 async def _run_round_trip_test(test_data: Dict[int, Dict[str, Any]]):
     """Helper function to run a single round-trip test"""
-    import src.assembly_client as ac
+    import src.services.assembly_client as ac
     
     # Reset state
     ac._rate_limit_info = {}

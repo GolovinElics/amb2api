@@ -14,18 +14,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 # Import all routers
-from src.openai_router import router as openai_router
-from src.admin_routes import router as admin_router
-from src.account_api import router as account_router
-from src.key_management_api import router as keys_router
-from src.playground_api import router as playground_router
-from src.key_management_api import router as key_management_router
-from src.playground_api import router as playground_router
-from src.account_api import router as account_router
+from src.api.openai_router import router as openai_router
+from src.api.admin_routes import router as admin_router
+from src.api.account_api import router as account_router
+from src.api.key_management_api import router as keys_router
+from src.api.playground_api import router as playground_router
 # Google/Gemini 相关路由与控制面板已移除
 
 # Import managers and utilities
-from src.task_manager import shutdown_all_tasks
+from src.core.task_manager import shutdown_all_tasks
 from config import get_server_host, get_server_port
 from log import log
 
@@ -36,7 +33,7 @@ async def lifespan(app: FastAPI):
     
     # 初始化速率限制系统
     try:
-        from src.assembly_client import initialize_rate_limit_system
+        from src.services.assembly_client import initialize_rate_limit_system
         await initialize_rate_limit_system()
     except Exception as e:
         log.error(f"初始化速率限制系统时出错: {e}")
@@ -59,7 +56,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="AMB2API",
     description="AssemblyAI LLM Gateway proxy with OpenAI compatibility",
-    version="0.5.2",
+    version="0.6.0",
     lifespan=lifespan
 )
 
@@ -103,27 +100,6 @@ app.include_router(
     playground_router,
     prefix="",
     tags=["Playground"]
-)
-
-# 密钥管理路由 - 密钥增删改查和配置管理
-app.include_router(
-    key_management_router,
-    prefix="",
-    tags=["Key Management"]
-)
-
-# 操练场增强路由 - 请求预览和自定义报文
-app.include_router(
-    playground_router,
-    prefix="",
-    tags=["Playground Enhancement"]
-)
-
-# 账户管理路由 - 账户信息、使用量、成本、发票等
-app.include_router(
-    account_router,
-    prefix="",
-    tags=["Account Management"]
 )
 
 # Gemini原生路由 - 处理Gemini格式请求

@@ -12,10 +12,10 @@ from typing import List, Dict, Any
 import time
 
 # Import the functions we're testing
-from src.assembly_client import _rate_limit_info, _rate_limit_loaded, _mask_key
-from src.admin_routes import rate_limits
+from src.services.assembly_client import _rate_limit_info, _rate_limit_loaded, _mask_key
+from src.api.admin_routes import rate_limits
 from config import get_assembly_api_keys
-from src.storage_adapter import get_storage_adapter
+from src.storage.storage_adapter import get_storage_adapter
 
 
 # Strategy for generating API keys
@@ -91,7 +91,7 @@ def test_all_keys_have_status(keys: List[str]):
 
 async def _run_all_keys_test_property(keys: List[str]):
     """Helper function to run property test with hypothesis-generated data"""
-    import src.assembly_client as ac
+    import src.services.assembly_client as ac
     import random
     
     # Save original state
@@ -126,7 +126,7 @@ async def _run_all_keys_test_property(keys: List[str]):
         await adapter.set_config("panel_password", "test_token")
         
         # Test the logic
-        from src.assembly_client import get_rate_limit_info
+        from src.services.assembly_client import get_rate_limit_info
         
         rate_info = await get_rate_limit_info()
         
@@ -223,7 +223,7 @@ def test_all_keys_have_status_sync():
 
 async def _run_all_keys_test(keys: List[str]):
     """Helper function to run a single test"""
-    import src.assembly_client as ac
+    import src.services.assembly_client as ac
     import random
     
     # Save original state
@@ -258,7 +258,7 @@ async def _run_all_keys_test(keys: List[str]):
         await adapter.set_config("panel_password", "test_token")
         
         # Test the logic
-        from src.assembly_client import get_rate_limit_info
+        from src.services.assembly_client import get_rate_limit_info
         
         rate_info = await get_rate_limit_info()
         

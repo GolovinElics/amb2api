@@ -17,8 +17,8 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.key_selector import KeySelector, get_key_selector, reset_key_selector
-from src.models_key import KeyInfo, KeyStatus, AggregationMode
+from src.services.key_selector import KeySelector, get_key_selector, reset_key_selector
+from src.models.models_key import KeyInfo, KeyStatus, AggregationMode
 
 
 def create_key_info(index: int, enabled: bool = True, status: KeyStatus = KeyStatus.ACTIVE) -> KeyInfo:

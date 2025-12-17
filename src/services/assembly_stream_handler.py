@@ -1,0 +1,514 @@
+"""
+AssemblyAI Fake Stream Handler
+Handles fake streaming simulation for AssemblyAI responses.
+"""
+import json
+import time
+import uuid
+import asyncio
+from typing import Optional
+
+from fastapi.responses import StreamingResponse, JSONResponse
+
+from log import log
+from src.models.models import ChatCompletionRequest
+from src.core.task_manager import create_managed_task
+from src.services.assembly_client import send_assembly_request
+from src.transform.xml_parser import parse_xml_tool_calls
+from src.transform.openai_transfer import gemini_stream_chunk_to_openai
+from config import get_config_value
+
+async def convert_streaming_response(gemini_response, model: str) -> StreamingResponse:
+    """转换流式响应为OpenAI格式"""
+    response_id = str(uuid.uuid4())
+    
+    async def openai_stream_generator():
+        try:
+            # 处理不同类型的响应对象
+            if hasattr(gemini_response, 'body_iterator'):
+                # FastAPI StreamingResponse
+                async for chunk in gemini_response.body_iterator:
+                    if not chunk:
+                        continue
+                    
+                    # 处理不同数据类型的startswith问题
+                    if isinstance(chunk, bytes):
+                        if not chunk.startswith(b'data: '):
+                            continue
+                        payload = chunk[len(b'data: '):]
+                    else:
+                        chunk_str = str(chunk)
+                        if not chunk_str.startswith('data: '):
+                            continue
+                        payload = chunk_str[len('data: '):].encode()
+                    try:
+                        gemini_chunk = json.loads(payload.decode())
+                        openai_chunk = gemini_stream_chunk_to_openai(gemini_chunk, model, response_id)
+                        yield f"data: {json.dumps(openai_chunk, separators=(',',':'))}\n\n".encode()
+                    except json.JSONDecodeError:
+                        continue
+            else:
+                # 其他类型的响应，尝试直接处理
+                log.warning(f"Unexpected response type: {type(gemini_response)}")
+                error_chunk = {
+                    "id": response_id,
+                    "object": "chat.completion.chunk",
+                    "created": int(time.time()),
+                    "model": model,
+                    "choices": [{
+                        "index": 0,
+                        "delta": {"role": "assistant", "content": "Response type error"},
+                        "finish_reason": "stop"
+                    }]
+                }
+                yield f"data: {json.dumps(error_chunk)}\n\n".encode()
+            
+            # 发送结束标记
+            yield "data: [DONE]\n\n".encode()
+            
+        except Exception as e:
+            log.error(f"Stream conversion error: {e}")
+            error_chunk = {
+                "id": response_id,
+                "object": "chat.completion.chunk",
+                "created": int(time.time()),
+                "model": model,
+                "choices": [{
+                    "index": 0,
+                    "delta": {"role": "assistant", "content": f"Stream error: {str(e)}"},
+                    "finish_reason": "stop"
+                }]
+            }
+            yield f"data: {json.dumps(error_chunk)}\n\n".encode()
+            yield "data: [DONE]\n\n".encode()
+
+    return StreamingResponse(openai_stream_generator(), media_type="text/event-stream")
+
+async def fake_stream_response_for_assembly(openai_request: ChatCompletionRequest, trace=None) -> StreamingResponse:
+    """AssemblyAI 的假流式：周期心跳 + 最终内容块"""
+    async def stream_generator():
+        nonlocal trace
+        completion_tokens = 0
+        prompt_tokens = 0
+        
+        try:
+            log.debug(f"Starting fake stream for model: {openai_request.model}")
+            
+            # 发送心跳
+            heartbeat = {
+                "choices": [{
+                    "index": 0,
+                    "delta": {"role": "assistant", "content": ""},
+                    "finish_reason": None
+                }]
+            }
+            yield f"data: {json.dumps(heartbeat)}\n\n".encode()
+            log.debug("Sent initial heartbeat")
+            
+            # 异步发送实际请求
+            async def get_response():
+                return await send_assembly_request(openai_request, False, trace=trace)
+            
+            # 创建请求任务
+            response_task = create_managed_task(get_response(), name="openai_fake_stream_request")
+            
+            try:
+                # 每3秒发送一次心跳，直到收到响应
+                heartbeat_count = 0
+                while not response_task.done():
+                    await asyncio.sleep(3.0)
+                    if not response_task.done():
+                        heartbeat_count += 1
+                        yield f"data: {json.dumps(heartbeat)}\n\n".encode()
+                        log.debug(f"Sent heartbeat #{heartbeat_count}")
+                
+                # 获取响应结果
+                response = await response_task
+                
+                # 性能追踪：上游响应完成
+                if trace:
+                    trace.mark("upstream_first_byte")
+                    trace.mark("upstream_response_complete")
+                
+                log.debug(f"Received response after {heartbeat_count} heartbeats")
+                
+            except asyncio.CancelledError:
+                # 取消任务并传播取消
+                response_task.cancel()
+                try:
+                    await response_task
+                except asyncio.CancelledError:
+                    pass
+                raise
+            except Exception as e:
+                # 取消任务并处理其他异常
+                response_task.cancel()
+                try:
+                    await response_task
+                except asyncio.CancelledError:
+                    pass
+                log.error(f"Fake streaming request failed: {e}")
+                raise
+            
+            # 发送实际请求
+            # response 已在上面获取
+            
+            # 处理结果
+            # JSONResponse 的内容存储在 body 属性中（bytes）
+            if isinstance(response, JSONResponse):
+                # JSONResponse 的 body 是 bytes，需要解码
+                body_str = response.body.decode('utf-8') if isinstance(response.body, bytes) else str(response.body)
+            elif hasattr(response, 'body'):
+                body_str = response.body.decode('utf-8') if isinstance(response.body, bytes) else str(response.body)
+            elif hasattr(response, 'content'):
+                body_str = response.content.decode('utf-8') if isinstance(response.content, bytes) else str(response.content)
+            elif hasattr(response, 'text'):
+                body_str = response.text
+            else:
+                body_str = str(response)
+            
+            try:
+                response_data = json.loads(body_str)
+                log.debug(f"Parsed response data: {json.dumps(response_data, ensure_ascii=False)[:500]}...")
+
+                # 检查是否是错误响应（支持多种错误格式）
+                error_message = None
+                error_type = "error"
+                error_code = ""
+                
+                # 格式1: {"error": {"message": "...", "type": "...", "code": "..."}}
+                if "error" in response_data:
+                    error_info = response_data["error"]
+                    error_message = error_info.get("message", "Unknown error")
+                    error_type = error_info.get("type", "error")
+                    error_code = error_info.get("code", "")
+                # 格式2: {"code": 400, "message": "..."} (AssemblyAI 格式)
+                elif "code" in response_data and response_data.get("code") != 200:
+                    error_message = response_data.get("message", "Unknown error")
+                    error_code = response_data.get("code", "")
+                    error_type = "api_error"
+                
+                if error_message:
+                    log.warning(f"Error response in fake stream: {error_message} (type: {error_type}, code: {error_code})")
+                    
+                    # 构建用户友好的错误消息
+                    user_message = error_message
+                    if error_code == "no_available_keys":
+                        user_message = "所有 API 密钥已被禁用，无法处理请求。请在管理面板中启用至少一个密钥。"
+                    elif "processing error" in str(error_message).lower():
+                        user_message = f"模型处理错误: {error_message}。请检查请求格式或尝试其他模型。"
+                    elif error_type == "invalid_request_error":
+                        user_message = f"请求错误: {error_message}"
+                    elif error_type == "api_error":
+                        user_message = f"API 错误: {error_message}"
+                    
+                    # 以流式格式返回错误信息（符合 OpenAI 格式）
+                    error_chunk = {
+                        "id": str(uuid.uuid4()),
+                        "object": "chat.completion.chunk",
+                        "created": int(time.time()),
+                        "model": openai_request.model,
+                        "choices": [{
+                            "index": 0,
+                            "delta": {
+                                "role": "assistant",
+                                "content": user_message
+                            },
+                            "finish_reason": "stop"
+                        }]
+                    }
+                    yield f"data: {json.dumps(error_chunk, ensure_ascii=False)}\n\n".encode()
+                    yield b"data: [DONE]\n\n"
+                    return
+
+                # 从响应中提取内容和工具调用（适配 AssemblyAI 的多 choices 格式）
+                all_content_parts = []
+                all_tool_calls = []
+                has_tool_use = False
+                
+                if "choices" in response_data and response_data["choices"]:
+                    for choice in response_data["choices"]:
+                        msg = choice.get("message", {})
+                        content = msg.get("content")
+                        if content and isinstance(content, str) and content.strip():
+                            all_content_parts.append(content)
+                        
+                        # 收集并修复工具调用
+                        raw_tool_calls = msg.get("tool_calls") or []
+                        for tc in raw_tool_calls:
+                            fixed_tc = {
+                                "id": tc.get("id") or f"call_{uuid.uuid4().hex[:24]}",
+                                "type": tc.get("type", "function"),
+                                "function": {}
+                            }
+                            func = tc.get("function", {})
+                            fixed_tc["function"]["name"] = func.get("name", "")
+                            args = func.get("arguments", {})
+                            
+                            # [修复] 参数名映射: 模型生成的 XML 可能使用错误的参数名
+                            # 例如 read_file: file_path -> path
+                            if fixed_tc["function"]["name"] == "read_file":
+                                if isinstance(args, dict) and "file_path" in args:
+                                    args["path"] = args.pop("file_path")
+                                elif isinstance(args, str):
+                                    try:
+                                        args_dict = json.loads(args)
+                                        if "file_path" in args_dict:
+                                            args_dict["path"] = args_dict.pop("file_path")
+                                            args = args_dict
+                                    except json.JSONDecodeError:
+                                        pass
+                            
+                            if isinstance(args, dict):
+                                fixed_tc["function"]["arguments"] = json.dumps(args, ensure_ascii=False)
+                            elif isinstance(args, str):
+                                fixed_tc["function"]["arguments"] = args
+                            else:
+                                fixed_tc["function"]["arguments"] = "{}"
+                            all_tool_calls.append(fixed_tc)
+                        
+                        # 检查 finish_reason
+                        fr = choice.get("finish_reason", "")
+                        if fr in ("tool_use", "tool_calls"):
+                            has_tool_use = True
+                
+                content = " ".join(all_content_parts) if all_content_parts else ""
+                
+                # [XML Parser] 检查并解析 XML 工具调用
+                if "<function_calls>" in content:
+                    log.info(f"[XML Parser] Detected XML tool calls in content, parsing...")
+                    content, xml_tool_calls = parse_xml_tool_calls(content)
+                    if xml_tool_calls:
+                        log.info(f"[XML Parser] Extracted {len(xml_tool_calls)} XML tool calls")
+                        if not all_tool_calls:
+                            all_tool_calls = []
+                        all_tool_calls.extend(xml_tool_calls)
+                        has_tool_use = True
+                
+                tool_calls = all_tool_calls if all_tool_calls else None
+                reasoning_content = ""
+  
+                # 如果没有正常内容但有思维内容，给出警告
+                if not content and reasoning_content:
+                    log.warning("Fake stream response contains only thinking content")
+                    content = "[模型正在思考中，请稍后再试或重新提问]"
+                
+                log.info(f"[TOOL_DEBUG] Extracted content length: {len(content)}, tool_calls count: {len(all_tool_calls)}")
+                
+                # 性能追踪：格式转换完成
+                if trace:
+                    trace.mark("conversion_complete")
+                
+                # 如果有内容或工具调用，都需要返回
+                if content or tool_calls:
+                    # 构建响应块，包括思维内容（如果有）和工具调用
+                    
+                    # 转换usageMetadata为OpenAI格式（兼容多种格式）
+                    usage_raw = response_data.get("usage") or {}
+                    prompt_tokens = usage_raw.get("prompt_tokens") or usage_raw.get("input_tokens", 0)
+                    completion_tokens = usage_raw.get("completion_tokens") or usage_raw.get("output_tokens", 0)
+                    cached_tokens = usage_raw.get("cached_tokens") or usage_raw.get("input_cached_tokens", 0)
+                    
+                    usage = {
+                        "prompt_tokens": prompt_tokens,
+                        "completion_tokens": completion_tokens,
+                        "total_tokens": usage_raw.get("total_tokens", prompt_tokens + completion_tokens),
+                        # 添加详细的 token 信息以支持 LobeChat 等客户端显示
+                        "prompt_tokens_details": {
+                            "cached_tokens": cached_tokens,
+                            "audio_tokens": 0
+                        },
+                        "completion_tokens_details": {
+                            "reasoning_tokens": 0,
+                            "audio_tokens": 0,
+                            "accepted_prediction_tokens": 0,
+                            "rejected_prediction_tokens": 0
+                        }
+                    } if usage_raw else None
+                    
+                    # 记录 token 数用于追踪
+                    completion_tokens = usage_raw.get("completion_tokens") or usage_raw.get("output_tokens", 0)
+                    prompt_tokens = usage_raw.get("prompt_tokens") or usage_raw.get("input_tokens", 0)
+
+                    # 确定 finish_reason
+                    finish_reason = "tool_calls" if has_tool_use else "stop"
+                    
+                    # 检查是否启用全局假流式渐进输出
+                    try:
+                        fake_stream_enabled = await get_config_value("fake_stream_enabled", False)
+                        fake_stream_speed = await get_config_value("fake_stream_speed", 100)
+                        if fake_stream_speed is None:
+                            fake_stream_speed = 100
+                        else:
+                            fake_stream_speed = int(fake_stream_speed)
+                    except Exception:
+                        fake_stream_enabled = False
+                        fake_stream_speed = 100
+                    
+                    if fake_stream_enabled and content and not tool_calls:
+                        # 渐进式流式输出：按速度逐块返回内容
+                        log.info(f"Fake stream progressive output: speed={fake_stream_speed} chars/s, content_len={len(content)}")
+                        
+                        # 计算每块大小和间隔
+                        # 例如: 100 chars/s, 每 50ms 输出 5 个字符
+                        interval_ms = 50  # 每 50ms 输出一次
+                        chars_per_chunk = max(1, int(fake_stream_speed * interval_ms / 1000))
+                        
+                        response_id = str(uuid.uuid4())
+                        
+                        # 逐块输出内容（所有 chunk 的 finish_reason 都为 null）
+                        for i in range(0, len(content), chars_per_chunk):
+                            chunk_content = content[i:i + chars_per_chunk]
+                            is_last_content_chunk = (i + chars_per_chunk >= len(content))
+                            
+                            chunk_delta = {"role": "assistant", "content": chunk_content}
+                            
+                            # 最后一块内容添加 reasoning_content（如果有）
+                            if is_last_content_chunk and reasoning_content:
+                                chunk_delta["reasoning_content"] = reasoning_content
+                            
+                            content_chunk = {
+                                "id": response_id,
+                                "object": "chat.completion.chunk",
+                                "created": int(time.time()),
+                                "model": openai_request.model,
+                                "choices": [{
+                                    "index": 0,
+                                    "delta": chunk_delta,
+                                    "finish_reason": None  # 内容 chunk 不设置 finish_reason
+                                }]
+                            }
+                            
+                            yield f"data: {json.dumps(content_chunk)}\n\n".encode()
+                            
+                            # 性能追踪：首块发送
+                            if i == 0 and trace:
+                                trace.mark("first_chunk_sent")
+                            
+                            # 等待间隔（非最后一块）
+                            if not is_last_content_chunk:
+                                await asyncio.sleep(interval_ms / 1000)
+                        
+                        # 发送单独的结束 chunk（包含 finish_reason 和 usage）
+                        finish_chunk = {
+                            "id": response_id,
+                            "object": "chat.completion.chunk",
+                            "created": int(time.time()),
+                            "model": openai_request.model,
+                            "choices": [{
+                                "index": 0,
+                                "delta": {},  # 空 delta
+                                "finish_reason": finish_reason
+                            }]
+                        }
+                        if usage:
+                            finish_chunk["usage"] = usage
+                        yield f"data: {json.dumps(finish_chunk)}\n\n".encode()
+                        yield b"data: [DONE]\n\n"
+                    else:
+                        # 一次性输出（原逻辑，但分离结束 chunk）
+                        response_id = str(uuid.uuid4())
+                        delta = {"role": "assistant"}
+                        
+                        # 添加 content（如果有）
+                        if content:
+                            delta["content"] = content
+                        
+                        # 添加 reasoning_content（如果有）
+                        if reasoning_content:
+                            delta["reasoning_content"] = reasoning_content
+                        
+                        # 添加 tool_calls（如果有）
+                        if tool_calls:
+                            delta["tool_calls"] = tool_calls
+
+                        # 发送内容 chunk（finish_reason 为 null）
+                        content_chunk = {
+                            "id": response_id,
+                            "object": "chat.completion.chunk",
+                            "created": int(time.time()),
+                            "model": openai_request.model,
+                            "choices": [{
+                                "index": 0,
+                                "delta": delta,
+                                "finish_reason": None
+                            }]
+                        }
+                        yield f"data: {json.dumps(content_chunk)}\n\n".encode()
+                        
+                        # 性能追踪：首块发送
+                        if trace:
+                            trace.mark("first_chunk_sent")
+
+                        # 发送单独的结束 chunk（包含 finish_reason 和 usage）
+                        finish_chunk = {
+                            "id": response_id,
+                            "object": "chat.completion.chunk",
+                            "created": int(time.time()),
+                            "model": openai_request.model,
+                            "choices": [{
+                                "index": 0,
+                                "delta": {},
+                                "finish_reason": finish_reason
+                            }]
+                        }
+                        if usage:
+                            finish_chunk["usage"] = usage
+                        yield f"data: {json.dumps(finish_chunk)}\n\n".encode()
+                        yield b"data: [DONE]\n\n"
+                else:
+                    log.warning(f"No content found in response: {response_data}")
+                    # 如果完全没有内容，提供默认回复
+                    error_chunk = {
+                        "id": str(uuid.uuid4()),
+                        "object": "chat.completion.chunk",
+                        "created": int(time.time()),
+                        "model": "amb2api-streaming",
+                        "choices": [{
+                            "index": 0,
+                            "delta": {"role": "assistant", "content": "[响应为空，请重新尝试]"},
+                            "finish_reason": "stop"
+                        }]
+                    }
+                    yield f"data: {json.dumps(error_chunk)}\n\n".encode()
+            except json.JSONDecodeError:
+                log.error(f"Failed to decode response as JSON: {body_str[:100]}...")
+                # 尝试直接返回文本
+                error_chunk = {
+                    "id": str(uuid.uuid4()),
+                    "object": "chat.completion.chunk",
+                    "created": int(time.time()),
+                    "model": openai_request.model,
+                    "choices": [{
+                        "index": 0,
+                        "delta": {"role": "assistant", "content": body_str},
+                        "finish_reason": "stop"
+                    }]
+                }
+                yield f"data: {json.dumps(error_chunk)}\n\n".encode()
+                
+        except Exception as e:
+            log.error(f"Fake stream generator error: {e}")
+            error_chunk = {
+                "id": str(uuid.uuid4()),
+                "object": "chat.completion.chunk",
+                "created": int(time.time()),
+                "model": openai_request.model,
+                "choices": [{
+                    "index": 0,
+                    "delta": {"role": "assistant", "content": f"[System Error] Stream processing failed: {str(e)}"},
+                    "finish_reason": "stop"
+                }]
+            }
+            yield f"data: {json.dumps(error_chunk)}\n\n".encode()
+            yield b"data: [DONE]\n\n"
+        finally:
+            if trace:
+                from src.stats.performance_tracker import get_performance_tracker
+                tracker = await get_performance_tracker()
+                await tracker.end_trace(trace.trace_id, completion_tokens=completion_tokens, prompt_tokens=prompt_tokens)
+
+    return StreamingResponse(
+        stream_generator(),
+        media_type="text/event-stream"
+    )

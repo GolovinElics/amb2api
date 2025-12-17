@@ -812,6 +812,7 @@
             align-items: center;
             margin: 8px 0;
             font-size: 13px;
+            padding-right: 40px;
         }
 
         .perf-waterfall-label {
@@ -829,7 +830,7 @@
             background: var(--card-bg);
             border-radius: 4px;
             position: relative;
-            overflow: hidden;
+            overflow: visible;
         }
 
         .perf-waterfall-bar {
@@ -839,10 +840,11 @@
             display: flex;
             align-items: center;
             padding-left: 8px;
+            padding-right: 8px;
             color: white;
             font-size: 11px;
             font-weight: 500;
-            min-width: 40px;
+            min-width: max-content;
             box-sizing: border-box;
         }
 
@@ -10178,7 +10180,10 @@
                     available_models_selected: '已选模型',
                     key_stats: '密钥统计',
                     assembly_current_account: '当前账号',
-                    assembly_dashboard_session: '会话信息'
+                    assembly_dashboard_session: '会话信息',
+                    fake_stream_enabled: '假流式',
+                    fake_stream_speed: '流式速度',
+                    max_tokens_mode: '最大令牌'
                 };
 
                 // 动态匹配名称（支持带后缀的键名）
@@ -12757,41 +12762,60 @@
             const ts = trace.timestamps || {};
             const startTime = ts.request_received || 0;
             const endTime = ts.response_complete || startTime;
-            const totalDuration = endTime - startTime;
 
-            if (totalDuration <= 0) {
+            // 预处理阶段数据
+            const activeStages = [];
+            let lastEndTime = startTime;
+            let totalRealDuration = 0;
+
+            for (const stage of stages) {
+                if (!(stage.key in ts)) continue;
+
+                const stageEndTime = ts[stage.key];
+                const realDuration = Math.max(0, stageEndTime - lastEndTime);
+
+                activeStages.push({
+                    ...stage,
+                    realDuration: realDuration,
+                    startTime: lastEndTime
+                });
+
+                totalRealDuration += realDuration;
+                lastEndTime = stageEndTime;
+            }
+
+            if (activeStages.length === 0) {
                 document.getElementById('perfWaterfallChart').innerHTML = '<div style="text-align: center; color: var(--text-secondary);">无链路数据</div>';
                 return;
             }
 
+            // 计算视觉宽度 (Flex Weighted)
+            // 为每个阶段分配至少 10% 的视觉空间，防止被大块挤压
+            const minVisualShare = 0.1;
+            const baselineDuration = Math.max(totalRealDuration, 1);
+            const minDuration = baselineDuration * minVisualShare;
+
+            let totalAdjustedDuration = 0;
+
+            // 第一遍：计算调整后的总时长
+            for (const stage of activeStages) {
+                // 如果实际时长很小，就用最小视觉时长；否则保留实际占比
+                stage.adjustedDuration = Math.max(stage.realDuration, minDuration);
+                totalAdjustedDuration += stage.adjustedDuration;
+            }
+
             let html = '';
-            let lastEndTime = startTime;  // 追踪上一个阶段的结束时间
+            let currentVisualPos = 0;
 
-            for (const stage of stages) {
-                if (!(stage.key in ts)) {
-                    // 如果这个阶段不存在，更新 prevKey 以跳过
-                    continue;
-                }
+            // 第二遍：生成 HTML
+            for (let i = 0; i < activeStages.length; i++) {
+                const stage = activeStages[i];
+                // 计算当前阶段的视觉位置和宽度
+                const startPercent = (currentVisualPos / totalAdjustedDuration) * 100;
+                const widthPercent = (stage.adjustedDuration / totalAdjustedDuration) * 100;
 
-                const stageEndTime = ts[stage.key];
-                // 这个阶段从上一个已完成阶段的结束时间开始
-                const stageStartTime = lastEndTime;
-                const duration = stageEndTime - stageStartTime;
-
-                if (duration < 0) {
-                    lastEndTime = stageEndTime;
-                    continue;
-                }
-
-                // 使用时间戳计算精确位置
-                const startPercent = ((stageStartTime - startTime) / totalDuration) * 100;
-                const widthPercent = (duration / totalDuration) * 100;
-
-                // 显示宽度：至少 4%（让短阶段可见），但不超过剩余空间
-                const remainingSpace = 100 - startPercent;
-                const displayWidth = Math.min(Math.max(widthPercent, 4), remainingSpace);
-
-                // 确定显示文本
+                // 格式化实际时长的显示文本
+                const duration = stage.realDuration;
                 let durationText = formatMs(duration);
                 if (duration > 0 && duration < 1) {
                     durationText = '<1ms';
@@ -12799,25 +12823,26 @@
                     durationText = '0ms';
                 }
 
+                //防止最后一个条目溢出：如果是最后一个，强制靠右对齐
+                let barStyle = `left: ${startPercent.toFixed(2)}%; width: ${Math.max(widthPercent, 0.5).toFixed(2)}%;`;
+                if (i === activeStages.length - 1) {
+                    barStyle = `right: 0; left: auto; width: ${Math.max(widthPercent, 0.5).toFixed(2)}%;`;
+                }
+
                 html += `
                     <div class="perf-waterfall-row">
                         <div class="perf-waterfall-label">${stage.label}</div>
                         <div class="perf-waterfall-bar-container">
                             <div class="perf-waterfall-bar ${stage.className}" 
-                                 style="left: ${startPercent}%; width: ${displayWidth}%;"
-                                 title="${stage.label}: ${formatMs(duration)}">
+                                 style="${barStyle}"
+                                 title="${stage.label}: ${formatMs(duration)} (占比 ${(duration / totalRealDuration * 100).toFixed(1)}%)">
                                 ${durationText}
                             </div>
                         </div>
                     </div>
                 `;
 
-                // 更新上一个阶段的结束时间
-                lastEndTime = stageEndTime;
-            }
-
-            if (!html) {
-                html = '<div style="text-align: center; color: var(--text-secondary);">无链路数据</div>';
+                currentVisualPos += stage.adjustedDuration;
             }
 
             document.getElementById('perfWaterfallChart').innerHTML = html;

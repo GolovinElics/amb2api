@@ -5,6 +5,8 @@ Centralizes all configuration to avoid duplication across modules.
 import os
 from typing import Any, Optional
 
+from src.storage.storage_adapter import get_storage_adapter
+
 # Client Configuration
 
 # 需要自动封禁的错误码 (默认值，可通过环境变量或配置覆盖)
@@ -76,7 +78,6 @@ async def get_config_value(key: str, default: Any = None, env_var: Optional[str]
             override_env = True
     if not override_env:
         try:
-            from src.storage_adapter import get_storage_adapter
             storage_adapter = await get_storage_adapter()
             ov = await storage_adapter.get_config("override_env")
             if isinstance(ov, str):
@@ -88,7 +89,6 @@ async def get_config_value(key: str, default: Any = None, env_var: Optional[str]
     if (not override_env) and env_var and os.getenv(env_var):
         return os.getenv(env_var)
     try:
-        from src.storage_adapter import get_storage_adapter
         storage_adapter = await get_storage_adapter()
         value = await storage_adapter.get_config(key)
         if value is not None:
@@ -190,50 +190,6 @@ PUBLIC_API_MODELS = [
     "gemini-2.5-flash-image",
     "gemini-2.5-flash-image-preview"
 ]
-
-def get_available_models(router_type="openai"):
-    """
-    返回可用模型列表。
-    优先级：已选模型(available_models_selected) > 缓存模型(available_models) > 默认列表。
-    """
-    try:
-        # 已选模型优先
-        from src.storage_adapter import get_storage_adapter
-        storage_adapter = None
-        try:
-            import asyncio
-            loop = asyncio.get_event_loop()
-            storage_adapter = loop.run_until_complete(get_storage_adapter()) if not loop.is_running() else None
-        except Exception:
-            storage_adapter = None
-        if storage_adapter:
-            try:
-                selected = loop.run_until_complete(storage_adapter.get_config("available_models_selected")) if not loop.is_running() else None
-            except Exception:
-                selected = None
-            if isinstance(selected, list) and selected:
-                return [str(m) for m in selected]
-            try:
-                cached = loop.run_until_complete(storage_adapter.get_config("available_models")) if not loop.is_running() else None
-            except Exception:
-                cached = None
-            if isinstance(cached, list) and cached:
-                return [str(m) for m in cached]
-    except Exception:
-        pass
-    # 默认模型列表
-    return [
-        "gpt-5",
-        "gpt-5-nano",
-        "gpt-5-mini",
-        "gpt-4.1",
-        "claude-4.5-sonnet-20250929",
-        "claude-4-sonnet-20250514",
-        "claude-3.5-haiku-20241022",
-        "gemini-2.5-pro",
-        "gemini-2.5-flash",
-        "gemini-2.5-flash-lite"
-    ]
 
 async def get_available_models_async(router_type: str = "openai"):
     """异步版本：优先返回已选模型或缓存模型"""

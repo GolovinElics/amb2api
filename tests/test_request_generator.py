@@ -14,7 +14,7 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.request_generator import RequestGenerator, get_request_generator
+from src.transform.request_generator import RequestGenerator, get_request_generator
 
 
 class TestRequestGenerator:

@@ -12,13 +12,13 @@ import os
 # 添加项目根目录到路径
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.models_key import KeyInfo, KeyConfig, RateLimitInfo, KeyStats, KeyStatus, AggregationMode
-from src.proxy_manager import ProxyManager
-from src.key_manager import KeyManager
-from src.key_selector import KeySelector
-from src.rate_limiter import RateLimiter
-from src.stats_tracker import StatsTracker
-from src.request_generator import RequestGenerator
+from src.models.models_key import KeyInfo, KeyConfig, RateLimitInfo, KeyStats, KeyStatus, AggregationMode
+from src.services.proxy_manager import ProxyManager
+from src.services.key_manager import KeyManager
+from src.services.key_selector import KeySelector
+from src.services.rate_limiter import RateLimiter
+from src.stats.stats_tracker import StatsTracker
+from src.transform.request_generator import RequestGenerator
 
 
 # ============ 策略定义 ============

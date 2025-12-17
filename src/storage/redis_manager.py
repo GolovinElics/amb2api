@@ -83,6 +83,7 @@ class RedisManager:
         prefix = os.getenv("REDIS_PREFIX", "AMB2API").strip(":")
         self._credentials_hash_name = f"{prefix}:credentials"
         self._config_hash_name = f"{prefix}:config"
+        self._perf_hash_name = f"{prefix}:perf"  # 独立的性能追踪数据存储
         
         # 性能监控
         self._operation_count = 0
@@ -91,6 +92,7 @@ class RedisManager:
         # 统一缓存管理器
         self._credentials_cache_manager: Optional[UnifiedCacheManager] = None
         self._config_cache_manager: Optional[UnifiedCacheManager] = None
+        self._perf_cache_manager: Optional[UnifiedCacheManager] = None  # 性能数据缓存
         
         # 写入配置参数
         self._write_delay = 1.0  # 写入延迟（秒）
@@ -133,6 +135,7 @@ class RedisManager:
                 # 创建缓存管理器
                 credentials_backend = RedisCacheBackend(self._client, self._credentials_hash_name)
                 config_backend = RedisCacheBackend(self._client, self._config_hash_name)
+                perf_backend = RedisCacheBackend(self._client, self._perf_hash_name)
                 
                 self._credentials_cache_manager = UnifiedCacheManager(
                     credentials_backend, 
@@ -148,9 +151,17 @@ class RedisManager:
                     name="config"
                 )
                 
+                self._perf_cache_manager = UnifiedCacheManager(
+                    perf_backend,
+                    cache_ttl=60,  # 性能数据短缓存
+                    write_delay=0.5,  # 更快写入
+                    name="perf"
+                )
+                
                 # 启动缓存管理器
                 await self._credentials_cache_manager.start()
                 await self._config_cache_manager.start()
+                await self._perf_cache_manager.start()
                 
                 self._initialized = True
                 log.info(f"Redis connection established to database {self._database_index} with unified cache")
@@ -166,6 +177,8 @@ class RedisManager:
             await self._credentials_cache_manager.stop()
         if self._config_cache_manager:
             await self._config_cache_manager.stop()
+        if self._perf_cache_manager:
+            await self._perf_cache_manager.stop()
         
         if self._client:
             await self._client.close()
@@ -416,6 +429,28 @@ class RedisManager:
         """从统一缓存删除配置"""
         self._ensure_initialized()
         return await self._config_cache_manager.delete(key)
+    
+    # ============ 性能追踪数据管理 (独立存储) ============
+    
+    async def set_perf(self, key: str, value: Any) -> bool:
+        """设置性能追踪数据到独立的 perf hash"""
+        self._ensure_initialized()
+        return await self._perf_cache_manager.set(key, value)
+    
+    async def get_perf(self, key: str, default: Any = None) -> Any:
+        """从独立的 perf hash 获取性能追踪数据"""
+        self._ensure_initialized()
+        return await self._perf_cache_manager.get(key, default)
+    
+    async def delete_perf(self, key: str) -> bool:
+        """从独立的 perf hash 删除性能追踪数据"""
+        self._ensure_initialized()
+        return await self._perf_cache_manager.delete(key)
+    
+    async def get_all_perf(self) -> Dict[str, Any]:
+        """从独立的 perf hash 获取所有性能追踪数据"""
+        self._ensure_initialized()
+        return await self._perf_cache_manager.get_all()
     
     # ============ 使用统计管理 ============
     
