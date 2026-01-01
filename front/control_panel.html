@@ -2038,7 +2038,7 @@
         .fixed-header {
             flex-shrink: 0;
             background-color: var(--card-bg);
-            padding: 15px 20px 0 20px;
+            padding: 15px 20px 20px 20px;
             margin: 0;
             border-radius: 12px;
             box-shadow: 0 2px 8px var(--shadow-color);
@@ -2055,6 +2055,41 @@
             margin-bottom: 15px;
         }
 
+        /* 头部标题行 - 三栏布局实现居中 */
+        .header-title-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+
+        .header-spacer {
+            width: 50px;
+            flex-shrink: 0;
+        }
+
+        .header-title-row h1 {
+            margin: 0;
+            text-align: center;
+            flex: 1;
+        }
+
+        /* 退出按钮样式 */
+        .logout-btn {
+            width: 50px;
+            flex-shrink: 0;
+            background: #6c757d !important;
+            font-size: 12px !important;
+            padding: 6px 12px !important;
+            border-radius: 6px !important;
+            white-space: nowrap;
+            text-align: center;
+        }
+
+        .logout-btn:hover {
+            background: #5a6268 !important;
+        }
+
         @media (max-width: 768px) {
             #mainSection {
                 height: calc(100vh - 44px);
@@ -2062,13 +2097,27 @@
             }
 
             .fixed-header {
-                padding: 12px 16px 10px 16px;
+                padding: 12px 16px 16px 16px;
                 border-radius: 10px;
             }
 
             .fixed-header h1 {
-                font-size: 1.5em;
+                font-size: 1.4em;
                 margin-bottom: 12px;
+            }
+
+            .header-title-row {
+                margin-bottom: 12px;
+            }
+
+            .header-spacer,
+            .logout-btn {
+                width: 45px;
+            }
+
+            .logout-btn {
+                font-size: 11px !important;
+                padding: 5px 8px !important;
             }
         }
 
@@ -2079,40 +2128,77 @@
             }
 
             .fixed-header {
-                padding: 10px 12px 8px 12px;
+                padding: 10px 12px 12px 12px;
                 border-radius: 8px;
             }
 
             .fixed-header h1 {
-                font-size: 1.3em;
+                font-size: 1.1em;
                 margin-bottom: 10px;
+            }
+
+            .header-title-row {
+                margin-bottom: 10px;
+            }
+
+            .header-title-row h1 {
+                font-size: 1.1em;
+            }
+
+            .header-spacer,
+            .logout-btn {
+                width: 40px;
+            }
+
+            .logout-btn {
+                font-size: 10px !important;
+                padding: 4px 6px !important;
+                border-radius: 4px !important;
             }
         }
 
-        /* 标签栏容器 - 限制在圆角内 */
+        /* 标签栏容器 - 胶囊样式 */
         .tabs-wrapper {
-            overflow: hidden;
-            margin: 0 -20px -12px -20px;
-            padding: 0 20px 12px 20px;
+            overflow: visible;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* 滑动指示器样式 */
+        .tab-indicator {
+            position: absolute;
+            background: var(--card-bg, white);
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            pointer-events: none;
+            z-index: 0;
+            top: 4px;
+            left: 4px;
+        }
+
+        [data-theme="dark"] .tab-indicator {
+            background: #3a4a5a;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
         }
 
         @media (max-width: 768px) {
             .tabs-wrapper {
-                margin: 0 -16px -10px -16px;
-                padding: 0 16px 10px 16px;
+                margin: 0;
+                padding: 0;
             }
         }
 
         @media (max-width: 480px) {
             .tabs-wrapper {
-                margin: 0 -12px -8px -12px;
-                padding: 0 12px 8px 12px;
+                margin: 0;
+                padding: 0;
             }
         }
 
         .tabs {
             display: flex;
-            gap: 6px;
+            gap: 4px;
             border-bottom: none;
             margin-bottom: 0;
             flex-wrap: nowrap;
@@ -2121,6 +2207,14 @@
             -webkit-overflow-scrolling: touch;
             scrollbar-width: thin;
             scrollbar-color: var(--border-color) transparent;
+            position: relative;
+            background: #f0f0f0;
+            border-radius: 12px;
+            padding: 4px;
+        }
+
+        [data-theme="dark"] .tabs {
+            background: #1e2a3a;
         }
 
         /* 内容区域 - 可滚动 */
@@ -2165,29 +2259,32 @@
         }
 
         .tab {
-            padding: 12px 24px;
+            padding: 10px 20px;
             cursor: pointer;
             border: none;
-            background: var(--tab-bg);
-            border-radius: 8px 8px 0 0;
+            background: transparent;
+            border-radius: 10px;
             font-weight: 600;
-            font-size: 16px;
+            font-size: 15px;
             color: var(--text-secondary);
-            transition: background-color 0.3s ease, color 0.3s ease;
+            transition: color 0.3s ease;
             white-space: nowrap;
             flex-shrink: 0;
+            position: relative;
+            z-index: 1;
         }
 
         .tab:hover {
-            background: var(--hover-bg);
             color: var(--text-color);
         }
 
         .tab.active {
-            background: var(--tab-active-bg);
-            color: #2563eb;
-            border-bottom: 2px solid #2563eb;
-            box-shadow: inset 0 -2px 0 #2563eb;
+            color: var(--text-color);
+            font-weight: 700;
+        }
+
+        [data-theme="dark"] .tab.active {
+            color: #ffffff;
         }
 
         .tab-content {
@@ -2209,33 +2306,37 @@
 
         @media (max-width: 768px) {
             .tabs {
-                gap: 4px;
-                padding-bottom: 8px;
-                margin-left: -16px;
-                margin-right: -16px;
-                padding-left: 16px;
-                padding-right: 16px;
+                gap: 3px;
+                padding: 3px;
+                border-radius: 10px;
             }
 
             .tab {
-                padding: 10px 16px;
+                padding: 8px 14px;
                 font-size: 14px;
+                border-radius: 8px;
+            }
+
+            .tab-indicator {
+                border-radius: 8px;
             }
         }
 
         @media (max-width: 480px) {
             .tabs {
-                gap: 3px;
-                margin-left: -16px;
-                margin-right: -16px;
-                padding-left: 16px;
-                padding-right: 16px;
-                padding-bottom: 10px;
+                gap: 2px;
+                padding: 3px;
+                border-radius: 8px;
             }
 
             .tab {
-                padding: 8px 12px;
-                font-size: 13px;
+                padding: 6px 10px;
+                font-size: 12px;
+                border-radius: 6px;
+            }
+
+            .tab-indicator {
+                border-radius: 6px;
             }
         }
 
@@ -6240,15 +6341,16 @@
         <div id="mainSection" class="hidden">
             <!-- 固定头部区域 -->
             <div class="fixed-header" id="fixedHeader">
-                <div style="position: relative; width: 100%;">
-                    <h1 style="margin: 0; text-align: center;">AMB2API 管理面板</h1>
-                    <button class="btn btn-sm" onclick="logout()"
-                        style="position: absolute; right: 0; top: 50%; transform: translateY(-50%); background: #6c757d; font-size: 12px; padding: 6px 12px;">退出</button>
+                <div class="header-title-row">
+                    <div class="header-spacer"></div>
+                    <h1>AMB2API 管理面板</h1>
+                    <button class="btn btn-sm logout-btn" onclick="logout()">退出</button>
                 </div>
 
                 <!-- 标签页 -->
                 <div class="tabs-wrapper">
-                    <div class="tabs">
+                    <div class="tabs" id="mainTabs">
+                        <div class="tab-indicator" id="tabIndicator"></div>
                         <button class="tab" onclick="switchTab('account')">账户管理</button>
                         <button class="tab active" onclick="switchTab('config')">配置管理</button>
                         <button class="tab" onclick="switchTab('ratelimit')">速率限制</button>
@@ -8234,6 +8336,11 @@
                     }, 400);
 
                     showStatus('登录成功', 'success');
+
+                    // 初始化标签滑动指示器
+                    initTabIndicator();
+                    setupTabScrollSync();
+
                     switchTab('config');
                     await loadConfig();
                     await refreshUsageStats();
@@ -8343,17 +8450,84 @@
             }
         }
 
+        // ==================== 滑动标签指示器 ====================
+        // 更新滑动指示器位置
+        function updateTabIndicator(targetTab) {
+            const indicator = document.getElementById('tabIndicator');
+            const tabsContainer = document.getElementById('mainTabs');
+            if (!indicator || !targetTab || !tabsContainer) return;
+
+            // 设置指示器尺寸和位置
+            // targetTab.offsetLeft 已经是相对于 tabs 容器的位置
+            // 由于 indicator 的 left: 4px，需要减去这个偏移
+            indicator.style.width = targetTab.offsetWidth + 'px';
+            indicator.style.height = targetTab.offsetHeight + 'px';
+            indicator.style.transform = `translateX(${targetTab.offsetLeft - 4}px)`;
+        }
+
+        // 初始化标签指示器
+        function initTabIndicator() {
+            const activeTab = document.querySelector('#mainTabs .tab.active');
+            if (activeTab) {
+                // 首次加载时禁用动画
+                const indicator = document.getElementById('tabIndicator');
+                if (indicator) {
+                    indicator.style.transition = 'none';
+                    updateTabIndicator(activeTab);
+                    // 强制重绘后恢复动画
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(() => {
+                            indicator.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+                        });
+                    });
+                }
+            }
+        }
+
+        // 监听标签栏滚动，同步更新指示器
+        function setupTabScrollSync() {
+            const tabsContainer = document.getElementById('mainTabs');
+            if (!tabsContainer) return;
+
+            tabsContainer.addEventListener('scroll', () => {
+                const activeTab = document.querySelector('#mainTabs .tab.active');
+                if (activeTab) {
+                    updateTabIndicator(activeTab);
+                }
+            });
+        }
+
+        // 页面加载和窗口大小变化时更新指示器
+        window.addEventListener('resize', () => {
+            const activeTab = document.querySelector('#mainTabs .tab.active');
+            if (activeTab) {
+                updateTabIndicator(activeTab);
+            }
+        });
+
         // 标签页切换
         function switchTab(tabName) {
             document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
             const contentEl = document.getElementById(tabName + 'Tab');
             if (contentEl) contentEl.classList.add('active');
-            const buttons = document.querySelectorAll('.tabs .tab');
+            const buttons = document.querySelectorAll('#mainTabs .tab');
+            let activeButton = null;
             buttons.forEach(btn => {
                 const onclick = btn.getAttribute('onclick') || '';
-                if (onclick.includes("'" + tabName + "'")) btn.classList.add('active');
+                if (onclick.includes("'" + tabName + "'")) {
+                    btn.classList.add('active');
+                    activeButton = btn;
+                }
             });
+
+            // 更新滑动指示器
+            if (activeButton) {
+                updateTabIndicator(activeButton);
+                // 确保激活的标签在视口内
+                activeButton.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+            }
+
             ['playgroundStatus', 'usageStatus', 'configStatus'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = ''; });
 
             // 控制配置页面浮动按钮显示/隐藏
@@ -11206,6 +11380,10 @@
                 // 显示主界面
                 mainEl.classList.remove('hidden');
                 if (configFloatingActions) configFloatingActions.classList.add('visible');
+
+                // 初始化标签滑动指示器
+                initTabIndicator();
+                setupTabScrollSync();
 
                 // 加载数据
                 switchTab('config');
