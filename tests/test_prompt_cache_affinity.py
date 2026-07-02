@@ -81,6 +81,46 @@ def test_prompt_cache_defaults_generates_safe_openai_cache_key_from_stable_prefi
     assert "cache_control" not in out["messages"][0]
 
 
+def test_prompt_cache_metadata_records_auto_defaults_without_sensitive_values():
+    payload = {
+        "model": "claude-sonnet-4-6",
+        "messages": [
+            {"role": "system", "content": "stable system instructions that should not leak"},
+            {"role": "user", "content": "dynamic question"},
+        ],
+    }
+    out = _apply_prompt_cache_defaults(
+        payload,
+        model="claude-sonnet-4-6",
+        auto_mode="conservative",
+        default_ttl="1h",
+    )
+
+    metadata = assembly_client._build_prompt_cache_metadata(
+        payload,
+        out,
+        model="claude-sonnet-4-6",
+        enabled=True,
+        auto_mode="conservative",
+        default_ttl="1h",
+        affinity_enabled=True,
+        affinity_key="prompt_cache_auto:abcdef",
+    )
+
+    assert metadata["prompt_cache_enabled"] is True
+    assert metadata["prompt_cache_auto_mode"] == "conservative"
+    assert metadata["prompt_cache_default_ttl"] == "1h"
+    assert metadata["prompt_cache_control_before"] is False
+    assert metadata["prompt_cache_control_after"] is True
+    assert metadata["prompt_cache_auto_applied_cache_control"] is True
+    assert metadata["prompt_cache_key_before"] is False
+    assert metadata["prompt_cache_key_after"] is False
+    assert metadata["prompt_cache_auto_applied_key"] is False
+    assert metadata["prompt_cache_affinity_enabled"] is True
+    assert metadata["prompt_cache_affinity_key_used"] is True
+    assert "stable system instructions" not in repr(metadata)
+
+
 def test_prompt_cache_affinity_key_prefers_explicit_prompt_cache_key():
     payload = {
         "model": "gpt-4.1",

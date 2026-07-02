@@ -70,6 +70,21 @@ def _messages_have_cache_control(messages: Any) -> bool:
     return any(isinstance(m, dict) and isinstance(m.get("cache_control"), dict) for m in messages)
 
 
+def _payload_has_cache_control(payload: Any) -> bool:
+    if not isinstance(payload, dict):
+        return False
+    return isinstance(payload.get("cache_control"), dict) or _messages_have_cache_control(
+        payload.get("messages")
+    )
+
+
+def _payload_has_prompt_cache_key(payload: Any) -> bool:
+    if not isinstance(payload, dict):
+        return False
+    key = payload.get("prompt_cache_key")
+    return isinstance(key, str) and bool(key.strip())
+
+
 def _last_leading_system_index(messages: Any) -> Optional[int]:
     if not isinstance(messages, list):
         return None
@@ -131,6 +146,57 @@ def _build_auto_prompt_cache_key(payload: Dict[str, Any], model: str) -> Optiona
     if not source:
         return None
     return f"amb2api:{_sha256_short(source)}"
+
+
+def _prompt_cache_gateway_mode(model: str) -> str:
+    model_lower = str(model or "").strip().lower()
+    if _is_claude_model(model_lower):
+        return "cache_control"
+    if _supports_prompt_cache_key(model_lower):
+        return "prompt_cache_key"
+    if "gemini" in model_lower:
+        return "provider_implicit"
+    return "unknown"
+
+
+def _copy_payload_for_diagnostics(payload: Dict[str, Any]) -> Dict[str, Any]:
+    out = dict(payload)
+    if "messages" in out:
+        out["messages"] = _copy_message_list(out.get("messages"))
+    return out
+
+
+def _build_prompt_cache_metadata(
+    before_payload: Dict[str, Any],
+    after_payload: Dict[str, Any],
+    *,
+    model: str,
+    enabled: bool,
+    auto_mode: str,
+    default_ttl: str,
+    affinity_enabled: bool,
+    affinity_key: Optional[str],
+) -> Dict[str, Any]:
+    """Build safe prompt-cache diagnostics without leaking prompts or keys."""
+    before_control = _payload_has_cache_control(before_payload)
+    after_control = _payload_has_cache_control(after_payload)
+    before_key = _payload_has_prompt_cache_key(before_payload)
+    after_key = _payload_has_prompt_cache_key(after_payload)
+
+    return {
+        "prompt_cache_enabled": bool(enabled),
+        "prompt_cache_gateway_mode": _prompt_cache_gateway_mode(model),
+        "prompt_cache_auto_mode": str(auto_mode or ""),
+        "prompt_cache_default_ttl": str(default_ttl or ""),
+        "prompt_cache_control_before": before_control,
+        "prompt_cache_control_after": after_control,
+        "prompt_cache_auto_applied_cache_control": bool(after_control and not before_control),
+        "prompt_cache_key_before": before_key,
+        "prompt_cache_key_after": after_key,
+        "prompt_cache_auto_applied_key": bool(after_key and not before_key),
+        "prompt_cache_affinity_enabled": bool(affinity_enabled),
+        "prompt_cache_affinity_key_used": bool(affinity_key),
+    }
 
 
 def _apply_prompt_cache_defaults(
@@ -1763,9 +1829,12 @@ async def send_assembly_request(
         log.debug(f"Skipping unsupported params for Claude model: {openai_request.model}")
 
     prompt_cache_enabled = False
+    prompt_cache_affinity_enabled = False
     prompt_cache_affinity_key: Optional[str] = None
     prompt_cache_auto_mode = "conservative"
     prompt_cache_default_ttl = "5m"
+    prompt_cache_payload_before = _copy_payload_for_diagnostics(payload)
+    prompt_cache_setup_error_type = ""
     try:
         prompt_cache_enabled = await get_prompt_cache_enabled()
         if prompt_cache_enabled:
@@ -1777,13 +1846,30 @@ async def send_assembly_request(
                 auto_mode=prompt_cache_auto_mode,
                 default_ttl=prompt_cache_default_ttl,
             )
-            if await get_prompt_cache_affinity_enabled():
+            prompt_cache_affinity_enabled = await get_prompt_cache_affinity_enabled()
+            if prompt_cache_affinity_enabled:
                 prompt_cache_affinity_key = _build_prompt_cache_affinity_key(
                     payload,
                     openai_request.model,
                 )
     except Exception as e:
+        prompt_cache_setup_error_type = type(e).__name__
         log.warning(f"Prompt-cache helper setup failed, using raw pass-through behavior: {e}")
+    if trace:
+        trace.metadata.update(
+            _build_prompt_cache_metadata(
+                prompt_cache_payload_before,
+                payload,
+                model=openai_request.model,
+                enabled=prompt_cache_enabled,
+                auto_mode=prompt_cache_auto_mode,
+                default_ttl=prompt_cache_default_ttl,
+                affinity_enabled=prompt_cache_affinity_enabled,
+                affinity_key=prompt_cache_affinity_key,
+            )
+        )
+        if prompt_cache_setup_error_type:
+            trace.metadata["prompt_cache_setup_error_type"] = prompt_cache_setup_error_type
     
     # 记录完整的 payload（用于调试）
     payload_debug = {k: v for k, v in payload.items() if k != 'messages'}

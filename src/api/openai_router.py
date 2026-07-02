@@ -27,7 +27,7 @@ from ..transform.openai_to_claude import (
     estimate_input_tokens,
     openai_models_to_anthropic,
 )
-from ..stats.performance_tracker import get_performance_tracker
+from ..stats.performance_tracker import annotate_cache_usage_metadata, get_performance_tracker
 
 
 
@@ -51,6 +51,29 @@ async def _should_use_fake_streaming(model: str, forced_by_model_prefix: bool) -
     if not supports_real_streaming_model(model):
         return True, "unsupported-native-streaming"
     return False, "native-streaming-supported"
+
+
+def _annotate_stream_route_metadata(
+    trace: Any,
+    *,
+    model: str,
+    requested: bool,
+    use_fake_route: bool,
+    reason: str,
+) -> None:
+    if not trace:
+        return
+    try:
+        from config import supports_real_streaming_model
+
+        native_supported = supports_real_streaming_model(model)
+    except Exception:
+        native_supported = reason == "native-streaming-supported"
+
+    trace.metadata["stream_requested"] = bool(requested)
+    trace.metadata["stream_route_reason"] = str(reason or "")
+    trace.metadata["native_stream_supported"] = bool(native_supported)
+    trace.metadata["upstream_stream_requested"] = bool(requested and not use_fake_route)
 
 
 def _is_retryable_stream_header_status(status_code: int) -> bool:
@@ -633,6 +656,13 @@ async def anthropic_messages(
         use_fake_route, stream_route_reason = await _should_use_fake_streaming(
             model, use_fake_streaming
         )
+        _annotate_stream_route_metadata(
+            trace,
+            model=model,
+            requested=True,
+            use_fake_route=use_fake_route,
+            reason=stream_route_reason,
+        )
         if use_fake_route:
             log.info(f"使用假流式模式（{stream_route_reason}）")
             request_data.stream = False
@@ -704,6 +734,12 @@ async def anthropic_messages(
     anthropic_response = openai_response_to_anthropic(openai_response, fallback_model=model)
 
     usage_metrics = _extract_usage_metrics(openai_response.get("usage", {}) if isinstance(openai_response, dict) else {})
+    if trace and isinstance(openai_response, dict):
+        annotate_cache_usage_metadata(
+            trace.metadata,
+            openai_response.get("usage", {}),
+            source="anthropic_non_stream",
+        )
 
     if trace:
         trace.mark("conversion_complete")
@@ -941,6 +977,13 @@ async def chat_completions(
         use_fake_route, stream_route_reason = await _should_use_fake_streaming(
             model, use_fake_streaming
         )
+        _annotate_stream_route_metadata(
+            trace,
+            model=model,
+            requested=True,
+            use_fake_route=use_fake_route,
+            reason=stream_route_reason,
+        )
         if use_fake_route:
             log.info(f"使用假流式模式（{stream_route_reason}）")
             request_data.stream = False
@@ -1054,7 +1097,14 @@ async def chat_completions(
                 )
             
             # 提取 token 数量
-            usage_metrics = _extract_usage_metrics(parsed.get('usage', {}))
+            parsed_usage = parsed.get('usage', {})
+            usage_metrics = _extract_usage_metrics(parsed_usage)
+            if trace:
+                annotate_cache_usage_metadata(
+                    trace.metadata,
+                    parsed_usage,
+                    source="non_stream_upstream",
+                )
             
             # AssemblyAI 返回 OpenAI 格式，直接使用或进行微调
             openai_response = assembly_response_to_openai(parsed, model)

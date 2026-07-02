@@ -15,6 +15,7 @@ from log import log
 from src.models.models import ChatCompletionRequest
 from src.core.task_manager import create_managed_task
 from src.services.assembly_client import send_assembly_request
+from src.stats.performance_tracker import annotate_cache_usage_metadata
 from src.transform.xml_parser import parse_xml_tool_calls
 from src.transform.openai_transfer import gemini_stream_chunk_to_openai
 from config import (
@@ -223,6 +224,12 @@ async def convert_streaming_response(
                 or {}
             )
             if isinstance(usage_raw, dict):
+                if trace:
+                    annotate_cache_usage_metadata(
+                        trace.metadata,
+                        usage_raw,
+                        source="real_stream_chunk",
+                    )
                 prompt_tokens = _safe_non_negative_int(
                     usage_raw.get("prompt_tokens", usage_raw.get("input_tokens", prompt_tokens)),
                     prompt_tokens,
@@ -755,6 +762,12 @@ async def fake_stream_response_for_assembly(openai_request: ChatCompletionReques
                     
                     # 转换usageMetadata为OpenAI格式（兼容多种格式）
                     usage_raw = response_data.get("usage") or {}
+                    if trace:
+                        annotate_cache_usage_metadata(
+                            trace.metadata,
+                            usage_raw,
+                            source="fake_stream_upstream",
+                        )
                     prompt_tokens = _safe_non_negative_int(
                         usage_raw.get("prompt_tokens", usage_raw.get("input_tokens", 0))
                     )

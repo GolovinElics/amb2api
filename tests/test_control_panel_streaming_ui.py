@@ -15,6 +15,18 @@ def test_control_panel_only_exposes_global_fake_streaming_toggle():
     assert "enable_real_streaming: true" in html
 
 
+def test_performance_waterfall_surfaces_stream_and_cache_diagnostics():
+    html = Path("front/control_panel.html").read_text(encoding="utf-8")
+
+    assert 'id="wfStreamReason"' in html
+    assert 'id="wfUpstreamStream"' in html
+    assert 'id="wfCacheApplied"' in html
+    assert "metadata.stream_route_reason" in html
+    assert "metadata.upstream_stream_requested" in html
+    assert "metadata.prompt_cache_gateway_mode" in html
+    assert "metadata.cache_prompt_details_present" in html
+
+
 def test_account_cost_ui_uses_precise_currency_formatter_for_small_amounts():
     html = Path("front/control_panel.html").read_text(encoding="utf-8")
 

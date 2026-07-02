@@ -50,8 +50,13 @@ class RouterTraceStub:
 
 
 class RouterTrackerStub:
+    def __init__(self):
+        self.traces = []
+
     def start_trace(self, trace_id, _):
-        return RouterTraceStub(trace_id)
+        trace = RouterTraceStub(trace_id)
+        self.traces.append(trace)
+        return trace
 
     async def end_trace(self, *args, **kwargs):
         return None
@@ -370,8 +375,9 @@ def test_unsupported_streaming_model_uses_fake_stream_when_global_fake_disabled(
     app = _build_openai_test_app()
     fake_stream = AsyncMock(return_value=_done_stream())
     send_request = AsyncMock(side_effect=AssertionError("unsupported native stream model must not send stream=true upstream"))
+    tracker = RouterTrackerStub()
 
-    with patch("src.api.openai_router.get_performance_tracker", new=AsyncMock(return_value=RouterTrackerStub())), \
+    with patch("src.api.openai_router.get_performance_tracker", new=AsyncMock(return_value=tracker)), \
          patch("config.get_fake_streaming_enabled", new=AsyncMock(return_value=False), create=True), \
          patch("config.get_enable_real_streaming", new=AsyncMock(return_value=True)), \
          patch("src.api.openai_router.fake_stream_response_for_assembly", new=fake_stream), \
@@ -393,6 +399,10 @@ def test_unsupported_streaming_model_uses_fake_stream_when_global_fake_disabled(
     assert routed_request.model == "gemini-3.1-flash-lite"
     assert routed_request.stream is False
     send_request.assert_not_awaited()
+    assert tracker.traces[-1].metadata["stream_requested"] is True
+    assert tracker.traces[-1].metadata["stream_route_reason"] == "unsupported-native-streaming"
+    assert tracker.traces[-1].metadata["native_stream_supported"] is False
+    assert tracker.traces[-1].metadata["upstream_stream_requested"] is False
 
 
 def test_supported_streaming_model_uses_native_stream_when_global_fake_disabled():
@@ -400,8 +410,9 @@ def test_supported_streaming_model_uses_native_stream_when_global_fake_disabled(
     upstream_response = FakeStreamResponse(iter(()))
     fake_stream = AsyncMock(side_effect=AssertionError("supported native stream model should not use fake stream"))
     converted_stream = AsyncMock(return_value=_done_stream())
+    tracker = RouterTrackerStub()
 
-    with patch("src.api.openai_router.get_performance_tracker", new=AsyncMock(return_value=RouterTrackerStub())), \
+    with patch("src.api.openai_router.get_performance_tracker", new=AsyncMock(return_value=tracker)), \
          patch("config.get_fake_streaming_enabled", new=AsyncMock(return_value=False), create=True), \
          patch("config.get_enable_real_streaming", new=AsyncMock(return_value=True)), \
          patch("src.api.openai_router.send_assembly_request", new=AsyncMock(return_value=upstream_response)) as send_request, \
@@ -423,6 +434,10 @@ def test_supported_streaming_model_uses_native_stream_when_global_fake_disabled(
     assert send_request.await_args.args[1] is True
     converted_stream.assert_awaited_once()
     fake_stream.assert_not_awaited()
+    assert tracker.traces[-1].metadata["stream_requested"] is True
+    assert tracker.traces[-1].metadata["stream_route_reason"] == "native-streaming-supported"
+    assert tracker.traces[-1].metadata["native_stream_supported"] is True
+    assert tracker.traces[-1].metadata["upstream_stream_requested"] is True
 
 
 def test_legacy_real_streaming_kill_switch_forces_fake_stream_for_native_model():
