@@ -120,8 +120,22 @@ def _last_stable_history_index_before_current_user(messages: Any) -> Optional[in
     return None
 
 
+def _has_non_empty_tools(tools: Any) -> bool:
+    return isinstance(tools, list) and bool(tools)
+
+
+def _has_meaningful_response_format(response_format: Any) -> bool:
+    if not isinstance(response_format, dict) or not response_format:
+        return False
+    if response_format.get("type") == "text" and set(response_format) == {"type"}:
+        return False
+    return True
+
+
 def _has_cacheable_request_shape(payload: Dict[str, Any]) -> bool:
-    return payload.get("tools") is not None or payload.get("response_format") is not None
+    return _has_non_empty_tools(payload.get("tools")) or _has_meaningful_response_format(
+        payload.get("response_format")
+    )
 
 
 def _normalize_message_for_cache_source(message: Dict[str, Any]) -> Dict[str, Any]:
@@ -158,9 +172,9 @@ def _build_stable_prompt_cache_source(payload: Dict[str, Any], model: str) -> Op
                 break
 
     source: Dict[str, Any] = {"model": str(model or ""), "messages": prefix_messages}
-    if payload.get("tools") is not None:
+    if _has_non_empty_tools(payload.get("tools")):
         source["tools"] = payload.get("tools")
-    if payload.get("response_format") is not None:
+    if _has_meaningful_response_format(payload.get("response_format")):
         source["response_format"] = payload.get("response_format")
 
     if not source["messages"] and "tools" not in source and "response_format" not in source:
