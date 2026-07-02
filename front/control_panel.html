@@ -9007,6 +9007,11 @@
                         <div class="wf-field"><div class="wf-label">Keepalive</div><div id="wfKeepalive" class="wf-val wf-val--strong">0</div></div>
                         <div class="wf-field"><div class="wf-label">Bootstrap</div><div id="wfBootstrap" class="wf-val">-</div></div>
                     </div>
+                    <div class="wf-info-grid wf-grid-3">
+                        <div class="wf-field"><div class="wf-label">流式路由</div><div id="wfStreamReason" class="wf-val">-</div></div>
+                        <div class="wf-field"><div class="wf-label">上游流式</div><div id="wfUpstreamStream" class="wf-val">-</div></div>
+                        <div class="wf-field"><div class="wf-label">缓存应用</div><div id="wfCacheApplied" class="wf-val">-</div></div>
+                    </div>
                 </div>
                 <div class="wf-section-label">Latency Path</div>
                 <div id="perfWaterfallChart" class="wf-waterfall-card"></div>
@@ -15694,6 +15699,7 @@
                 document.getElementById('wfAccount').textContent = trace.account_email || '-';
                 const metadata = trace.metadata || {};
                 const streamMode = metadata.stream_mode || 'none';
+                const streamReason = metadata.stream_route_reason || '-';
                 const keepaliveCount = Number(metadata.stream_keepalive_count || 0);
                 const retryAttempts = Number(metadata.stream_bootstrap_attempts || 0);
                 const retriesUsed = Number(metadata.stream_bootstrap_retries_used || 0);
@@ -15702,11 +15708,36 @@
                     if (typeof v === 'string') return ['1', 'true', 'yes', 'on'].includes(v.toLowerCase());
                     return !!v;
                 };
+                const nativeStreamSupported = boolVal(metadata.native_stream_supported);
+                const upstreamStreamRequested = boolVal(metadata.upstream_stream_requested);
                 const bootstrapFailed = boolVal(metadata.stream_bootstrap_failed);
                 const bootstrapRecovered = boolVal(metadata.stream_bootstrap_recovered);
 
-                document.getElementById('wfStreamMode').textContent = streamMode;
+                document.getElementById('wfStreamMode').textContent = streamReason !== '-' ? `${streamMode} / ${streamReason}` : streamMode;
                 document.getElementById('wfKeepalive').textContent = `${keepaliveCount}`;
+                document.getElementById('wfStreamReason').textContent = streamReason;
+                document.getElementById('wfUpstreamStream').textContent = metadata.stream_requested === undefined && streamMode === 'none'
+                    ? '-'
+                    : `${upstreamStreamRequested ? '是' : '否'} / native=${nativeStreamSupported ? '是' : '否'}`;
+                const cacheGatewayMode = metadata.prompt_cache_gateway_mode || '-';
+                const cacheEnabled = boolVal(metadata.prompt_cache_enabled);
+                const cacheControlApplied = boolVal(metadata.prompt_cache_control_after);
+                const cacheKeyApplied = boolVal(metadata.prompt_cache_key_after);
+                const cacheUsagePresent = boolVal(metadata.cache_usage_present);
+                const cacheDetailsPresent = boolVal(metadata.cache_prompt_details_present);
+                const hasExplicitCacheDirective = cacheControlApplied || cacheKeyApplied;
+                let cacheAppliedText = cacheEnabled || hasExplicitCacheDirective ? cacheGatewayMode : 'disabled';
+                if (cacheEnabled || hasExplicitCacheDirective) {
+                    const applied = [];
+                    if (cacheControlApplied) applied.push('cache_control');
+                    if (cacheKeyApplied) applied.push('prompt_cache_key');
+                    if (!applied.length && cacheGatewayMode === 'provider_implicit') applied.push('provider_implicit');
+                    if (!applied.length) applied.push(cacheGatewayMode);
+                    const usageText = cacheUsagePresent ? (cacheDetailsPresent ? 'usage details' : 'usage no details') : 'no usage';
+                    const helperText = cacheEnabled ? '' : ' / helpers off';
+                    cacheAppliedText = `${applied.join('+')}${helperText} / ${usageText}`;
+                }
+                document.getElementById('wfCacheApplied').textContent = cacheAppliedText;
                 if (streamMode === 'real') {
                     let bootstrapText = `attempts=${retryAttempts}, retries=${retriesUsed}`;
                     if (bootstrapFailed) bootstrapText += ', failed';

@@ -15,6 +15,7 @@ import pytest
 from src.stats.performance_tracker import (
     PerformanceTracker,
     RequestTrace,
+    annotate_cache_usage_metadata,
     _extract_usage_tokens,
 )
 
@@ -88,6 +89,98 @@ def test_extract_usage_tokens_reads_nested_prompt_tokens_details():
     assert out["cached_tokens"] == 50
     assert out["cache_creation_5m_tokens"] == 200
     assert out["cache_creation_1h_tokens"] == 30
+
+
+def test_extract_usage_tokens_reads_gateway_input_cached_tokens():
+    out = _extract_usage_tokens({
+        "prompt_tokens": 100,
+        "completion_tokens": 10,
+        "input_cached_tokens": 75,
+    })
+
+    assert out["cached_tokens"] == 75
+
+
+def test_annotate_cache_usage_metadata_records_presence_and_buckets():
+    metadata = {}
+
+    annotate_cache_usage_metadata(
+        metadata,
+        {
+            "prompt_tokens": 2048,
+            "completion_tokens": 20,
+            "prompt_tokens_details": {
+                "cached_tokens": 320,
+                "cache_creation": {
+                    "ephemeral_5m_input_tokens": 200,
+                    "ephemeral_1h_input_tokens": 30,
+                },
+            },
+        },
+        source="non_stream",
+    )
+
+    assert metadata["cache_usage_source"] == "non_stream"
+    assert metadata["cache_usage_present"] is True
+    assert metadata["cache_prompt_details_present"] is True
+    assert metadata["cache_cached_tokens_reported"] == 320
+    assert metadata["cache_creation_5m_reported"] == 200
+    assert metadata["cache_creation_1h_reported"] == 30
+
+
+def test_annotate_cache_usage_metadata_records_gateway_cached_token_shape():
+    metadata = {}
+
+    annotate_cache_usage_metadata(
+        metadata,
+        {
+            "prompt_tokens": 2048,
+            "completion_tokens": 20,
+            "input_cached_tokens": 640,
+        },
+        source="non_stream",
+    )
+
+    assert metadata["cache_usage_present"] is True
+    assert metadata["cache_prompt_details_present"] is False
+    assert metadata["cache_cached_tokens_reported"] == 640
+
+
+def test_annotate_cache_usage_metadata_records_absent_usage():
+    metadata = {}
+
+    annotate_cache_usage_metadata(metadata, {}, source="fake_stream")
+
+    assert metadata["cache_usage_source"] == "fake_stream"
+    assert metadata["cache_usage_present"] is False
+    assert metadata["cache_prompt_details_present"] is False
+    assert metadata["cache_cached_tokens_reported"] == 0
+    assert metadata["cache_creation_5m_reported"] == 0
+    assert metadata["cache_creation_1h_reported"] == 0
+
+
+def test_annotate_cache_usage_metadata_preserves_positive_report_after_empty_chunk():
+    metadata = {}
+
+    annotate_cache_usage_metadata(
+        metadata,
+        {
+            "prompt_tokens_details": {
+                "cached_tokens": 320,
+                "cache_creation": {
+                    "ephemeral_5m_input_tokens": 200,
+                    "ephemeral_1h_input_tokens": 0,
+                },
+            },
+        },
+        source="real_stream_chunk",
+    )
+    annotate_cache_usage_metadata(metadata, {}, source="real_stream_chunk")
+
+    assert metadata["cache_usage_present"] is True
+    assert metadata["cache_prompt_details_present"] is True
+    assert metadata["cache_cached_tokens_reported"] == 320
+    assert metadata["cache_creation_5m_reported"] == 200
 
 
 def test_request_trace_dict_round_trip_preserves_cache_creation():

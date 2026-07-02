@@ -27,7 +27,10 @@ def _to_non_negative_int(value: Any, default: int = 0) -> int:
 def _extract_usage_tokens(raw: Dict[str, Any]) -> Dict[str, int]:
     prompt_tokens = _to_non_negative_int(raw.get("prompt_tokens", 0), 0)
     completion_tokens = _to_non_negative_int(raw.get("completion_tokens", 0), 0)
-    cached_tokens = _to_non_negative_int(raw.get("cached_tokens", 0), 0)
+    cached_tokens = _to_non_negative_int(
+        raw.get("cached_tokens", raw.get("input_cached_tokens", 0)),
+        0,
+    )
     # Gateway prompt-caching token-creation buckets (ephemeral 5m / 1h).
     cache_creation_5m = _to_non_negative_int(raw.get("cache_creation_5m_tokens", 0), 0)
     cache_creation_1h = _to_non_negative_int(raw.get("cache_creation_1h_tokens", 0), 0)
@@ -59,6 +62,34 @@ def _extract_usage_tokens(raw: Dict[str, Any]) -> Dict[str, int]:
         "cache_creation_1h_tokens": cache_creation_1h,
         "total_tokens": total_tokens,
     }
+
+
+def annotate_cache_usage_metadata(metadata: Dict[str, Any], usage: Any, source: str) -> None:
+    """Record non-sensitive cache usage diagnostics on a trace metadata map."""
+    usage_map = usage if isinstance(usage, dict) else {}
+    details = usage_map.get("prompt_tokens_details")
+    details_present = isinstance(details, dict)
+    tokens = _extract_usage_tokens(usage_map)
+    usage_present = bool(usage_map)
+
+    if usage_present or not metadata.get("cache_usage_source"):
+        metadata["cache_usage_source"] = str(source or "")
+    metadata["cache_usage_present"] = bool(metadata.get("cache_usage_present") or usage_present)
+    metadata["cache_prompt_details_present"] = bool(
+        metadata.get("cache_prompt_details_present") or details_present
+    )
+    metadata["cache_cached_tokens_reported"] = max(
+        _to_non_negative_int(metadata.get("cache_cached_tokens_reported", 0), 0),
+        tokens["cached_tokens"],
+    )
+    metadata["cache_creation_5m_reported"] = max(
+        _to_non_negative_int(metadata.get("cache_creation_5m_reported", 0), 0),
+        tokens["cache_creation_5m_tokens"],
+    )
+    metadata["cache_creation_1h_reported"] = max(
+        _to_non_negative_int(metadata.get("cache_creation_1h_reported", 0), 0),
+        tokens["cache_creation_1h_tokens"],
+    )
 
 
 def _normalize_usage_windows(active_windows: Optional[Dict[str, Any]]) -> Dict[str, tuple]:

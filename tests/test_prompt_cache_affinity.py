@@ -51,6 +51,143 @@ def test_prompt_cache_defaults_preserves_explicit_cache_control():
     assert out["messages"][0]["cache_control"] == explicit
 
 
+def test_prompt_cache_defaults_marks_claude_history_before_latest_user():
+    payload = {
+        "model": "claude-sonnet-4-6",
+        "messages": [
+            {"role": "user", "content": "stable prior question"},
+            {"role": "assistant", "content": "stable prior answer"},
+            {"role": "user", "content": "current dynamic question"},
+        ],
+    }
+
+    out = _apply_prompt_cache_defaults(
+        payload,
+        model="claude-sonnet-4-6",
+        auto_mode="conservative",
+        default_ttl="5m",
+    )
+
+    assert out["messages"][1]["cache_control"] == {"type": "ephemeral", "ttl": "5m"}
+    assert "cache_control" not in out["messages"][2]
+    assert "cache_control" not in payload["messages"][1], "helper must not mutate caller payload"
+
+
+def test_prompt_cache_defaults_ignores_tools_for_single_dynamic_claude_turn():
+    payload = {
+        "model": "claude-sonnet-4-6",
+        "messages": [{"role": "user", "content": "current dynamic question"}],
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": "lookup",
+                    "parameters": {"type": "object", "properties": {"q": {"type": "string"}}},
+                },
+            }
+        ],
+    }
+
+    out = _apply_prompt_cache_defaults(
+        payload,
+        model="claude-sonnet-4-6",
+        auto_mode="conservative",
+        default_ttl="1h",
+    )
+
+    assert "cache_control" not in out
+    assert "cache_control" not in out["messages"][0]
+    assert "cache_control" not in payload
+
+
+def test_prompt_cache_defaults_ignores_empty_tools_for_single_dynamic_claude_turn():
+    payload = {
+        "model": "claude-sonnet-4-6",
+        "messages": [{"role": "user", "content": "current dynamic question"}],
+        "tools": [],
+    }
+
+    out = _apply_prompt_cache_defaults(
+        payload,
+        model="claude-sonnet-4-6",
+        auto_mode="conservative",
+        default_ttl="5m",
+    )
+
+    assert "cache_control" not in out
+    assert "cache_control" not in out["messages"][0]
+
+
+def test_prompt_cache_defaults_ignores_default_text_response_format_for_claude_turn():
+    payload = {
+        "model": "claude-sonnet-4-6",
+        "messages": [{"role": "user", "content": "current dynamic question"}],
+        "response_format": {"type": "text"},
+    }
+
+    out = _apply_prompt_cache_defaults(
+        payload,
+        model="claude-sonnet-4-6",
+        auto_mode="conservative",
+        default_ttl="5m",
+    )
+
+    assert "cache_control" not in out
+    assert "cache_control" not in out["messages"][0]
+
+
+def test_prompt_cache_defaults_ignores_structured_output_for_single_dynamic_claude_turn():
+    payload = {
+        "model": "claude-sonnet-4-6",
+        "messages": [{"role": "user", "content": "current dynamic question"}],
+        "response_format": {"type": "json_object"},
+    }
+
+    out = _apply_prompt_cache_defaults(
+        payload,
+        model="claude-sonnet-4-6",
+        auto_mode="conservative",
+        default_ttl="1h",
+    )
+
+    assert "cache_control" not in out
+    assert "cache_control" not in out["messages"][0]
+
+
+def test_prompt_cache_defaults_leaves_single_dynamic_claude_turn_unmarked():
+    payload = {
+        "model": "claude-sonnet-4-6",
+        "messages": [{"role": "user", "content": "current dynamic question"}],
+    }
+
+    out = _apply_prompt_cache_defaults(
+        payload,
+        model="claude-sonnet-4-6",
+        auto_mode="conservative",
+        default_ttl="5m",
+    )
+
+    assert "cache_control" not in out
+    assert "cache_control" not in out["messages"][0]
+
+
+def test_prompt_cache_defaults_does_not_generate_openai_key_for_empty_tools_only():
+    payload = {
+        "model": "gpt-4.1",
+        "messages": [{"role": "user", "content": "current dynamic question"}],
+        "tools": [],
+    }
+
+    out = _apply_prompt_cache_defaults(
+        payload,
+        model="gpt-4.1",
+        auto_mode="conservative",
+        default_ttl="5m",
+    )
+
+    assert "prompt_cache_key" not in out
+
+
 def test_prompt_cache_defaults_generates_safe_openai_cache_key_from_stable_prefix():
     payload = {
         "model": "gpt-4.1",
@@ -79,6 +216,67 @@ def test_prompt_cache_defaults_generates_safe_openai_cache_key_from_stable_prefi
     assert out["prompt_cache_key"].startswith("amb2api:")
     assert "stable system instructions" not in out["prompt_cache_key"]
     assert "cache_control" not in out["messages"][0]
+
+
+def test_prompt_cache_metadata_records_auto_defaults_without_sensitive_values():
+    payload = {
+        "model": "claude-sonnet-4-6",
+        "messages": [
+            {"role": "system", "content": "stable system instructions that should not leak"},
+            {"role": "user", "content": "dynamic question"},
+        ],
+    }
+    out = _apply_prompt_cache_defaults(
+        payload,
+        model="claude-sonnet-4-6",
+        auto_mode="conservative",
+        default_ttl="1h",
+    )
+
+    metadata = assembly_client._build_prompt_cache_metadata(
+        payload,
+        out,
+        model="claude-sonnet-4-6",
+        enabled=True,
+        auto_mode="conservative",
+        default_ttl="1h",
+        affinity_enabled=True,
+        affinity_key="prompt_cache_auto:abcdef",
+    )
+
+    assert metadata["prompt_cache_enabled"] is True
+    assert metadata["prompt_cache_auto_mode"] == "conservative"
+    assert metadata["prompt_cache_default_ttl"] == "1h"
+    assert metadata["prompt_cache_control_before"] is False
+    assert metadata["prompt_cache_control_after"] is True
+    assert metadata["prompt_cache_auto_applied_cache_control"] is True
+    assert metadata["prompt_cache_key_before"] is False
+    assert metadata["prompt_cache_key_after"] is False
+    assert metadata["prompt_cache_auto_applied_key"] is False
+    assert metadata["prompt_cache_affinity_enabled"] is True
+    assert metadata["prompt_cache_affinity_key_used"] is True
+    assert "stable system instructions" not in repr(metadata)
+
+
+def test_prompt_cache_metadata_tolerates_missing_or_null_messages():
+    for before_payload, after_payload in (
+        ({}, {}),
+        ({"messages": None}, {"messages": None}),
+        ({"messages": {"role": "user", "content": "not a list"}}, {}),
+    ):
+        metadata = assembly_client._build_prompt_cache_metadata(
+            before_payload,
+            after_payload,
+            model="claude-sonnet-4-6",
+            enabled=True,
+            auto_mode="conservative",
+            default_ttl="5m",
+            affinity_enabled=False,
+            affinity_key=None,
+        )
+
+        assert metadata["prompt_cache_control_before"] is False
+        assert metadata["prompt_cache_control_after"] is False
 
 
 def test_prompt_cache_affinity_key_prefers_explicit_prompt_cache_key():
