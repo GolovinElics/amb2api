@@ -203,7 +203,7 @@ python web.py
 
 #### Prompt Caching
 
-项目默认启用保守缓存增强：Claude 请求在未显式提供 `cache_control` 时，只会给开头稳定的 system 前缀添加 `cache_control: {"type":"ephemeral","ttl":"5m"}`；OpenAI/Kimi 类模型会基于稳定 system 前缀、tools、`response_format` 生成不包含明文提示词的 `prompt_cache_key`。动态 user/assistant/tool result 内容不会被自动标记缓存，需由客户端显式传入。
+项目默认启用保守缓存增强：Claude 请求在未显式提供 `cache_control` 时，会优先给开头稳定的 system 前缀添加 `cache_control: {"type":"ephemeral","ttl":"5m"}`；如果没有 system 但存在多轮历史，则给当前 user 问题之前的最后一条历史消息添加缓存断点；如果是单轮请求但包含稳定的 tools/`response_format`，则使用 Gateway 顶层 `cache_control` 让这些稳定结构进入缓存候选。OpenAI/Kimi 类模型会基于稳定 system 前缀、tools、`response_format` 生成不包含明文提示词的 `prompt_cache_key`。单轮纯动态 Claude user 请求不会被自动标记缓存，需由客户端显式传入。
 
 为提高缓存命中率，默认开启缓存密钥亲和度：相同 `prompt_cache_key` 或相同稳定前缀会优先落到同一个可用 AssemblyAI API Key；当该 Key 被禁用、失败、限流或达到每日配额时，会回退到下一个可用 Key。
 

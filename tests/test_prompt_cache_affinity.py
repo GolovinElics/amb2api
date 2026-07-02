@@ -51,6 +51,72 @@ def test_prompt_cache_defaults_preserves_explicit_cache_control():
     assert out["messages"][0]["cache_control"] == explicit
 
 
+def test_prompt_cache_defaults_marks_claude_history_before_latest_user():
+    payload = {
+        "model": "claude-sonnet-4-6",
+        "messages": [
+            {"role": "user", "content": "stable prior question"},
+            {"role": "assistant", "content": "stable prior answer"},
+            {"role": "user", "content": "current dynamic question"},
+        ],
+    }
+
+    out = _apply_prompt_cache_defaults(
+        payload,
+        model="claude-sonnet-4-6",
+        auto_mode="conservative",
+        default_ttl="5m",
+    )
+
+    assert out["messages"][1]["cache_control"] == {"type": "ephemeral", "ttl": "5m"}
+    assert "cache_control" not in out["messages"][2]
+    assert "cache_control" not in payload["messages"][1], "helper must not mutate caller payload"
+
+
+def test_prompt_cache_defaults_adds_claude_request_default_for_single_turn_tools():
+    payload = {
+        "model": "claude-sonnet-4-6",
+        "messages": [{"role": "user", "content": "current dynamic question"}],
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": "lookup",
+                    "parameters": {"type": "object", "properties": {"q": {"type": "string"}}},
+                },
+            }
+        ],
+    }
+
+    out = _apply_prompt_cache_defaults(
+        payload,
+        model="claude-sonnet-4-6",
+        auto_mode="conservative",
+        default_ttl="1h",
+    )
+
+    assert out["cache_control"] == {"type": "ephemeral", "ttl": "1h"}
+    assert "cache_control" not in out["messages"][0]
+    assert "cache_control" not in payload
+
+
+def test_prompt_cache_defaults_leaves_single_dynamic_claude_turn_unmarked():
+    payload = {
+        "model": "claude-sonnet-4-6",
+        "messages": [{"role": "user", "content": "current dynamic question"}],
+    }
+
+    out = _apply_prompt_cache_defaults(
+        payload,
+        model="claude-sonnet-4-6",
+        auto_mode="conservative",
+        default_ttl="5m",
+    )
+
+    assert "cache_control" not in out
+    assert "cache_control" not in out["messages"][0]
+
+
 def test_prompt_cache_defaults_generates_safe_openai_cache_key_from_stable_prefix():
     payload = {
         "model": "gpt-4.1",

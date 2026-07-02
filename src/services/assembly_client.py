@@ -97,6 +97,32 @@ def _last_leading_system_index(messages: Any) -> Optional[int]:
     return last_system_idx
 
 
+def _build_claude_cache_control(default_ttl: str) -> Dict[str, str]:
+    cache_control = {"type": "ephemeral"}
+    ttl = str(default_ttl or "").strip()
+    if ttl:
+        cache_control["ttl"] = ttl
+    return cache_control
+
+
+def _last_stable_history_index_before_current_user(messages: Any) -> Optional[int]:
+    if not isinstance(messages, list) or len(messages) < 2:
+        return None
+    last_message = messages[-1]
+    if not isinstance(last_message, dict) or last_message.get("role") != "user":
+        return None
+
+    for idx in range(len(messages) - 2, -1, -1):
+        msg = messages[idx]
+        if isinstance(msg, dict):
+            return idx
+    return None
+
+
+def _has_cacheable_request_shape(payload: Dict[str, Any]) -> bool:
+    return payload.get("tools") is not None or payload.get("response_format") is not None
+
+
 def _normalize_message_for_cache_source(message: Dict[str, Any]) -> Dict[str, Any]:
     normalized: Dict[str, Any] = {
         "role": message.get("role"),
@@ -224,13 +250,15 @@ def _apply_prompt_cache_defaults(
         and not isinstance(out.get("cache_control"), dict)
         and not _messages_have_cache_control(messages)
     ):
+        cache_control = _build_claude_cache_control(default_ttl)
         system_idx = _last_leading_system_index(messages)
+        history_idx = _last_stable_history_index_before_current_user(messages)
         if system_idx is not None and isinstance(messages[system_idx], dict):
-            cache_control = {"type": "ephemeral"}
-            ttl = str(default_ttl or "").strip()
-            if ttl:
-                cache_control["ttl"] = ttl
             messages[system_idx]["cache_control"] = cache_control
+        elif history_idx is not None and isinstance(messages[history_idx], dict):
+            messages[history_idx]["cache_control"] = cache_control
+        elif _has_cacheable_request_shape(out):
+            out["cache_control"] = cache_control
 
     if _supports_prompt_cache_key(model) and not out.get("prompt_cache_key"):
         cache_key = _build_auto_prompt_cache_key(out, model)
