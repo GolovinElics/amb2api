@@ -73,7 +73,7 @@ def test_prompt_cache_defaults_marks_claude_history_before_latest_user():
     assert "cache_control" not in payload["messages"][1], "helper must not mutate caller payload"
 
 
-def test_prompt_cache_defaults_adds_claude_request_default_for_single_turn_tools():
+def test_prompt_cache_defaults_ignores_tools_for_single_dynamic_claude_turn():
     payload = {
         "model": "claude-sonnet-4-6",
         "messages": [{"role": "user", "content": "current dynamic question"}],
@@ -95,7 +95,7 @@ def test_prompt_cache_defaults_adds_claude_request_default_for_single_turn_tools
         default_ttl="1h",
     )
 
-    assert out["cache_control"] == {"type": "ephemeral", "ttl": "1h"}
+    assert "cache_control" not in out
     assert "cache_control" not in out["messages"][0]
     assert "cache_control" not in payload
 
@@ -136,7 +136,7 @@ def test_prompt_cache_defaults_ignores_default_text_response_format_for_claude_t
     assert "cache_control" not in out["messages"][0]
 
 
-def test_prompt_cache_defaults_adds_claude_request_default_for_structured_output():
+def test_prompt_cache_defaults_ignores_structured_output_for_single_dynamic_claude_turn():
     payload = {
         "model": "claude-sonnet-4-6",
         "messages": [{"role": "user", "content": "current dynamic question"}],
@@ -150,7 +150,7 @@ def test_prompt_cache_defaults_adds_claude_request_default_for_structured_output
         default_ttl="1h",
     )
 
-    assert out["cache_control"] == {"type": "ephemeral", "ttl": "1h"}
+    assert "cache_control" not in out
     assert "cache_control" not in out["messages"][0]
 
 

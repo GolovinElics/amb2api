@@ -132,12 +132,6 @@ def _has_meaningful_response_format(response_format: Any) -> bool:
     return True
 
 
-def _has_cacheable_request_shape(payload: Dict[str, Any]) -> bool:
-    return _has_non_empty_tools(payload.get("tools")) or _has_meaningful_response_format(
-        payload.get("response_format")
-    )
-
-
 def _normalize_message_for_cache_source(message: Dict[str, Any]) -> Dict[str, Any]:
     normalized: Dict[str, Any] = {
         "role": message.get("role"),
@@ -272,8 +266,6 @@ def _apply_prompt_cache_defaults(
             messages[system_idx]["cache_control"] = cache_control
         elif history_idx is not None and isinstance(messages[history_idx], dict):
             messages[history_idx]["cache_control"] = cache_control
-        elif _has_cacheable_request_shape(out):
-            out["cache_control"] = cache_control
 
     if _supports_prompt_cache_key(model) and not out.get("prompt_cache_key"):
         cache_key = _build_auto_prompt_cache_key(out, model)
