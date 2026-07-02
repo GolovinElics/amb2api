@@ -25,6 +25,9 @@ def test_performance_waterfall_surfaces_stream_and_cache_diagnostics():
     assert "metadata.upstream_stream_requested" in html
     assert "metadata.prompt_cache_gateway_mode" in html
     assert "metadata.cache_prompt_details_present" in html
+    assert "const hasExplicitCacheDirective = cacheControlApplied || cacheKeyApplied;" in html
+    assert "cacheEnabled || hasExplicitCacheDirective" in html
+    assert "' / helpers off'" in html
 
 
 def test_account_cost_ui_uses_precise_currency_formatter_for_small_amounts():

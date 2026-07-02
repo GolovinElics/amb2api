@@ -27,7 +27,10 @@ def _to_non_negative_int(value: Any, default: int = 0) -> int:
 def _extract_usage_tokens(raw: Dict[str, Any]) -> Dict[str, int]:
     prompt_tokens = _to_non_negative_int(raw.get("prompt_tokens", 0), 0)
     completion_tokens = _to_non_negative_int(raw.get("completion_tokens", 0), 0)
-    cached_tokens = _to_non_negative_int(raw.get("cached_tokens", 0), 0)
+    cached_tokens = _to_non_negative_int(
+        raw.get("cached_tokens", raw.get("input_cached_tokens", 0)),
+        0,
+    )
     # Gateway prompt-caching token-creation buckets (ephemeral 5m / 1h).
     cache_creation_5m = _to_non_negative_int(raw.get("cache_creation_5m_tokens", 0), 0)
     cache_creation_1h = _to_non_negative_int(raw.get("cache_creation_1h_tokens", 0), 0)

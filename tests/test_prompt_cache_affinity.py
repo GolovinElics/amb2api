@@ -187,6 +187,27 @@ def test_prompt_cache_metadata_records_auto_defaults_without_sensitive_values():
     assert "stable system instructions" not in repr(metadata)
 
 
+def test_prompt_cache_metadata_tolerates_missing_or_null_messages():
+    for before_payload, after_payload in (
+        ({}, {}),
+        ({"messages": None}, {"messages": None}),
+        ({"messages": {"role": "user", "content": "not a list"}}, {}),
+    ):
+        metadata = assembly_client._build_prompt_cache_metadata(
+            before_payload,
+            after_payload,
+            model="claude-sonnet-4-6",
+            enabled=True,
+            auto_mode="conservative",
+            default_ttl="5m",
+            affinity_enabled=False,
+            affinity_key=None,
+        )
+
+        assert metadata["prompt_cache_control_before"] is False
+        assert metadata["prompt_cache_control_after"] is False
+
+
 def test_prompt_cache_affinity_key_prefers_explicit_prompt_cache_key():
     payload = {
         "model": "gpt-4.1",

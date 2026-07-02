@@ -91,6 +91,16 @@ def test_extract_usage_tokens_reads_nested_prompt_tokens_details():
     assert out["cache_creation_1h_tokens"] == 30
 
 
+def test_extract_usage_tokens_reads_gateway_input_cached_tokens():
+    out = _extract_usage_tokens({
+        "prompt_tokens": 100,
+        "completion_tokens": 10,
+        "input_cached_tokens": 75,
+    })
+
+    assert out["cached_tokens"] == 75
+
+
 def test_annotate_cache_usage_metadata_records_presence_and_buckets():
     metadata = {}
 
@@ -116,6 +126,24 @@ def test_annotate_cache_usage_metadata_records_presence_and_buckets():
     assert metadata["cache_cached_tokens_reported"] == 320
     assert metadata["cache_creation_5m_reported"] == 200
     assert metadata["cache_creation_1h_reported"] == 30
+
+
+def test_annotate_cache_usage_metadata_records_gateway_cached_token_shape():
+    metadata = {}
+
+    annotate_cache_usage_metadata(
+        metadata,
+        {
+            "prompt_tokens": 2048,
+            "completion_tokens": 20,
+            "input_cached_tokens": 640,
+        },
+        source="non_stream",
+    )
+
+    assert metadata["cache_usage_present"] is True
+    assert metadata["cache_prompt_details_present"] is False
+    assert metadata["cache_cached_tokens_reported"] == 640
 
 
 def test_annotate_cache_usage_metadata_records_absent_usage():

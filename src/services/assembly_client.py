@@ -73,8 +73,9 @@ def _messages_have_cache_control(messages: Any) -> bool:
 def _payload_has_cache_control(payload: Any) -> bool:
     if not isinstance(payload, dict):
         return False
-    return isinstance(payload.get("cache_control"), dict) or _messages_have_cache_control(
-        payload.get("messages")
+    messages = payload.get("messages")
+    return isinstance(payload.get("cache_control"), dict) or (
+        isinstance(messages, list) and _messages_have_cache_control(messages)
     )
 
 

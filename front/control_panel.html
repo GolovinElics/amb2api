@@ -15725,15 +15725,17 @@
                 const cacheKeyApplied = boolVal(metadata.prompt_cache_key_after);
                 const cacheUsagePresent = boolVal(metadata.cache_usage_present);
                 const cacheDetailsPresent = boolVal(metadata.cache_prompt_details_present);
-                let cacheAppliedText = cacheEnabled ? cacheGatewayMode : 'disabled';
-                if (cacheEnabled) {
+                const hasExplicitCacheDirective = cacheControlApplied || cacheKeyApplied;
+                let cacheAppliedText = cacheEnabled || hasExplicitCacheDirective ? cacheGatewayMode : 'disabled';
+                if (cacheEnabled || hasExplicitCacheDirective) {
                     const applied = [];
                     if (cacheControlApplied) applied.push('cache_control');
                     if (cacheKeyApplied) applied.push('prompt_cache_key');
                     if (!applied.length && cacheGatewayMode === 'provider_implicit') applied.push('provider_implicit');
                     if (!applied.length) applied.push(cacheGatewayMode);
                     const usageText = cacheUsagePresent ? (cacheDetailsPresent ? 'usage details' : 'usage no details') : 'no usage';
-                    cacheAppliedText = `${applied.join('+')} / ${usageText}`;
+                    const helperText = cacheEnabled ? '' : ' / helpers off';
+                    cacheAppliedText = `${applied.join('+')}${helperText} / ${usageText}`;
                 }
                 document.getElementById('wfCacheApplied').textContent = cacheAppliedText;
                 if (streamMode === 'real') {
