@@ -231,6 +231,27 @@ def _sanitize_gemini_schema(schema: Any) -> Any:
     if not isinstance(schema, dict):
         return schema
 
+    union_schema = schema.get("anyOf")
+    if union_schema is None:
+        union_schema = schema.get("oneOf")
+    if isinstance(union_schema, list):
+        any_of = []
+        nullable = False
+        for item in union_schema:
+            if not isinstance(item, dict):
+                continue
+            item_type = item.get("type")
+            if isinstance(item_type, str) and item_type.lower() == "null":
+                nullable = True
+                continue
+            any_of.append(_sanitize_gemini_schema(item))
+        if len(any_of) == 1 and nullable and isinstance(any_of[0], dict):
+            collapsed = dict(any_of[0])
+            collapsed["nullable"] = True
+            return collapsed
+        if any_of:
+            return {"anyOf": any_of}
+
     sanitized: Dict[str, Any] = {}
     nullable = bool(schema.get("nullable"))
 
@@ -271,18 +292,6 @@ def _sanitize_gemini_schema(schema: Any) -> Any:
                     sanitized["items"] = _sanitize_gemini_schema(first_item)
             continue
         if key in {"anyOf", "oneOf"}:
-            if isinstance(value, list):
-                any_of = []
-                for item in value:
-                    if not isinstance(item, dict):
-                        continue
-                    item_type = item.get("type")
-                    if isinstance(item_type, str) and item_type.lower() == "null":
-                        nullable = True
-                        continue
-                    any_of.append(_sanitize_gemini_schema(item))
-                if any_of:
-                    sanitized["anyOf"] = any_of
             continue
         if key in {"$defs", "defs"}:
             if isinstance(value, dict):

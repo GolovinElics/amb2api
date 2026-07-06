@@ -82,6 +82,41 @@ def test_sanitize_messages_supports_function_input_when_arguments_missing():
     assert fc["content"][0]["tool_use"]["input"] == {"path": "/tmp/a.txt"}
 
 
+def test_sanitize_gemini_tools_strips_anyof_sibling_fields():
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "Task",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "value": {
+                            "description": "string or integer",
+                            "type": "string",
+                            "nullable": True,
+                            "anyOf": [
+                                {"type": "string", "description": "text"},
+                                {"type": "integer"},
+                            ],
+                        },
+                        "maybe": {
+                            "description": "optional text",
+                            "anyOf": [{"type": "string"}, {"type": "null"}],
+                        },
+                    },
+                },
+            },
+        }
+    ]
+
+    sanitized = _sanitize_gemini_tools(tools)
+    properties = sanitized[0]["function"]["parameters"]["properties"]
+
+    assert properties["value"] == {"anyOf": [{"type": "string", "description": "text"}, {"type": "integer"}]}
+    assert properties["maybe"] == {"type": "string", "nullable": True}
+
+
 def test_sanitize_messages_guarantees_input_for_empty_or_invalid_arguments():
     messages = [
         {
