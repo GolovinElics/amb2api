@@ -259,7 +259,18 @@ def _sanitize_gemini_schema(schema: Any) -> Any:
                     {**item, "nullable": True} if isinstance(item, dict) else item
                     for item in any_of
                 ]
-            return {"anyOf": any_of}
+            sanitized_union: Dict[str, Any] = {"anyOf": any_of}
+            for defs_key in ("$defs", "defs"):
+                defs_value = schema.get(defs_key)
+                if not isinstance(defs_value, dict):
+                    continue
+                defs: Dict[str, Any] = {}
+                for def_name, def_schema in defs_value.items():
+                    if isinstance(def_name, str) and isinstance(def_schema, dict):
+                        defs[def_name] = _sanitize_gemini_schema(def_schema)
+                if defs:
+                    sanitized_union[defs_key] = defs
+            return sanitized_union
 
     sanitized: Dict[str, Any] = {}
     nullable = bool(schema.get("nullable"))

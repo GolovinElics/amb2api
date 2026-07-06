@@ -141,6 +141,69 @@ def test_sanitize_gemini_tools_strips_anyof_sibling_fields():
     assert properties["single"] == {"type": "integer", "description": "single branch"}
 
 
+def test_sanitize_gemini_tools_preserves_defs_for_anyof_refs():
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "Task",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "item": {
+                            "type": "object",
+                            "description": "local ref union",
+                            "anyOf": [
+                                {"$ref": "#/$defs/Cat"},
+                                {"$ref": "#/$defs/Dog"},
+                            ],
+                            "$defs": {
+                                "Cat": {
+                                    "type": "object",
+                                    "title": "Cat",
+                                    "properties": {
+                                        "name": {
+                                            "type": ["string", "null"],
+                                            "default": None,
+                                        }
+                                    },
+                                    "required": ["name"],
+                                },
+                                "Dog": {
+                                    "type": "object",
+                                    "additionalProperties": False,
+                                    "properties": {"age": {"type": "integer"}},
+                                },
+                            },
+                        }
+                    },
+                },
+            },
+        }
+    ]
+
+    sanitized = _sanitize_gemini_tools(tools)
+    item = sanitized[0]["function"]["parameters"]["properties"]["item"]
+
+    assert item == {
+        "anyOf": [
+            {"$ref": "#/$defs/Cat"},
+            {"$ref": "#/$defs/Dog"},
+        ],
+        "$defs": {
+            "Cat": {
+                "type": "object",
+                "properties": {"name": {"type": "string", "nullable": True}},
+                "required": ["name"],
+            },
+            "Dog": {
+                "type": "object",
+                "properties": {"age": {"type": "integer"}},
+            },
+        },
+    }
+
+
 def test_sanitize_messages_guarantees_input_for_empty_or_invalid_arguments():
     messages = [
         {
