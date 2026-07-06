@@ -236,7 +236,7 @@ def _sanitize_gemini_schema(schema: Any) -> Any:
         union_schema = schema.get("oneOf")
     if isinstance(union_schema, list):
         any_of = []
-        nullable = False
+        nullable = bool(schema.get("nullable"))
         for item in union_schema:
             if not isinstance(item, dict):
                 continue
@@ -245,9 +245,13 @@ def _sanitize_gemini_schema(schema: Any) -> Any:
                 nullable = True
                 continue
             any_of.append(_sanitize_gemini_schema(item))
-        if len(any_of) == 1 and nullable and isinstance(any_of[0], dict):
+        if len(any_of) == 1 and isinstance(any_of[0], dict):
             collapsed = dict(any_of[0])
-            collapsed["nullable"] = True
+            if nullable:
+                collapsed["nullable"] = True
+            for metadata_key in ("description", "format"):
+                if metadata_key not in collapsed and metadata_key in schema:
+                    collapsed[metadata_key] = schema[metadata_key]
             return collapsed
         if any_of:
             return {"anyOf": any_of}

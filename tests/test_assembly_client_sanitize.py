@@ -104,6 +104,10 @@ def test_sanitize_gemini_tools_strips_anyof_sibling_fields():
                             "description": "optional text",
                             "anyOf": [{"type": "string"}, {"type": "null"}],
                         },
+                        "single": {
+                            "description": "single branch",
+                            "anyOf": [{"type": "integer"}],
+                        },
                     },
                 },
             },
@@ -114,7 +118,8 @@ def test_sanitize_gemini_tools_strips_anyof_sibling_fields():
     properties = sanitized[0]["function"]["parameters"]["properties"]
 
     assert properties["value"] == {"anyOf": [{"type": "string", "description": "text"}, {"type": "integer"}]}
-    assert properties["maybe"] == {"type": "string", "nullable": True}
+    assert properties["maybe"] == {"type": "string", "nullable": True, "description": "optional text"}
+    assert properties["single"] == {"type": "integer", "description": "single branch"}
 
 
 def test_sanitize_messages_guarantees_input_for_empty_or_invalid_arguments():
