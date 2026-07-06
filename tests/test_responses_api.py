@@ -1,3 +1,4 @@
+import asyncio
 import json
 from unittest.mock import AsyncMock, patch
 
@@ -37,6 +38,22 @@ def _build_app() -> FastAPI:
     return app
 
 
+def test_json_request_proxy_delegates_request_attributes():
+    class DummyRequest:
+        def __init__(self):
+            self.state = object()
+            self.headers = {"x-test": "1"}
+            self.method = "POST"
+
+    request = DummyRequest()
+    proxy = openai_router._JsonRequestProxy(request, {"ok": True})
+
+    assert proxy.state is request.state
+    assert proxy.headers == {"x-test": "1"}
+    assert proxy.method == "POST"
+    assert asyncio.run(proxy.json()) == {"ok": True}
+
+
 def test_responses_api_routes_to_chat_completions_payload():
     upstream_response = JSONResponse(
         content={
@@ -70,6 +87,8 @@ def test_responses_api_routes_to_chat_completions_payload():
                     }
                 ],
                 "max_output_tokens": 20,
+                "stop": ["END"],
+                "store": True,
             },
             headers={"Authorization": "Bearer test"},
         )
@@ -81,7 +100,12 @@ def test_responses_api_routes_to_chat_completions_payload():
     assert body["model"] == "gpt-5.5"
     assert body["output_text"] == "ok"
     assert body["output"][0]["content"][0]["type"] == "output_text"
-    assert body["usage"] == {"input_tokens": 3, "output_tokens": 2, "total_tokens": 5}
+    assert body["usage"]["input_tokens"] == 3
+    assert body["usage"]["output_tokens"] == 2
+    assert body["usage"]["total_tokens"] == 5
+    assert body["store"] is True
+    assert body["max_output_tokens"] == 20
+    assert body["instructions"] == "be concise"
 
     routed_request = send_request.await_args.args[0]
     assert routed_request.model == "gpt-5.5"
@@ -91,6 +115,7 @@ def test_responses_api_routes_to_chat_completions_payload():
     assert routed_request.messages[1].content == "hello"
     assert routed_request.max_tokens is None
     assert routed_request.max_completion_tokens == 20
+    assert routed_request.stop == ["END"]
 
 
 def test_responses_api_converts_tools_structured_output_and_file_inputs():
@@ -176,6 +201,61 @@ def test_responses_api_converts_tools_structured_output_and_file_inputs():
     }
 
 
+def test_responses_api_converts_tool_call_history_to_chat_messages():
+    upstream_response = JSONResponse(
+        content={
+            "id": "chatcmpl_history",
+            "object": "chat.completion",
+            "model": "gpt-5.5",
+            "choices": [{"index": 0, "message": {"role": "assistant", "content": "done"}, "finish_reason": "stop"}],
+            "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+        }
+    )
+    send_request = AsyncMock(return_value=upstream_response)
+
+    with patch("src.api.openai_router.get_performance_tracker", new=AsyncMock(return_value=_Tracker())), \
+         patch("src.api.openai_router.send_assembly_request", new=send_request):
+        client = TestClient(_build_app())
+        response = client.post(
+            "/v1/responses",
+            json={
+                "model": "gpt5.5",
+                "input": [
+                    {
+                        "type": "function_call",
+                        "call_id": "call_1",
+                        "name": "lookup",
+                        "arguments": {"q": "x"},
+                    },
+                    {
+                        "type": "function_call_output",
+                        "call_id": "call_1",
+                        "output": {"ok": True},
+                    },
+                    {"role": "user", "content": "continue"},
+                ],
+            },
+            headers={"Authorization": "Bearer test"},
+        )
+
+    assert response.status_code == 200
+    routed_request = send_request.await_args.args[0]
+    assert routed_request.messages[0].role == "assistant"
+    assert routed_request.messages[0].content == ""
+    assert routed_request.messages[0].tool_calls == [
+        {
+            "id": "call_1",
+            "type": "function",
+            "function": {"name": "lookup", "arguments": "{\"q\": \"x\"}"},
+        }
+    ]
+    assert routed_request.messages[1].role == "tool"
+    assert routed_request.messages[1].tool_call_id == "call_1"
+    assert routed_request.messages[1].content == "{\"ok\": true}"
+    assert routed_request.messages[2].role == "user"
+    assert routed_request.messages[2].content == "continue"
+
+
 def test_responses_api_rejects_unsupported_state_and_builtin_tools():
     client = TestClient(_build_app())
 
@@ -247,6 +327,42 @@ def test_responses_api_converts_chat_tool_calls_to_response_output_items():
     assert output[0]["call_id"] == "call_1"
     assert output[0]["name"] == "lookup"
     assert json.loads(output[0]["arguments"]) == {"q": "x"}
+
+
+def test_responses_api_preserves_usage_detail_fields():
+    upstream_response = JSONResponse(
+        content={
+            "id": "chatcmpl_usage",
+            "object": "chat.completion",
+            "model": "gpt-5.5",
+            "choices": [{"index": 0, "message": {"role": "assistant", "content": "ok"}, "finish_reason": "stop"}],
+            "usage": {
+                "prompt_tokens": 4,
+                "prompt_tokens_details": {"cached_tokens": 2},
+                "completion_tokens": 6,
+                "completion_tokens_details": {"reasoning_tokens": 3},
+                "total_tokens": 10,
+            },
+        }
+    )
+    send_request = AsyncMock(return_value=upstream_response)
+
+    with patch("src.api.openai_router.get_performance_tracker", new=AsyncMock(return_value=_Tracker())), \
+         patch("src.api.openai_router.send_assembly_request", new=send_request):
+        client = TestClient(_build_app())
+        response = client.post(
+            "/v1/responses",
+            json={"model": "gpt5.5", "input": "hello"},
+            headers={"Authorization": "Bearer test"},
+        )
+
+    assert response.status_code == 200
+    usage = response.json()["usage"]
+    assert usage["input_tokens"] == 4
+    assert usage["input_tokens_details"]["cached_tokens"] == 2
+    assert usage["output_tokens"] == 6
+    assert usage["output_tokens_details"] == {"reasoning_tokens": 3}
+    assert usage["total_tokens"] == 10
 
 
 def test_responses_api_stream_converts_chat_chunks_to_response_events():

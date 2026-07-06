@@ -97,8 +97,12 @@ class _JsonRequestProxy:
     """Small request shim used when compatibility routes reuse chat_completions."""
 
     def __init__(self, request: Request, payload: Dict[str, Any]):
+        self._request = request
         self.state = request.state
         self._payload = payload
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._request, name)
 
     async def json(self) -> Dict[str, Any]:
         return self._payload
@@ -369,6 +373,7 @@ def _responses_request_to_chat_payload(raw_data: Dict[str, Any]) -> Dict[str, An
     field_map = {
         "temperature": "temperature",
         "top_p": "top_p",
+        "stop": "stop",
         "parallel_tool_calls": "parallel_tool_calls",
         "reasoning": "reasoning",
         "reasoning_effort": "reasoning_effort",
@@ -380,6 +385,7 @@ def _responses_request_to_chat_payload(raw_data: Dict[str, Any]) -> Dict[str, An
         "fallback_config": "fallback_config",
         "model_region": "model_region",
         "metadata": "metadata",
+        "stream_options": "stream_options",
     }
     for source_key, target_key in field_map.items():
         if source_key in raw_data:
@@ -527,7 +533,17 @@ def _chat_completion_to_response_payload(
         "output_tokens": int(usage.get("completion_tokens") or 0),
         "total_tokens": int(usage.get("total_tokens") or 0),
     }
+    prompt_token_details = usage.get("prompt_tokens_details")
+    if isinstance(prompt_token_details, dict):
+        response_usage["input_tokens_details"] = prompt_token_details
+    completion_token_details = usage.get("completion_tokens_details")
+    if isinstance(completion_token_details, dict):
+        response_usage["output_tokens_details"] = completion_token_details
+
     request_payload = request_payload or {}
+    store = request_payload.get("store", False)
+    if not isinstance(store, bool):
+        store = False
 
     return {
         "id": response_id,
@@ -540,14 +556,20 @@ def _chat_completion_to_response_payload(
         "usage": response_usage,
         "error": None,
         "incomplete_details": incomplete_details,
+        "instructions": request_payload.get("instructions"),
+        "max_output_tokens": request_payload.get("max_output_tokens"),
+        "metadata": request_payload.get("metadata") or {},
         "parallel_tool_calls": request_payload.get("parallel_tool_calls"),
         "previous_response_id": None,
-        "store": False,
+        "reasoning": request_payload.get("reasoning"),
+        "store": store,
         "temperature": request_payload.get("temperature"),
         "text": request_payload.get("text"),
         "tool_choice": request_payload.get("tool_choice"),
         "tools": request_payload.get("tools") or [],
         "top_p": request_payload.get("top_p"),
+        "truncation": request_payload.get("truncation", "disabled"),
+        "user": request_payload.get("user"),
     }
 
 
