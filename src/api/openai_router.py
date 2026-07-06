@@ -127,6 +127,7 @@ _RESPONSES_BUILTIN_TOOL_TYPES = {
     "web_search",
     "web_search_preview",
 }
+_RESPONSES_TRUNCATION_FINISH_REASONS = {"length", "max_tokens"}
 
 
 def _responses_role_to_chat(role: Any) -> str:
@@ -512,6 +513,59 @@ def _chat_message_to_response_output_items(message: Dict[str, Any]) -> tuple[Lis
     return output_items, output_text
 
 
+def _response_usage_token_count(usage: Dict[str, Any], primary_key: str, fallback_key: str) -> int:
+    value = usage.get(primary_key, usage.get(fallback_key, 0))
+    try:
+        parsed = int(value)
+        return parsed if parsed >= 0 else 0
+    except (TypeError, ValueError):
+        return 0
+
+
+def _chat_usage_to_response_usage(
+    usage: Any,
+    *,
+    allow_empty: bool = False,
+) -> Optional[Dict[str, Any]]:
+    if not isinstance(usage, dict):
+        return None
+    usage_keys = {
+        "prompt_tokens",
+        "input_tokens",
+        "completion_tokens",
+        "output_tokens",
+        "total_tokens",
+        "prompt_tokens_details",
+        "input_tokens_details",
+        "completion_tokens_details",
+        "output_tokens_details",
+    }
+    if not allow_empty and not any(key in usage for key in usage_keys):
+        return None
+
+    response_usage = {
+        "input_tokens": _response_usage_token_count(usage, "prompt_tokens", "input_tokens"),
+        "output_tokens": _response_usage_token_count(usage, "completion_tokens", "output_tokens"),
+        "total_tokens": _response_usage_token_count(usage, "total_tokens", "total_tokens"),
+    }
+    if not response_usage["total_tokens"]:
+        response_usage["total_tokens"] = response_usage["input_tokens"] + response_usage["output_tokens"]
+
+    prompt_token_details = usage.get("prompt_tokens_details")
+    if not isinstance(prompt_token_details, dict):
+        prompt_token_details = usage.get("input_tokens_details")
+    if isinstance(prompt_token_details, dict):
+        response_usage["input_tokens_details"] = prompt_token_details
+
+    completion_token_details = usage.get("completion_tokens_details")
+    if not isinstance(completion_token_details, dict):
+        completion_token_details = usage.get("output_tokens_details")
+    if isinstance(completion_token_details, dict):
+        response_usage["output_tokens_details"] = completion_token_details
+
+    return response_usage
+
+
 def _chat_completion_to_response_payload(
     chat_payload: Dict[str, Any],
     model: str,
@@ -524,21 +578,16 @@ def _chat_completion_to_response_payload(
     message = first_choice.get("message") if isinstance(first_choice.get("message"), dict) else {}
     output_items, output_text = _chat_message_to_response_output_items(message)
     finish_reason = first_choice.get("finish_reason")
-    status_value = "incomplete" if finish_reason == "length" else "completed"
-    incomplete_details = {"reason": "max_output_tokens"} if finish_reason == "length" else None
+    is_truncated = finish_reason in _RESPONSES_TRUNCATION_FINISH_REASONS
+    status_value = "incomplete" if is_truncated else "completed"
+    incomplete_details = {"reason": "max_output_tokens"} if is_truncated else None
 
     usage = chat_payload.get("usage") if isinstance(chat_payload.get("usage"), dict) else {}
-    response_usage = {
-        "input_tokens": int(usage.get("prompt_tokens") or 0),
-        "output_tokens": int(usage.get("completion_tokens") or 0),
-        "total_tokens": int(usage.get("total_tokens") or 0),
+    response_usage = _chat_usage_to_response_usage(usage, allow_empty=True) or {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "total_tokens": 0,
     }
-    prompt_token_details = usage.get("prompt_tokens_details")
-    if isinstance(prompt_token_details, dict):
-        response_usage["input_tokens_details"] = prompt_token_details
-    completion_token_details = usage.get("completion_tokens_details")
-    if isinstance(completion_token_details, dict):
-        response_usage["output_tokens_details"] = completion_token_details
 
     request_payload = request_payload or {}
     store = request_payload.get("store", False)
@@ -631,6 +680,7 @@ def _chat_stream_to_responses_stream(chat_stream: StreamingResponse, model: str)
         next_output_index = 0
         function_calls: Dict[int, Dict[str, Any]] = {}
         finish_reason: Optional[str] = None
+        response_usage: Optional[Dict[str, Any]] = None
 
         response_payload = {
             "id": response_id,
@@ -654,6 +704,9 @@ def _chat_stream_to_responses_stream(chat_stream: StreamingResponse, model: str)
                     chat_chunk = json.loads(data_payload)
                 except Exception:
                     continue
+                chunk_usage = _chat_usage_to_response_usage(chat_chunk.get("usage"))
+                if chunk_usage is not None:
+                    response_usage = chunk_usage
                 delta = _chat_stream_chunk_delta(chat_chunk)
                 if delta:
                     if text_output_index is None:
@@ -833,13 +886,16 @@ def _chat_stream_to_responses_stream(chat_stream: StreamingResponse, model: str)
                 }
             )
 
-        final_status = "incomplete" if finish_reason == "length" else "completed"
-        incomplete_details = {"reason": "max_output_tokens"} if finish_reason == "length" else None
+        is_truncated = finish_reason in _RESPONSES_TRUNCATION_FINISH_REASONS
+        final_status = "incomplete" if is_truncated else "completed"
+        incomplete_details = {"reason": "max_output_tokens"} if is_truncated else None
         completed_response = dict(response_payload)
         completed_response["status"] = final_status
         completed_response["incomplete_details"] = incomplete_details
         completed_response["output"] = output_items
         completed_response["output_text"] = output_text
+        if response_usage is not None:
+            completed_response["usage"] = response_usage
         yield _responses_sse_event(
             "response.incomplete" if final_status == "incomplete" else "response.completed",
             {"response": completed_response},

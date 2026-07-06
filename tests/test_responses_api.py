@@ -420,6 +420,61 @@ def test_responses_api_stream_marks_length_finish_as_incomplete():
     assert "event: response.completed" not in body
 
 
+def test_responses_api_stream_marks_max_tokens_finish_as_incomplete():
+    async def fake_stream(request_data, trace=None):
+        async def iterator():
+            yield b'data: {"choices":[{"delta":{"content":"partial"},"finish_reason":"max_tokens"}]}\n\n'
+            yield b"data: [DONE]\n\n"
+
+        return StreamingResponse(iterator(), media_type="text/event-stream")
+
+    with patch("src.api.openai_router.get_performance_tracker", new=AsyncMock(return_value=_Tracker())), \
+         patch("src.api.openai_router.fake_stream_response_for_assembly", new=fake_stream):
+        client = TestClient(_build_app())
+        with client.stream(
+            "POST",
+            "/v1/responses",
+            json={"model": "假流式/gpt5.5", "input": "hello", "stream": True, "max_output_tokens": 1},
+            headers={"Authorization": "Bearer test"},
+        ) as response:
+            body = "".join(response.iter_text())
+
+    assert response.status_code == 200
+    assert "event: response.incomplete" in body
+    assert '"status":"incomplete"' in body
+    assert '"incomplete_details":{"reason":"max_output_tokens"}' in body
+    assert "event: response.completed" not in body
+
+
+def test_responses_api_stream_preserves_usage_in_final_response():
+    async def fake_stream(request_data, trace=None):
+        async def iterator():
+            yield b'data: {"choices":[{"delta":{"content":"ok"},"finish_reason":"stop"}]}\n\n'
+            yield b'data: {"choices":[],"usage":{"prompt_tokens":4,"prompt_tokens_details":{"cached_tokens":2},"completion_tokens":6,"completion_tokens_details":{"reasoning_tokens":3},"total_tokens":10}}\n\n'
+            yield b"data: [DONE]\n\n"
+
+        return StreamingResponse(iterator(), media_type="text/event-stream")
+
+    with patch("src.api.openai_router.get_performance_tracker", new=AsyncMock(return_value=_Tracker())), \
+         patch("src.api.openai_router.fake_stream_response_for_assembly", new=fake_stream):
+        client = TestClient(_build_app())
+        with client.stream(
+            "POST",
+            "/v1/responses",
+            json={"model": "假流式/gpt5.5", "input": "hello", "stream": True},
+            headers={"Authorization": "Bearer test"},
+        ) as response:
+            body = "".join(response.iter_text())
+
+    assert response.status_code == 200
+    assert "event: response.completed" in body
+    assert '"usage":{"input_tokens":4' in body
+    assert '"input_tokens_details":{"cached_tokens":2}' in body
+    assert '"output_tokens":6' in body
+    assert '"output_tokens_details":{"reasoning_tokens":3}' in body
+    assert '"total_tokens":10' in body
+
+
 def test_responses_api_stream_converts_tool_call_chunks_to_response_events():
     async def fake_stream(request_data, trace=None):
         async def iterator():
