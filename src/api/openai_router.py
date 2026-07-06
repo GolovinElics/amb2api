@@ -69,6 +69,12 @@ def _normalize_request_model_ids(request_data: ChatCompletionRequest) -> None:
     normalized_fallbacks: List[Any] = []
     changed = False
     for fallback in fallbacks:
+        if isinstance(fallback, str):
+            normalized_fallback = normalize_model_id(fallback)
+            normalized_fallbacks.append(normalized_fallback)
+            if normalized_fallback != fallback:
+                changed = True
+            continue
         if not isinstance(fallback, dict):
             normalized_fallbacks.append(fallback)
             continue

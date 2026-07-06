@@ -82,6 +82,42 @@ def test_chat_completions_normalizes_gpt55_before_upstream_send():
     assert routed_request.model == "gpt-5.5"
 
 
+def test_chat_completions_normalizes_string_fallback_aliases():
+    upstream_response = JSONResponse(
+        content={
+            "id": "chatcmpl_test",
+            "object": "chat.completion",
+            "model": "gpt-5.5",
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {"role": "assistant", "content": "ok"},
+                    "finish_reason": "stop",
+                }
+            ],
+            "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+        }
+    )
+    send_request = AsyncMock(return_value=upstream_response)
+
+    with patch("src.api.openai_router.get_performance_tracker", new=AsyncMock(return_value=_Tracker())), \
+         patch("src.api.openai_router.send_assembly_request", new=send_request):
+        client = TestClient(_build_app())
+        response = client.post(
+            "/v1/chat/completions",
+            json={
+                "model": "gpt5.5",
+                "messages": [{"role": "user", "content": "hello"}],
+                "fallbacks": ["gpt5.5", "gpt-5"],
+            },
+            headers={"Authorization": "Bearer test"},
+        )
+
+    assert response.status_code == 200
+    routed_request = send_request.await_args.args[0]
+    assert routed_request.fallbacks == ["gpt-5.5", "gpt-5"]
+
+
 def test_v1_post_alias_routes_chat_completion_payload():
     upstream_response = JSONResponse(
         content={
