@@ -220,6 +220,21 @@ def _const_value_to_type(value: Any) -> Optional[str]:
     return None
 
 
+def _sanitize_gemini_schema_defs(schema: Dict[str, Any]) -> Dict[str, Any]:
+    sanitized_defs: Dict[str, Any] = {}
+    for defs_key in ("$defs", "defs"):
+        defs_value = schema.get(defs_key)
+        if not isinstance(defs_value, dict):
+            continue
+        defs: Dict[str, Any] = {}
+        for def_name, def_schema in defs_value.items():
+            if isinstance(def_name, str) and isinstance(def_schema, dict):
+                defs[def_name] = _sanitize_gemini_schema(def_schema)
+        if defs:
+            sanitized_defs[defs_key] = defs
+    return sanitized_defs
+
+
 def _sanitize_gemini_schema(schema: Any) -> Any:
     """
     Convert OpenAI/JSON Schema tool parameter schemas to Gemini's narrower schema.
@@ -252,6 +267,7 @@ def _sanitize_gemini_schema(schema: Any) -> Any:
             for metadata_key in ("description", "format"):
                 if metadata_key not in collapsed and metadata_key in schema:
                     collapsed[metadata_key] = schema[metadata_key]
+            collapsed.update(_sanitize_gemini_schema_defs(schema))
             return collapsed
         if any_of:
             if nullable:
@@ -260,16 +276,7 @@ def _sanitize_gemini_schema(schema: Any) -> Any:
                     for item in any_of
                 ]
             sanitized_union: Dict[str, Any] = {"anyOf": any_of}
-            for defs_key in ("$defs", "defs"):
-                defs_value = schema.get(defs_key)
-                if not isinstance(defs_value, dict):
-                    continue
-                defs: Dict[str, Any] = {}
-                for def_name, def_schema in defs_value.items():
-                    if isinstance(def_name, str) and isinstance(def_schema, dict):
-                        defs[def_name] = _sanitize_gemini_schema(def_schema)
-                if defs:
-                    sanitized_union[defs_key] = defs
+            sanitized_union.update(_sanitize_gemini_schema_defs(schema))
             return sanitized_union
 
     sanitized: Dict[str, Any] = {}

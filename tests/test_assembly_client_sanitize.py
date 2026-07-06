@@ -204,6 +204,55 @@ def test_sanitize_gemini_tools_preserves_defs_for_anyof_refs():
     }
 
 
+def test_sanitize_gemini_tools_preserves_defs_for_collapsed_nullable_ref_union():
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "Task",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "item": {
+                            "anyOf": [
+                                {"$ref": "#/$defs/Cat"},
+                                {"type": "null"},
+                            ],
+                            "$defs": {
+                                "Cat": {
+                                    "type": "object",
+                                    "properties": {
+                                        "name": {
+                                            "type": ["string", "null"],
+                                            "title": "Name",
+                                        }
+                                    },
+                                    "required": ["name"],
+                                },
+                            },
+                        }
+                    },
+                },
+            },
+        }
+    ]
+
+    sanitized = _sanitize_gemini_tools(tools)
+    item = sanitized[0]["function"]["parameters"]["properties"]["item"]
+
+    assert item == {
+        "$ref": "#/$defs/Cat",
+        "nullable": True,
+        "$defs": {
+            "Cat": {
+                "type": "object",
+                "properties": {"name": {"type": "string", "nullable": True}},
+                "required": ["name"],
+            },
+        },
+    }
+
+
 def test_sanitize_messages_guarantees_input_for_empty_or_invalid_arguments():
     messages = [
         {
