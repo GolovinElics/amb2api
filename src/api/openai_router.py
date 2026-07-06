@@ -630,6 +630,7 @@ def _chat_stream_to_responses_stream(chat_stream: StreamingResponse, model: str)
         text_output_index: Optional[int] = None
         next_output_index = 0
         function_calls: Dict[int, Dict[str, Any]] = {}
+        finish_reason: Optional[str] = None
 
         response_payload = {
             "id": response_id,
@@ -697,6 +698,8 @@ def _chat_stream_to_responses_stream(chat_stream: StreamingResponse, model: str)
                 for choice in chat_chunk.get("choices") or []:
                     if not isinstance(choice, dict):
                         continue
+                    if isinstance(choice.get("finish_reason"), str) and choice.get("finish_reason"):
+                        finish_reason = str(choice["finish_reason"])
                     choice_delta = choice.get("delta")
                     if not isinstance(choice_delta, dict):
                         choice_delta = choice.get("message") if isinstance(choice.get("message"), dict) else {}
@@ -706,7 +709,10 @@ def _chat_stream_to_responses_stream(chat_stream: StreamingResponse, model: str)
                     for tool_call in tool_calls:
                         if not isinstance(tool_call, dict):
                             continue
-                        tool_index = int(tool_call.get("index") or 0)
+                        try:
+                            tool_index = int(tool_call.get("index") or 0)
+                        except (TypeError, ValueError):
+                            tool_index = 0
                         function = tool_call.get("function") if isinstance(tool_call.get("function"), dict) else {}
                         entry = function_calls.get(tool_index)
                         if entry is None:
@@ -827,12 +833,15 @@ def _chat_stream_to_responses_stream(chat_stream: StreamingResponse, model: str)
                 }
             )
 
+        final_status = "incomplete" if finish_reason == "length" else "completed"
+        incomplete_details = {"reason": "max_output_tokens"} if finish_reason == "length" else None
         completed_response = dict(response_payload)
-        completed_response["status"] = "completed"
+        completed_response["status"] = final_status
+        completed_response["incomplete_details"] = incomplete_details
         completed_response["output"] = output_items
         completed_response["output_text"] = output_text
         yield _responses_sse_event(
-            "response.completed",
+            "response.incomplete" if final_status == "incomplete" else "response.completed",
             {"response": completed_response},
         )
         yield b"data: [DONE]\n\n"
