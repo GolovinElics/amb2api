@@ -28,6 +28,7 @@ from config import (
     get_prompt_cache_auto_mode,
     get_prompt_cache_default_ttl,
     get_model_region,
+    normalize_model_id,
 )
 
 
@@ -50,12 +51,19 @@ def _is_claude_model(model: str) -> bool:
     return "claude" in str(model or "").lower()
 
 
+def _is_kimi_model(model: str) -> bool:
+    return "kimi" in str(model or "").lower()
+
+
 def _supports_prompt_cache_key(model: str) -> bool:
     """Return whether Gateway docs expose prompt_cache_key-style controls."""
     model_lower = str(model or "").strip().lower()
-    return "gpt" in model_lower or "kimi" in model_lower or model_lower.startswith(
-        ("o1", "o3", "o4", "o5")
-    )
+    return "gpt" in model_lower or model_lower.startswith(("o1", "o3", "o4", "o5"))
+
+
+def _drops_prompt_cache_key(model: str) -> bool:
+    """Return whether this model family rejects prompt_cache_key upstream."""
+    return _is_kimi_model(model)
 
 
 def _copy_message_list(messages: Any) -> Any:
@@ -183,6 +191,174 @@ def _build_auto_prompt_cache_key(payload: Dict[str, Any], model: str) -> Optiona
     return f"amb2api:{_sha256_short(source)}"
 
 
+_GEMINI_SCHEMA_SUPPORTED_KEYS = {
+    "type",
+    "nullable",
+    "required",
+    "format",
+    "description",
+    "properties",
+    "items",
+    "enum",
+    "anyOf",
+    "$ref",
+    "$defs",
+    "ref",
+    "defs",
+}
+
+
+def _const_value_to_type(value: Any) -> Optional[str]:
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, int) and not isinstance(value, bool):
+        return "integer"
+    if isinstance(value, float):
+        return "number"
+    if isinstance(value, str):
+        return "string"
+    return None
+
+
+def _sanitize_gemini_schema(schema: Any) -> Any:
+    """
+    Convert OpenAI/JSON Schema tool parameter schemas to Gemini's narrower schema.
+
+    Gemini function declarations accept an OpenAPI-like subset. In particular,
+    the underlying protobuf schema has a single enum/string `type` field and
+    does not accept JSON Schema keywords such as `const`.
+    """
+    if not isinstance(schema, dict):
+        return schema
+
+    sanitized: Dict[str, Any] = {}
+    nullable = bool(schema.get("nullable"))
+
+    schema_type = schema.get("type")
+    if isinstance(schema_type, list):
+        non_null_types = [
+            item for item in schema_type if isinstance(item, str) and item.lower() != "null"
+        ]
+        nullable = nullable or any(
+            isinstance(item, str) and item.lower() == "null" for item in schema_type
+        )
+        if non_null_types:
+            sanitized["type"] = non_null_types[0]
+    elif isinstance(schema_type, str):
+        if schema_type.lower() == "null":
+            nullable = True
+        else:
+            sanitized["type"] = schema_type
+
+    for key, value in schema.items():
+        if key in {"type", "nullable", "const", "allOf", "not"}:
+            continue
+        if key == "properties":
+            if isinstance(value, dict):
+                properties: Dict[str, Any] = {}
+                for prop_name, prop_schema in value.items():
+                    if isinstance(prop_name, str) and isinstance(prop_schema, dict):
+                        properties[prop_name] = _sanitize_gemini_schema(prop_schema)
+                if properties:
+                    sanitized["properties"] = properties
+            continue
+        if key == "items":
+            if isinstance(value, dict):
+                sanitized["items"] = _sanitize_gemini_schema(value)
+            elif isinstance(value, list) and value:
+                first_item = next((item for item in value if isinstance(item, dict)), None)
+                if first_item is not None:
+                    sanitized["items"] = _sanitize_gemini_schema(first_item)
+            continue
+        if key in {"anyOf", "oneOf"}:
+            if isinstance(value, list):
+                any_of = []
+                for item in value:
+                    if not isinstance(item, dict):
+                        continue
+                    item_type = item.get("type")
+                    if isinstance(item_type, str) and item_type.lower() == "null":
+                        nullable = True
+                        continue
+                    any_of.append(_sanitize_gemini_schema(item))
+                if any_of:
+                    sanitized["anyOf"] = any_of
+            continue
+        if key in {"$defs", "defs"}:
+            if isinstance(value, dict):
+                defs: Dict[str, Any] = {}
+                for def_name, def_schema in value.items():
+                    if isinstance(def_name, str) and isinstance(def_schema, dict):
+                        defs[def_name] = _sanitize_gemini_schema(def_schema)
+                if defs:
+                    sanitized[key] = defs
+            continue
+        if key not in _GEMINI_SCHEMA_SUPPORTED_KEYS:
+            continue
+        sanitized[key] = value
+
+    if nullable:
+        sanitized["nullable"] = True
+
+    if "const" in schema and "enum" not in sanitized:
+        const_value = schema.get("const")
+        if isinstance(const_value, (str, int, float, bool)):
+            sanitized["enum"] = [const_value]
+            if "type" not in sanitized:
+                inferred_type = _const_value_to_type(const_value)
+                if inferred_type:
+                    sanitized["type"] = inferred_type
+
+    return sanitized
+
+
+def _sanitize_gemini_tools(tools: Any) -> Any:
+    """Sanitize tool parameter schemas before Gemini requests reach the gateway."""
+    if not isinstance(tools, list):
+        return tools
+
+    sanitized_tools: List[Any] = []
+    for tool in tools:
+        if not isinstance(tool, dict):
+            sanitized_tools.append(tool)
+            continue
+
+        sanitized_tool = dict(tool)
+
+        function = sanitized_tool.get("function")
+        if isinstance(function, dict):
+            sanitized_function = dict(function)
+            parameters = sanitized_function.get("parameters")
+            if isinstance(parameters, dict):
+                sanitized_function["parameters"] = _sanitize_gemini_schema(parameters)
+            sanitized_tool["function"] = sanitized_function
+
+        parameters = sanitized_tool.get("parameters")
+        if isinstance(parameters, dict):
+            sanitized_tool["parameters"] = _sanitize_gemini_schema(parameters)
+
+        for declarations_key in ("function_declarations", "functionDeclarations"):
+            declarations = sanitized_tool.get(declarations_key)
+            if not isinstance(declarations, list):
+                continue
+
+            sanitized_declarations = []
+            for declaration in declarations:
+                if not isinstance(declaration, dict):
+                    sanitized_declarations.append(declaration)
+                    continue
+                sanitized_declaration = dict(declaration)
+                parameters = sanitized_declaration.get("parameters")
+                if isinstance(parameters, dict):
+                    sanitized_declaration["parameters"] = _sanitize_gemini_schema(parameters)
+                sanitized_declarations.append(sanitized_declaration)
+            sanitized_tool[declarations_key] = sanitized_declarations
+
+        sanitized_tools.append(sanitized_tool)
+
+    return sanitized_tools
+
+
 def _prompt_cache_gateway_mode(model: str) -> str:
     model_lower = str(model or "").strip().lower()
     if _is_claude_model(model_lower):
@@ -191,6 +367,8 @@ def _prompt_cache_gateway_mode(model: str) -> str:
         return "prompt_cache_key"
     if "gemini" in model_lower:
         return "provider_implicit"
+    if _drops_prompt_cache_key(model_lower):
+        return "unsupported"
     return "unknown"
 
 
@@ -1739,6 +1917,13 @@ async def send_assembly_request(
         is_streaming: 是否流式
         trace: 可选的性能追踪对象，用于记录使用的密钥信息
     """
+    normalized_model = normalize_model_id(openai_request.model)
+    if normalized_model and normalized_model != openai_request.model:
+        log.info(f"Normalized model id before upstream send: {openai_request.model} -> {normalized_model}")
+        openai_request.model = normalized_model
+        if trace:
+            trace.model = normalized_model
+
     # 构造请求体
     sanitized_messages = _sanitize_messages(openai_request.messages)
     sanitized_messages = _ensure_tool_block_required_fields(sanitized_messages)
@@ -1797,6 +1982,11 @@ async def send_assembly_request(
     
     # 透传常用参数 + AssemblyAI Gateway 原生扩展（白名单见 _UPSTREAM_PASSTHROUGH_KEYS）
     payload.update(_collect_passthrough_params(openai_request))
+    if is_gemini and isinstance(payload.get("tools"), list):
+        payload["tools"] = _sanitize_gemini_tools(payload["tools"])
+    if _drops_prompt_cache_key(openai_request.model) and "prompt_cache_key" in payload:
+        payload.pop("prompt_cache_key", None)
+        log.debug(f"Dropped unsupported prompt_cache_key for model: {openai_request.model}")
 
     # 区域路由（2026-07 计费更新）：客户端显式提供的 model_region 优先；否则注入
     # 全局默认（如已配置）。未设置数据驻留要求的用户可统一选择 "global" 路由维持原价。

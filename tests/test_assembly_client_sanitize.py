@@ -5,6 +5,7 @@ from src.services.assembly_client import (
     _extract_openai_response_diagnostics,
     _build_claude_tool_fallback_messages,
     _ensure_tool_block_required_fields,
+    _sanitize_gemini_tools,
     _is_assistant_prefill_error,
     _should_trigger_claude_tool_recovery,
     _is_tool_use_input_validation_error,
@@ -356,6 +357,78 @@ def test_ensure_tool_block_required_fields_accepts_tool_use_without_type():
     assert block["tool_use"]["id"] == "call_without_type"
     assert block["tool_use"]["name"] == "Task"
     assert block["tool_use"]["input"] == {}
+
+
+def test_sanitize_gemini_tools_removes_json_schema_fields_rejected_by_gemini():
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "Task",
+                "description": "Run a task",
+                "parameters": {
+                    "type": "object",
+                    "title": "TaskInput",
+                    "properties": {
+                        "description": {
+                            "type": ["string", "null"],
+                            "description": "Optional task description",
+                            "default": None,
+                        },
+                        "mode": {
+                            "const": "fast",
+                            "type": "string",
+                        },
+                        "steps": {
+                            "type": "array",
+                            "items": {
+                                "type": ["object", "null"],
+                                "additionalProperties": False,
+                                "properties": {
+                                    "id": {"type": ["integer", "string"]},
+                                    "label": {"type": ["string", "null"], "const": "todo"},
+                                },
+                            },
+                        },
+                    },
+                    "required": ["steps"],
+                },
+            },
+        }
+    ]
+
+    sanitized = _sanitize_gemini_tools(tools)
+    params = sanitized[0]["function"]["parameters"]
+    description = params["properties"]["description"]
+    mode = params["properties"]["mode"]
+    step = params["properties"]["steps"]["items"]
+    label = step["properties"]["label"]
+
+    assert tools[0]["function"]["parameters"]["properties"]["description"]["type"] == ["string", "null"]
+    assert description["type"] == "string"
+    assert description["nullable"] is True
+    assert "default" not in description
+    assert "title" not in params
+    assert mode["enum"] == ["fast"]
+    assert "const" not in mode
+    assert step["type"] == "object"
+    assert step["nullable"] is True
+    assert "additionalProperties" not in step
+    assert label["type"] == "string"
+    assert label["nullable"] is True
+    assert label["enum"] == ["todo"]
+
+    def walk(value):
+        if isinstance(value, dict):
+            yield value
+            for child in value.values():
+                yield from walk(child)
+        elif isinstance(value, list):
+            for child in value:
+                yield from walk(child)
+
+    assert not any("const" in node for node in walk(sanitized) if isinstance(node, dict))
+    assert not any(isinstance(node.get("type"), list) for node in walk(sanitized) if isinstance(node, dict))
 
 
 def test_build_claude_tool_fallback_messages_merges_assistant_text_with_tool_use():

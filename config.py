@@ -234,6 +234,7 @@ async def get_available_models_async(router_type: str = "openai"):
         return [str(m) for m in cached]
     # 默认模型列表（Gateway 已支持的常用模型；面板可通过"刷新模型"接口同步真实列表）
     return [
+        "gpt-5.5",
         "gpt-5",
         "gpt-5-nano",
         "gpt-5-mini",
@@ -249,6 +250,29 @@ async def get_available_models_async(router_type: str = "openai"):
         "qwen3-235b",
         "kimi-k2.5",
     ]
+
+def normalize_model_id(model_name: str) -> str:
+    """Normalize common client-side model aliases to Gateway model ids."""
+    raw = str(model_name or "").strip()
+    if not raw:
+        return raw
+
+    for prefix in ["假流式/"]:
+        if raw.startswith(prefix):
+            return prefix + normalize_model_id(raw[len(prefix):])
+
+    normalized = raw.lower().replace("_", "-").replace(" ", "-")
+    compact = normalized.replace("-", "")
+    aliases = {
+        "gpt5.5": "gpt-5.5",
+        "gpt5": "gpt-5",
+        "gpt5mini": "gpt-5-mini",
+        "gpt5nano": "gpt-5-nano",
+        "gpt4.1": "gpt-4.1",
+        "gpt4.1mini": "gpt-4.1-mini",
+        "gpt4.1nano": "gpt-4.1-nano",
+    }
+    return aliases.get(compact, normalized)
 
 def is_fake_streaming_model(model_name: str) -> bool:
     """Check if model name indicates fake streaming should be used."""
@@ -270,7 +294,7 @@ def supports_real_streaming_model(model_name: str) -> bool:
     Claude, Kimi, Qwen, and open-weight GPT-OSS models route through non-stream
     upstream calls plus amb2api's fake-stream adapter.
     """
-    model = get_base_model_from_feature_model(str(model_name or "")).strip().lower()
+    model = normalize_model_id(get_base_model_from_feature_model(str(model_name or "")))
     if not model:
         return False
 

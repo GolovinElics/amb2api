@@ -2,6 +2,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from src.models.models import ChatCompletionRequest
 from src.services import assembly_client
 from src.services.assembly_client import (
     _apply_prompt_cache_defaults,
@@ -218,6 +219,34 @@ def test_prompt_cache_defaults_generates_safe_openai_cache_key_from_stable_prefi
     assert "cache_control" not in out["messages"][0]
 
 
+def test_prompt_cache_defaults_does_not_generate_key_for_kimi():
+    payload = {
+        "model": "kimi-k2.5",
+        "messages": [
+            {"role": "system", "content": "stable system instructions"},
+            {"role": "user", "content": "dynamic question"},
+        ],
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": "lookup",
+                    "parameters": {"type": "object", "properties": {"q": {"type": "string"}}},
+                },
+            }
+        ],
+    }
+
+    out = _apply_prompt_cache_defaults(
+        payload,
+        model="kimi-k2.5",
+        auto_mode="conservative",
+        default_ttl="5m",
+    )
+
+    assert "prompt_cache_key" not in out
+
+
 def test_prompt_cache_metadata_records_auto_defaults_without_sensitive_values():
     payload = {
         "model": "claude-sonnet-4-6",
@@ -299,6 +328,134 @@ def test_rank_indices_by_affinity_is_stable_per_key():
 
     assert first == second
     assert sorted(first) == indices
+
+
+class _FakeResponse:
+    status_code = 200
+    headers = {}
+    text = (
+        '{"id":"resp_1","model":"kimi-k2.5",'
+        '"choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}],'
+        '"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}'
+    )
+
+    def json(self):
+        import json
+
+        return json.loads(self.text)
+
+
+class _FakeClientCtx:
+    def __init__(self, capture):
+        self._capture = capture
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+    async def post(self, endpoint, content=None, headers=None):
+        import json
+
+        self._capture["payload"] = json.loads(content)
+        return _FakeResponse()
+
+
+class _FakeHttpClient:
+    def __init__(self, capture):
+        self._capture = capture
+
+    def get_client(self, timeout=None):
+        return _FakeClientCtx(self._capture)
+
+
+class _FakeUnifiedStats:
+    async def record_call(self, *args, **kwargs):
+        return None
+
+    def release_reservation(self, *args, **kwargs):
+        return None
+
+
+def _patch_send_assembly_for_prompt_cache(monkeypatch, capture, *, prompt_cache_enabled=False):
+    monkeypatch.setattr(
+        "src.services.assembly_client.get_model_region",
+        AsyncMock(return_value=""),
+    )
+    monkeypatch.setattr(
+        "src.services.assembly_client.get_assembly_endpoint",
+        AsyncMock(return_value="https://example.test/v1/chat/completions"),
+    )
+    monkeypatch.setattr(
+        "src.services.assembly_client.get_assembly_api_keys",
+        AsyncMock(return_value=["key-1"]),
+    )
+    monkeypatch.setattr(
+        "src.services.assembly_client.get_tool_debug_logs_enabled",
+        AsyncMock(return_value=False),
+    )
+    monkeypatch.setattr(
+        "src.services.assembly_client.get_retry_429_max_retries",
+        AsyncMock(return_value=0),
+    )
+    monkeypatch.setattr(
+        "src.services.assembly_client.get_retry_429_enabled",
+        AsyncMock(return_value=False),
+    )
+    monkeypatch.setattr(
+        "src.services.assembly_client.get_retry_429_interval",
+        AsyncMock(return_value=0),
+    )
+    monkeypatch.setattr(
+        "src.services.assembly_client.get_prompt_cache_enabled",
+        AsyncMock(return_value=prompt_cache_enabled),
+    )
+    monkeypatch.setattr(
+        "src.services.assembly_client.get_prompt_cache_auto_mode",
+        AsyncMock(return_value="conservative"),
+    )
+    monkeypatch.setattr(
+        "src.services.assembly_client.get_prompt_cache_default_ttl",
+        AsyncMock(return_value="5m"),
+    )
+    monkeypatch.setattr(
+        "src.services.assembly_client.get_prompt_cache_affinity_enabled",
+        AsyncMock(return_value=False),
+    )
+    monkeypatch.setattr(
+        "src.services.assembly_client.get_auto_ban_enabled",
+        AsyncMock(return_value=False),
+    )
+    monkeypatch.setattr(
+        "src.services.assembly_client._select_key_with_daily_quota",
+        AsyncMock(return_value={"idx": 0, "api_key": "key-1", "reason": "", "blocked": []}),
+    )
+    monkeypatch.setattr(
+        "src.services.assembly_client._update_rate_limit_info",
+        AsyncMock(return_value=None),
+    )
+    monkeypatch.setattr("src.services.assembly_client.http_client", _FakeHttpClient(capture))
+    monkeypatch.setattr(
+        "src.stats.unified_stats.get_unified_stats",
+        AsyncMock(return_value=_FakeUnifiedStats()),
+    )
+
+
+@pytest.mark.asyncio
+async def test_kimi_request_drops_explicit_prompt_cache_key_before_upstream_post(monkeypatch):
+    capture = {}
+    _patch_send_assembly_for_prompt_cache(monkeypatch, capture, prompt_cache_enabled=False)
+
+    req = ChatCompletionRequest(
+        model="kimi-k2.5",
+        messages=[{"role": "user", "content": "hi"}],
+        prompt_cache_key="user-provided-key",
+    )
+
+    await assembly_client.send_assembly_request(req, is_streaming=False)
+
+    assert "prompt_cache_key" not in capture["payload"]
 
 
 @pytest.mark.asyncio
