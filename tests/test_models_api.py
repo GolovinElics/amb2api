@@ -28,3 +28,13 @@ def test_openai_models_response_uses_numeric_created(monkeypatch):
     assert all(item["object"] == "model" for item in body["data"])
     assert all(isinstance(item["created"], int) for item in body["data"])
     assert all(item["owned_by"] == "assemblyai" for item in body["data"])
+
+
+def test_openai_v1_root_returns_endpoint_discovery():
+    response = _build_app().get("/v1")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["object"] == "amb2api.endpoint"
+    assert body["endpoints"]["models"] == "/v1/models"
+    assert body["endpoints"]["chat_completions"] == "/v1/chat/completions"

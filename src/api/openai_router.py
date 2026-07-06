@@ -12,7 +12,12 @@ from fastapi import APIRouter, HTTPException, Depends, Request, status
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-from config import get_available_models_async, get_base_model_from_feature_model, is_fake_streaming_model
+from config import (
+    get_available_models_async,
+    get_base_model_from_feature_model,
+    is_fake_streaming_model,
+    normalize_model_id,
+)
 from log import log
 from ..services.assembly_client import send_assembly_request
 from ..services.assembly_stream_handler import fake_stream_response_for_assembly, convert_streaming_response
@@ -36,6 +41,49 @@ router = APIRouter()
 security = HTTPBearer()
 
 # AssemblyAI 适配不需要 Google 凭证管理器
+
+
+def _openai_v1_discovery_payload() -> Dict[str, Any]:
+    return {
+        "object": "amb2api.endpoint",
+        "message": "amb2api OpenAI-compatible API",
+        "endpoints": {
+            "models": "/v1/models",
+            "chat_completions": "/v1/chat/completions",
+            "anthropic_messages": "/v1/messages",
+        },
+    }
+
+
+def _normalize_request_model_ids(request_data: ChatCompletionRequest) -> None:
+    original_model = str(getattr(request_data, "model", "") or "")
+    normalized_model = normalize_model_id(original_model)
+    if normalized_model and normalized_model != original_model:
+        log.info(f"Normalized model id: {original_model} -> {normalized_model}")
+        request_data.model = normalized_model
+
+    fallbacks = getattr(request_data, "fallbacks", None)
+    if not isinstance(fallbacks, list):
+        return
+
+    normalized_fallbacks: List[Any] = []
+    changed = False
+    for fallback in fallbacks:
+        if not isinstance(fallback, dict):
+            normalized_fallbacks.append(fallback)
+            continue
+        normalized_fallback = dict(fallback)
+        for key in ("model", "name"):
+            value = normalized_fallback.get(key)
+            if isinstance(value, str) and value.strip():
+                normalized_value = normalize_model_id(value)
+                if normalized_value != value:
+                    normalized_fallback[key] = normalized_value
+                    changed = True
+        normalized_fallbacks.append(normalized_fallback)
+
+    if changed:
+        setattr(request_data, "fallbacks", normalized_fallbacks)
 
 
 async def _should_use_fake_streaming(model: str, forced_by_model_prefix: bool) -> tuple[bool, str]:
@@ -202,6 +250,13 @@ async def enforce_token_quota(
         if reason == "quota_exceeded":
             raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=reason)
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=reason)
+
+@router.get("/v1")
+@router.get("/v1/")
+async def openai_v1_root():
+    """Lightweight discovery endpoint for clients that probe the OpenAI base URL."""
+    return JSONResponse(content=_openai_v1_discovery_payload())
+
 
 @router.get("/v1/models")
 async def list_models(request: Request):
@@ -607,6 +662,7 @@ async def anthropic_messages(
 
     try:
         request_data = ChatCompletionRequest(**openai_payload)
+        _normalize_request_model_ids(request_data)
         trace.model = request_data.model
     except Exception as e:
         return JSONResponse(
@@ -792,6 +848,8 @@ async def anthropic_count_tokens(
             ),
             status_code=400,
         )
+    if isinstance(openai_payload.get("model"), str):
+        openai_payload["model"] = normalize_model_id(openai_payload["model"])
 
     # 多租户：对 user token 强制模型白名单/禁用/过期（不消费配额——count_tokens 是免费本地估算）
     try:
@@ -837,6 +895,7 @@ async def chat_completions(
     # 创建请求对象
     try:
         request_data = ChatCompletionRequest(**raw_data)
+        _normalize_request_model_ids(request_data)
         # 更新追踪的模型名称
         trace.model = request_data.model
         
@@ -1172,3 +1231,13 @@ async def chat_completions(
         except Exception:
             log.error(f"RES model={model} status=FAIL conversion_error")
         raise HTTPException(status_code=500, detail="Response conversion failed")
+
+
+@router.post("/v1")
+@router.post("/v1/")
+async def chat_completions_v1_alias(
+    request: Request,
+    token: str = Depends(authenticate),
+):
+    """Compatibility alias for clients that POST chat payloads to the base /v1 URL."""
+    return await chat_completions(request, token)

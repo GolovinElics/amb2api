@@ -14,6 +14,7 @@ log = logging.getLogger("amb2api")
 # 模型 max_completion_tokens 的默认值（作为 fallback）
 DEFAULT_MODEL_LIMITS: Dict[str, int] = {
     # GPT 系列
+    "gpt-5.5": 16384,
     "gpt-5": 16384,
     "gpt-5-mini": 16384,
     "gpt-5-nano": 8192,
@@ -80,6 +81,7 @@ def _normalize_model_id(model_id: str) -> str:
     aliases = {
         "chatgpt-4o-latest": "chatgpt-4o",
         "chatgpt 4o latest": "chatgpt-4o",
+        "gpt5.5": "gpt-5.5",
         "gpt 5": "gpt-5",
         "gpt 5 mini": "gpt-5-mini",
         "gpt 5 nano": "gpt-5-nano",
