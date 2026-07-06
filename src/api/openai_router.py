@@ -50,6 +50,7 @@ def _openai_v1_discovery_payload() -> Dict[str, Any]:
         "endpoints": {
             "models": "/v1/models",
             "chat_completions": "/v1/chat/completions",
+            "responses": "/v1/responses",
             "anthropic_messages": "/v1/messages",
         },
     }
@@ -90,6 +91,352 @@ def _normalize_request_model_ids(request_data: ChatCompletionRequest) -> None:
 
     if changed:
         setattr(request_data, "fallbacks", normalized_fallbacks)
+
+
+class _JsonRequestProxy:
+    """Small request shim used when compatibility routes reuse chat_completions."""
+
+    def __init__(self, request: Request, payload: Dict[str, Any]):
+        self.state = request.state
+        self._payload = payload
+
+    async def json(self) -> Dict[str, Any]:
+        return self._payload
+
+
+def _responses_content_part_to_chat(part: Any) -> Any:
+    if not isinstance(part, dict):
+        return part
+
+    part_type = part.get("type")
+    if part_type in {"input_text", "output_text"}:
+        return {"type": "text", "text": str(part.get("text") or "")}
+    if part_type == "input_image":
+        image_url = part.get("image_url") or part.get("file_url")
+        if image_url:
+            return {"type": "image_url", "image_url": {"url": image_url}}
+    return part
+
+
+def _responses_input_to_chat_messages(raw_input: Any, instructions: Any = None) -> List[Dict[str, Any]]:
+    messages: List[Dict[str, Any]] = []
+    if isinstance(instructions, str) and instructions.strip():
+        messages.append({"role": "system", "content": instructions})
+
+    input_items = raw_input if isinstance(raw_input, list) else [raw_input]
+    for item in input_items:
+        if isinstance(item, str):
+            if item.strip():
+                messages.append({"role": "user", "content": item})
+            continue
+
+        if not isinstance(item, dict):
+            continue
+
+        item_type = item.get("type")
+        if item_type in {"input_text", "output_text"}:
+            text = str(item.get("text") or "")
+            if text.strip():
+                messages.append({"role": "user", "content": text})
+            continue
+
+        role = item.get("role") or "user"
+        content = item.get("content")
+        if isinstance(content, list):
+            content = [_responses_content_part_to_chat(part) for part in content]
+        elif isinstance(content, dict):
+            content = [_responses_content_part_to_chat(content)]
+        elif content is None and isinstance(item.get("text"), str):
+            content = item.get("text")
+
+        if content is None:
+            continue
+        messages.append({"role": str(role), "content": content})
+
+    return messages
+
+
+def _responses_request_to_chat_payload(raw_data: Dict[str, Any]) -> Dict[str, Any]:
+    if "messages" in raw_data:
+        messages = raw_data["messages"]
+    else:
+        messages = _responses_input_to_chat_messages(
+            raw_data.get("input"),
+            instructions=raw_data.get("instructions"),
+        )
+
+    payload: Dict[str, Any] = {
+        "model": raw_data.get("model"),
+        "messages": messages,
+        "stream": bool(raw_data.get("stream", False)),
+    }
+
+    field_map = {
+        "temperature": "temperature",
+        "top_p": "top_p",
+        "tools": "tools",
+        "tool_choice": "tool_choice",
+        "parallel_tool_calls": "parallel_tool_calls",
+        "reasoning": "reasoning",
+        "reasoning_effort": "reasoning_effort",
+        "verbosity": "verbosity",
+        "prompt_cache_key": "prompt_cache_key",
+        "prompt_cache_retention": "prompt_cache_retention",
+        "cache_control": "cache_control",
+        "fallbacks": "fallbacks",
+        "fallback_config": "fallback_config",
+        "model_region": "model_region",
+        "metadata": "metadata",
+    }
+    for source_key, target_key in field_map.items():
+        if source_key in raw_data:
+            payload[target_key] = raw_data[source_key]
+
+    if "max_output_tokens" in raw_data:
+        payload["max_completion_tokens"] = raw_data["max_output_tokens"]
+    elif "max_tokens" in raw_data:
+        payload["max_tokens"] = raw_data["max_tokens"]
+
+    text_config = raw_data.get("text")
+    if isinstance(text_config, dict) and isinstance(text_config.get("format"), dict):
+        payload["response_format"] = text_config["format"]
+    elif "response_format" in raw_data:
+        payload["response_format"] = raw_data["response_format"]
+
+    return payload
+
+
+def _json_response_to_payload(response: Any) -> Optional[Dict[str, Any]]:
+    try:
+        body = getattr(response, "body", None)
+        if isinstance(body, bytes):
+            return json.loads(body.decode("utf-8"))
+        if isinstance(body, str):
+            return json.loads(body)
+    except Exception:
+        return None
+    return None
+
+
+def _message_content_to_text(content: Any) -> str:
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: List[str] = []
+        for item in content:
+            if isinstance(item, dict):
+                text = item.get("text")
+                if isinstance(text, str):
+                    parts.append(text)
+            elif isinstance(item, str):
+                parts.append(item)
+        return "".join(parts)
+    if content is None:
+        return ""
+    return str(content)
+
+
+def _chat_completion_to_response_payload(
+    chat_payload: Dict[str, Any],
+    model: str,
+) -> Dict[str, Any]:
+    now = int(time.time())
+    response_id = str(chat_payload.get("id") or f"resp_{uuid.uuid4().hex}")
+    choices = chat_payload.get("choices") if isinstance(chat_payload.get("choices"), list) else []
+    first_choice = choices[0] if choices and isinstance(choices[0], dict) else {}
+    message = first_choice.get("message") if isinstance(first_choice.get("message"), dict) else {}
+    output_text = _message_content_to_text(message.get("content"))
+    output_item_id = f"msg_{uuid.uuid4().hex}"
+
+    usage = chat_payload.get("usage") if isinstance(chat_payload.get("usage"), dict) else {}
+    response_usage = {
+        "input_tokens": int(usage.get("prompt_tokens") or 0),
+        "output_tokens": int(usage.get("completion_tokens") or 0),
+        "total_tokens": int(usage.get("total_tokens") or 0),
+    }
+
+    output_item: Dict[str, Any] = {
+        "id": output_item_id,
+        "type": "message",
+        "status": "completed",
+        "role": "assistant",
+        "content": [
+            {
+                "type": "output_text",
+                "text": output_text,
+                "annotations": [],
+            }
+        ],
+    }
+
+    return {
+        "id": response_id,
+        "object": "response",
+        "created_at": int(chat_payload.get("created") or now),
+        "status": "completed",
+        "model": chat_payload.get("model") or model,
+        "output": [output_item],
+        "output_text": output_text,
+        "usage": response_usage,
+        "error": None,
+        "incomplete_details": None,
+    }
+
+
+def _responses_sse_event(event: str, payload: Dict[str, Any]) -> bytes:
+    event_payload = dict(payload)
+    event_payload.setdefault("type", event)
+    return (
+        f"event: {event}\n"
+        f"data: {json.dumps(event_payload, ensure_ascii=False, separators=(',', ':'))}\n\n"
+    ).encode("utf-8")
+
+
+def _iter_sse_data_payloads(chunk: Any) -> List[str]:
+    if isinstance(chunk, bytes):
+        text = chunk.decode("utf-8", errors="replace")
+    else:
+        text = str(chunk)
+
+    payloads: List[str] = []
+    for event_block in text.split("\n\n"):
+        for line in event_block.splitlines():
+            line = line.strip()
+            if line.startswith("data:"):
+                payloads.append(line[5:].strip())
+    return payloads
+
+
+def _chat_stream_chunk_delta(payload: Dict[str, Any]) -> str:
+    choices = payload.get("choices")
+    if not isinstance(choices, list):
+        return ""
+
+    parts: List[str] = []
+    for choice in choices:
+        if not isinstance(choice, dict):
+            continue
+        delta = choice.get("delta")
+        if isinstance(delta, dict):
+            content = delta.get("content")
+            if isinstance(content, str):
+                parts.append(content)
+        message = choice.get("message")
+        if isinstance(message, dict):
+            content = message.get("content")
+            if isinstance(content, str):
+                parts.append(content)
+    return "".join(parts)
+
+
+def _chat_stream_to_responses_stream(chat_stream: StreamingResponse, model: str) -> StreamingResponse:
+    async def responses_stream_generator():
+        response_id = f"resp_{uuid.uuid4().hex}"
+        output_item_id = f"msg_{uuid.uuid4().hex}"
+        created_at = int(time.time())
+        output_text_parts: List[str] = []
+
+        response_payload = {
+            "id": response_id,
+            "object": "response",
+            "created_at": created_at,
+            "status": "in_progress",
+            "model": model,
+            "output": [],
+            "error": None,
+            "incomplete_details": None,
+        }
+        output_item = {
+            "id": output_item_id,
+            "type": "message",
+            "status": "in_progress",
+            "role": "assistant",
+            "content": [],
+        }
+        content_part = {
+            "type": "output_text",
+            "text": "",
+            "annotations": [],
+        }
+
+        yield _responses_sse_event("response.created", {"response": response_payload})
+        yield _responses_sse_event("response.in_progress", {"response": response_payload})
+        yield _responses_sse_event(
+            "response.output_item.added",
+            {"output_index": 0, "item": output_item},
+        )
+        yield _responses_sse_event(
+            "response.content_part.added",
+            {
+                "item_id": output_item_id,
+                "output_index": 0,
+                "content_index": 0,
+                "part": content_part,
+            },
+        )
+
+        async for chunk in chat_stream.body_iterator:
+            for data_payload in _iter_sse_data_payloads(chunk):
+                if not data_payload or data_payload == "[DONE]":
+                    continue
+                try:
+                    chat_chunk = json.loads(data_payload)
+                except Exception:
+                    continue
+                delta = _chat_stream_chunk_delta(chat_chunk)
+                if not delta:
+                    continue
+                output_text_parts.append(delta)
+                yield _responses_sse_event(
+                    "response.output_text.delta",
+                    {
+                        "item_id": output_item_id,
+                        "output_index": 0,
+                        "content_index": 0,
+                        "delta": delta,
+                    },
+                )
+
+        output_text = "".join(output_text_parts)
+        done_part = dict(content_part)
+        done_part["text"] = output_text
+        done_item = dict(output_item)
+        done_item["status"] = "completed"
+        done_item["content"] = [done_part]
+        completed_response = dict(response_payload)
+        completed_response["status"] = "completed"
+        completed_response["output"] = [done_item]
+        completed_response["output_text"] = output_text
+
+        yield _responses_sse_event(
+            "response.output_text.done",
+            {
+                "item_id": output_item_id,
+                "output_index": 0,
+                "content_index": 0,
+                "text": output_text,
+            },
+        )
+        yield _responses_sse_event(
+            "response.content_part.done",
+            {
+                "item_id": output_item_id,
+                "output_index": 0,
+                "content_index": 0,
+                "part": done_part,
+            },
+        )
+        yield _responses_sse_event(
+            "response.output_item.done",
+            {"output_index": 0, "item": done_item},
+        )
+        yield _responses_sse_event(
+            "response.completed",
+            {"response": completed_response},
+        )
+        yield b"data: [DONE]\n\n"
+
+    return StreamingResponse(responses_stream_generator(), media_type="text/event-stream")
 
 
 async def _should_use_fake_streaming(model: str, forced_by_model_prefix: bool) -> tuple[bool, str]:
@@ -1237,6 +1584,50 @@ async def chat_completions(
         except Exception:
             log.error(f"RES model={model} status=FAIL conversion_error")
         raise HTTPException(status_code=500, detail="Response conversion failed")
+
+
+@router.post("/v1/responses")
+async def responses_api(
+    request: Request,
+    token: str = Depends(authenticate),
+):
+    """Compatibility bridge for clients that use OpenAI's Responses API."""
+    try:
+        raw_data = await request.json()
+    except Exception as e:
+        log.error(f"Failed to parse Responses API JSON request: {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid JSON: {str(e)}")
+
+    if not isinstance(raw_data, dict):
+        raise HTTPException(status_code=400, detail="Request body must be a JSON object")
+
+    chat_payload = _responses_request_to_chat_payload(raw_data)
+    if not chat_payload.get("model"):
+        raise HTTPException(status_code=400, detail="model is required")
+    if not chat_payload.get("messages"):
+        raise HTTPException(status_code=400, detail="input is required")
+
+    log.info(
+        "Responses API compatibility route: "
+        f"model={chat_payload.get('model')}, stream={chat_payload.get('stream')}, "
+        f"messages={len(chat_payload.get('messages') or [])}"
+    )
+
+    chat_response = await chat_completions(_JsonRequestProxy(request, chat_payload), token)
+    response_status = getattr(chat_response, "status_code", 200)
+    if response_status >= 400:
+        return chat_response
+
+    model = normalize_model_id(str(chat_payload.get("model") or ""))
+    if isinstance(chat_response, StreamingResponse):
+        return _chat_stream_to_responses_stream(chat_response, model)
+
+    parsed = _json_response_to_payload(chat_response)
+    if parsed is None:
+        log.error("Responses API compatibility route failed to parse chat response")
+        raise HTTPException(status_code=500, detail="Response conversion failed")
+
+    return JSONResponse(content=_chat_completion_to_response_payload(parsed, model))
 
 
 @router.post("/v1")
