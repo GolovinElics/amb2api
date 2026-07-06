@@ -100,6 +100,14 @@ def test_sanitize_gemini_tools_strips_anyof_sibling_fields():
                                 {"type": "integer"},
                             ],
                         },
+                        "nullable_union": {
+                            "description": "nullable string or integer",
+                            "anyOf": [
+                                {"type": "string"},
+                                {"type": "integer"},
+                                {"type": "null"},
+                            ],
+                        },
                         "maybe": {
                             "description": "optional text",
                             "anyOf": [{"type": "string"}, {"type": "null"}],
@@ -117,7 +125,18 @@ def test_sanitize_gemini_tools_strips_anyof_sibling_fields():
     sanitized = _sanitize_gemini_tools(tools)
     properties = sanitized[0]["function"]["parameters"]["properties"]
 
-    assert properties["value"] == {"anyOf": [{"type": "string", "description": "text"}, {"type": "integer"}]}
+    assert properties["value"] == {
+        "anyOf": [
+            {"type": "string", "description": "text", "nullable": True},
+            {"type": "integer", "nullable": True},
+        ]
+    }
+    assert properties["nullable_union"] == {
+        "anyOf": [
+            {"type": "string", "nullable": True},
+            {"type": "integer", "nullable": True},
+        ]
+    }
     assert properties["maybe"] == {"type": "string", "nullable": True, "description": "optional text"}
     assert properties["single"] == {"type": "integer", "description": "single branch"}
 

@@ -254,6 +254,11 @@ def _sanitize_gemini_schema(schema: Any) -> Any:
                     collapsed[metadata_key] = schema[metadata_key]
             return collapsed
         if any_of:
+            if nullable:
+                any_of = [
+                    {**item, "nullable": True} if isinstance(item, dict) else item
+                    for item in any_of
+                ]
             return {"anyOf": any_of}
 
     sanitized: Dict[str, Any] = {}
