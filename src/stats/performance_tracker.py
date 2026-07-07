@@ -14,6 +14,7 @@ from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
 
 from log import log
+from ..core.model_pricing import calculate_token_cost, cache_status_for_usage
 
 
 def _to_non_negative_int(value: Any, default: int = 0) -> int:
@@ -153,6 +154,9 @@ class RequestTrace:
     cache_creation_5m_tokens: int = 0
     cache_creation_1h_tokens: int = 0
     total_tokens: int = 0
+    cost: Dict[str, Any] = field(default_factory=dict)
+    cache_status: Dict[str, Any] = field(default_factory=dict)
+    total_cost: float = 0.0
     
     # Key and account tracking
     key_index: int = -1  # 使用的密钥索引，-1 表示未设置
@@ -220,6 +224,7 @@ class RequestTrace:
     
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典（用于存储）"""
+        self.refresh_cost()
         return {
             "trace_id": self.trace_id,
             "model": self.model,
@@ -232,10 +237,39 @@ class RequestTrace:
             "cache_creation_5m_tokens": self.cache_creation_5m_tokens,
             "cache_creation_1h_tokens": self.cache_creation_1h_tokens,
             "total_tokens": self.total_tokens,
+            "cost": self.cost,
+            "cache_status": self.cache_status,
+            "total_cost": self.total_cost,
             "key_index": self.key_index,
             "key_masked": self.key_masked,
             "account_email": self.account_email
         }
+
+    def refresh_cost(self) -> None:
+        """Calculate display-only request cost from model pricing and usage."""
+        model_region = ""
+        if isinstance(self.metadata, dict):
+            model_region = self.metadata.get("model_region", "")
+        self.cost = calculate_token_cost(
+            self.model,
+            prompt_tokens=self.prompt_tokens,
+            completion_tokens=self.completion_tokens,
+            cached_tokens=self.cached_tokens,
+            cache_creation_5m_tokens=self.cache_creation_5m_tokens,
+            cache_creation_1h_tokens=self.cache_creation_1h_tokens,
+            model_region=model_region,
+        )
+        self.cache_status = cache_status_for_usage(
+            self.model,
+            prompt_tokens=self.prompt_tokens,
+            cached_tokens=self.cached_tokens,
+            cache_creation_5m_tokens=self.cache_creation_5m_tokens,
+            cache_creation_1h_tokens=self.cache_creation_1h_tokens,
+        )
+        try:
+            self.total_cost = float(self.cost.get("total_cost") or 0.0)
+        except (TypeError, ValueError):
+            self.total_cost = 0.0
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "RequestTrace":
@@ -257,6 +291,7 @@ class RequestTrace:
         trace.key_index = data.get("key_index", -1)
         trace.key_masked = data.get("key_masked", "")
         trace.account_email = data.get("account_email", "")
+        trace.refresh_cost()
         return trace
 
 
@@ -472,6 +507,7 @@ class PerformanceTracker:
         # 确保有结束时间
         if "response_complete" not in trace.timestamps:
             trace.mark("response_complete")
+        trace.refresh_cost()
         
         # 记录指标
         metrics = trace.get_metrics()
@@ -590,6 +626,8 @@ class PerformanceTracker:
                 "cache_creation_5m_tokens": trace_obj.cache_creation_5m_tokens,
                 "cache_creation_1h_tokens": trace_obj.cache_creation_1h_tokens,
                 "total_tokens": trace_obj.total_tokens,
+                "cost": trace_obj.cost,
+                "cache_status": trace_obj.cache_status,
             }
             page_traces.append({
                 **t,
@@ -599,6 +637,9 @@ class PerformanceTracker:
                 "cache_creation_5m_tokens": trace_obj.cache_creation_5m_tokens,
                 "cache_creation_1h_tokens": trace_obj.cache_creation_1h_tokens,
                 "total_tokens": trace_obj.total_tokens,
+                "cost": trace_obj.cost,
+                "cache_status": trace_obj.cache_status,
+                "total_cost": trace_obj.total_cost,
                 "usage": usage,
                 "metrics": metrics,
                 "durations": durations
@@ -632,6 +673,8 @@ class PerformanceTracker:
                                 "cache_creation_5m_tokens": trace_obj.cache_creation_5m_tokens,
                                 "cache_creation_1h_tokens": trace_obj.cache_creation_1h_tokens,
                                 "total_tokens": trace_obj.total_tokens,
+                                "cost": trace_obj.cost,
+                                "cache_status": trace_obj.cache_status,
                             }
                             return {
                                 **t,
@@ -641,6 +684,9 @@ class PerformanceTracker:
                                 "cache_creation_5m_tokens": trace_obj.cache_creation_5m_tokens,
                                 "cache_creation_1h_tokens": trace_obj.cache_creation_1h_tokens,
                                 "total_tokens": trace_obj.total_tokens,
+                                "cost": trace_obj.cost,
+                                "cache_status": trace_obj.cache_status,
+                                "total_cost": trace_obj.total_cost,
                                 "usage": usage,
                                 "metrics": trace_obj.get_metrics(),
                                 "durations": trace_obj.get_stage_durations()
@@ -704,6 +750,15 @@ class PerformanceTracker:
                     "avg_total": 0,
                     "requests_with_usage": 0,
                 },
+                "cost": {
+                    "total": 0.0,
+                    "input_total": 0.0,
+                    "cache_read_total": 0.0,
+                    "cache_creation_5m_total": 0.0,
+                    "cache_creation_1h_total": 0.0,
+                    "output_total": 0.0,
+                    "cache_discount_savings_total": 0.0,
+                },
                 "stream": {
                     "total": 0,
                     "real": 0,
@@ -741,6 +796,13 @@ class PerformanceTracker:
         cache_creation_1h_total = 0
         total_tokens_total = 0
         requests_with_usage = 0
+        cost_total = 0.0
+        input_cost_total = 0.0
+        cache_read_cost_total = 0.0
+        cache_creation_5m_cost_total = 0.0
+        cache_creation_1h_cost_total = 0.0
+        output_cost_total = 0.0
+        cache_discount_savings_total = 0.0
 
         for t in all_traces:
             ts = t.get("timestamps", {})
@@ -769,6 +831,23 @@ class PerformanceTracker:
             cache_creation_5m_total += cache_creation_5m
             cache_creation_1h_total += cache_creation_1h
             total_tokens_total += total_tokens
+            model_region = metadata.get("model_region", "") if isinstance(metadata, dict) else ""
+            cost = calculate_token_cost(
+                t.get("model", ""),
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                cached_tokens=cached_tokens,
+                cache_creation_5m_tokens=cache_creation_5m,
+                cache_creation_1h_tokens=cache_creation_1h,
+                model_region=model_region,
+            )
+            cost_total += float(cost.get("total_cost") or 0.0)
+            input_cost_total += float(cost.get("input_cost") or 0.0)
+            cache_read_cost_total += float(cost.get("cache_read_cost") or 0.0)
+            cache_creation_5m_cost_total += float(cost.get("cache_creation_5m_cost") or 0.0)
+            cache_creation_1h_cost_total += float(cost.get("cache_creation_1h_cost") or 0.0)
+            output_cost_total += float(cost.get("output_cost") or 0.0)
+            cache_discount_savings_total += float(cost.get("cache_discount_savings") or 0.0)
             if has_usage:
                 requests_with_usage += 1
 
@@ -860,6 +939,15 @@ class PerformanceTracker:
                 "avg_cache_creation_1h": round(cache_creation_1h_total / len(all_traces), 2) if all_traces else 0,
                 "avg_total": round(total_tokens_total / len(all_traces), 2) if all_traces else 0,
                 "requests_with_usage": requests_with_usage,
+            },
+            "cost": {
+                "total": cost_total,
+                "input_total": input_cost_total,
+                "cache_read_total": cache_read_cost_total,
+                "cache_creation_5m_total": cache_creation_5m_cost_total,
+                "cache_creation_1h_total": cache_creation_1h_cost_total,
+                "output_total": output_cost_total,
+                "cache_discount_savings_total": cache_discount_savings_total,
             },
             "stream": {
                 "total": stream_real_count + stream_fake_count + stream_non_count,

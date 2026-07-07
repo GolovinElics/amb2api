@@ -31,7 +31,7 @@ class FakeAdapter:
 def _trace_with_cache(trace_id: str, c5m: int, c1h: int, *, nested: bool = False) -> dict:
     raw = {
         "trace_id": trace_id,
-        "model": "model-a",
+        "model": "gpt-5.5",
         "start_time": 1000.0,
         "timestamps": {
             "request_received": 0.0,
@@ -188,14 +188,18 @@ def test_request_trace_dict_round_trip_preserves_cache_creation():
     trace = RequestTrace.from_dict(raw)
     assert trace.cache_creation_5m_tokens == 200
     assert trace.cache_creation_1h_tokens == 30
+    assert trace.total_cost > 0
+    assert trace.cost["pricing"]["model"] == "GPT-5.5"
 
     # to_dict + from_dict must be stable.
     serialized = trace.to_dict()
     assert serialized["cache_creation_5m_tokens"] == 200
     assert serialized["cache_creation_1h_tokens"] == 30
+    assert serialized["cost"]["total_cost"] == trace.cost["total_cost"]
     revived = RequestTrace.from_dict(serialized)
     assert revived.cache_creation_5m_tokens == 200
     assert revived.cache_creation_1h_tokens == 30
+    assert revived.cost["total_cost"] == trace.cost["total_cost"]
 
 
 @pytest.mark.asyncio
@@ -218,8 +222,30 @@ async def test_get_stats_aggregates_cache_creation_totals():
     tokens = stats["tokens"]
     assert tokens["cache_creation_5m_total"] == 300
     assert tokens["cache_creation_1h_total"] == 30
+    assert stats["cost"]["total"] > 0
+    assert stats["cost"]["cache_read_total"] > 0
     assert tokens["avg_cache_creation_5m"] == 150.0
     assert tokens["avg_cache_creation_1h"] == 15.0
+
+
+@pytest.mark.asyncio
+async def test_get_traces_paginated_exposes_cost_and_cache_status():
+    traces = [_trace_with_cache("t1", 200, 30)]
+    perf_data = {"perf_traces_0": traces}
+
+    tracker = PerformanceTracker()
+    tracker._initialized = True
+
+    with patch(
+        "src.storage.storage_adapter.get_storage_adapter",
+        new=AsyncMock(return_value=FakeAdapter(perf_data)),
+    ):
+        page = await tracker.get_traces_paginated()
+
+    trace = page["traces"][0]
+    assert trace["cost"]["total_cost"] > 0
+    assert trace["usage"]["cost"]["total_cost"] == trace["cost"]["total_cost"]
+    assert trace["cache_status"]["status"] == "hit"
 
 
 @pytest.mark.asyncio
