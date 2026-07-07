@@ -125,13 +125,7 @@ def get_model_pricing(model: Any) -> Optional[ModelPricing]:
     if key in _PRICING_BY_KEY:
         return _PRICING_BY_KEY[key]
 
-    for known_key, pricing in _PRICING_OVERRIDES.items():
-        if known_key and (key in known_key or known_key in key):
-            return pricing
-    for known_key, pricing in _PRICING_BY_KEY.items():
-        if known_key and (key in known_key or known_key in key):
-            return pricing
-    return None
+    return _best_fuzzy_pricing_match(key)
 
 
 def update_pricing_overrides_from_rates(
@@ -157,18 +151,18 @@ def update_pricing_overrides_from_rates(
         key = _normalize_model_key(model)
         if not model or not key:
             continue
-        input_rate = _finite_float(item.get("rate"), default=0.0)
-        if input_rate <= 0:
+        input_rate = _rate_per_million(item.get("rate"), item.get("unit"))
+        if input_rate is None or input_rate <= 0:
             continue
         output_item = output_by_key.get(key) or {}
-        output_rate = _finite_float(output_item.get("rate"), default=0.0)
-        if output_rate < 0:
+        output_rate = _rate_per_million(output_item.get("rate"), output_item.get("unit"))
+        if output_rate is None:
             output_rate = 0.0
 
         provider = _provider_from_model(model)
-        cached_rate = _optional_finite_rate(item.get("cached_input_rate"))
-        cache_5m = _optional_finite_rate(item.get("cache_creation_5m_rate"))
-        cache_1h = _optional_finite_rate(item.get("cache_creation_1h_rate"))
+        cached_rate = _optional_finite_rate(item.get("cached_input_rate"), item.get("unit"))
+        cache_5m = _optional_finite_rate(item.get("cache_creation_5m_rate"), item.get("unit"))
+        cache_1h = _optional_finite_rate(item.get("cache_creation_1h_rate"), item.get("unit"))
 
         pricing = ModelPricing(
             model=model,
@@ -201,6 +195,17 @@ def _provider_from_model(model: Any) -> str:
     return "unknown"
 
 
+def _best_fuzzy_pricing_match(key: str) -> Optional[ModelPricing]:
+    candidates: List[tuple[int, int, ModelPricing]] = []
+    for priority, table in ((1, _PRICING_BY_KEY), (2, _PRICING_OVERRIDES)):
+        for known_key, pricing in table.items():
+            if known_key and (key in known_key or known_key in key):
+                candidates.append((len(known_key), priority, pricing))
+    if not candidates:
+        return None
+    return max(candidates, key=lambda item: (item[0], item[1]))[2]
+
+
 def _finite_float(value: Any, default: float = 0.0) -> float:
     try:
         parsed = float(value)
@@ -211,10 +216,38 @@ def _finite_float(value: Any, default: float = 0.0) -> float:
     return parsed
 
 
-def _optional_finite_rate(value: Any) -> Optional[float]:
-    if value is None:
+def _token_unit_multiplier(unit: Any) -> Optional[float]:
+    text = str(unit or "").strip().lower()
+    if not text:
+        return 1.0
+    compact = re.sub(r"[^a-z0-9]+", "", text)
+    if "token" not in compact:
+        return None
+    if "1mtoken" in compact or "million" in text:
+        return 1.0
+    if "1ktoken" in compact or "thousand" in text:
+        return 1000.0
+    if compact in {"token", "1token", "tokens", "1tokens"}:
+        return float(TOKENS_PER_MILLION)
+    return None
+
+
+def _rate_per_million(value: Any, unit: Any) -> Optional[float]:
+    multiplier = _token_unit_multiplier(unit)
+    if multiplier is None:
         return None
     parsed = _finite_float(value, default=-1.0)
+    if parsed < 0:
+        return None
+    return parsed * multiplier
+
+
+def _optional_finite_rate(value: Any, unit: Any = None) -> Optional[float]:
+    if value is None:
+        return None
+    parsed = _rate_per_million(value, unit)
+    if parsed is None:
+        return None
     return parsed if parsed >= 0 else None
 
 

@@ -20,6 +20,14 @@ def test_get_model_pricing_matches_prefixed_gateway_model_alias():
     assert pricing.cached_input_per_million == 0.5
 
 
+def test_get_model_pricing_prefers_longest_fuzzy_alias_for_versioned_models():
+    pricing = get_model_pricing("gpt-5-mini-2026-01-01")
+
+    assert pricing is not None
+    assert "mini" in pricing.model.lower()
+    assert pricing.input_per_million == 0.25
+
+
 def test_calculate_token_cost_splits_cached_openai_input_tokens():
     cost = calculate_token_cost(
         "gpt-5.5",
@@ -143,6 +151,34 @@ def test_runtime_rate_sync_updates_cost_catalog():
     assert pricing.source == "official_pricing"
     assert cost["pricing"]["model"] == "Runtime Price Model"
     assert math.isclose(cost["total_cost"], 0.0031, rel_tol=0, abs_tol=1e-12)
+
+
+def test_runtime_rate_sync_normalizes_token_units_to_per_million():
+    updated = update_pricing_overrides_from_rates(
+        [
+            {
+                "model": "Runtime Unit Model",
+                "rate": 0.002,
+                "cached_input_rate": 0.0002,
+                "unit": "1K tokens",
+            }
+        ],
+        [
+            {
+                "model": "Runtime Unit Model",
+                "rate": 0.008,
+                "unit": "1K tokens",
+            }
+        ],
+    )
+
+    pricing = get_model_pricing("runtime-unit-model")
+
+    assert updated == 1
+    assert pricing is not None
+    assert pricing.input_per_million == 2.0
+    assert pricing.output_per_million == 8.0
+    assert pricing.cached_input_per_million == 0.2
 
 
 def test_runtime_rate_sync_rejects_non_finite_input_rates():
