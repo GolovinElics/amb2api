@@ -65,6 +65,15 @@ def _extract_usage_tokens(raw: Dict[str, Any]) -> Dict[str, int]:
     }
 
 
+def _extract_persisted_cost(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    cost = raw.get("cost") if isinstance(raw, dict) else None
+    if isinstance(cost, dict) and "total_cost" in cost:
+        return cost
+    if isinstance(raw, dict) and "total_cost" in raw:
+        return {"total_cost": raw.get("total_cost")}
+    return None
+
+
 def annotate_cache_usage_metadata(metadata: Dict[str, Any], usage: Any, source: str) -> None:
     """Record non-sensitive cache usage diagnostics on a trace metadata map."""
     usage_map = usage if isinstance(usage, dict) else {}
@@ -836,15 +845,17 @@ class PerformanceTracker:
             cache_creation_1h_total += cache_creation_1h
             total_tokens_total += total_tokens
             model_region = metadata.get("model_region", "") if isinstance(metadata, dict) else ""
-            cost = calculate_token_cost(
-                t.get("model", ""),
-                prompt_tokens=prompt_tokens,
-                completion_tokens=completion_tokens,
-                cached_tokens=cached_tokens,
-                cache_creation_5m_tokens=cache_creation_5m,
-                cache_creation_1h_tokens=cache_creation_1h,
-                model_region=model_region,
-            )
+            cost = _extract_persisted_cost(t)
+            if cost is None:
+                cost = calculate_token_cost(
+                    t.get("model", ""),
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    cached_tokens=cached_tokens,
+                    cache_creation_5m_tokens=cache_creation_5m,
+                    cache_creation_1h_tokens=cache_creation_1h,
+                    model_region=model_region,
+                )
             cost_total += float(cost.get("total_cost") or 0.0)
             input_cost_total += float(cost.get("input_cost") or 0.0)
             cache_read_cost_total += float(cost.get("cache_read_cost") or 0.0)

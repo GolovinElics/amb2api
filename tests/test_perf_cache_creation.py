@@ -248,6 +248,39 @@ async def test_get_stats_tolerates_non_dict_trace_metadata():
 
 
 @pytest.mark.asyncio
+async def test_get_stats_prefers_persisted_trace_cost_breakdown():
+    trace = _trace_with_cache("t1", 200, 30)
+    trace["cost"] = {
+        "total_cost": 123.0,
+        "input_cost": 10.0,
+        "cache_read_cost": 20.0,
+        "cache_creation_5m_cost": 30.0,
+        "cache_creation_1h_cost": 40.0,
+        "output_cost": 23.0,
+        "cache_discount_savings": 5.0,
+    }
+    trace["total_cost"] = 123.0
+    perf_data = {"perf_traces_0": [trace]}
+
+    tracker = PerformanceTracker()
+    tracker._initialized = True
+
+    with patch(
+        "src.storage.storage_adapter.get_storage_adapter",
+        new=AsyncMock(return_value=FakeAdapter(perf_data)),
+    ):
+        stats = await tracker.get_stats(use_cache=False)
+
+    assert stats["cost"]["total"] == 123.0
+    assert stats["cost"]["input_total"] == 10.0
+    assert stats["cost"]["cache_read_total"] == 20.0
+    assert stats["cost"]["cache_creation_5m_total"] == 30.0
+    assert stats["cost"]["cache_creation_1h_total"] == 40.0
+    assert stats["cost"]["output_total"] == 23.0
+    assert stats["cost"]["cache_discount_savings_total"] == 5.0
+
+
+@pytest.mark.asyncio
 async def test_get_traces_paginated_exposes_cost_and_cache_status():
     traces = [_trace_with_cache("t1", 200, 30)]
     perf_data = {"perf_traces_0": traces}

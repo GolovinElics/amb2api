@@ -2689,7 +2689,8 @@ async def get_rates(region: str = "US", force: bool = False, account_email: Opti
     result["llm_gateway_output"] = add_price_display(
         merge_rates_with_fallback(parsed.get("llm_gateway_output"), fallback["llm_gateway_output"]), region
     )
-    update_pricing_overrides_from_rates(result["llm_gateway_input"], result["llm_gateway_output"])
+    if (region or "").strip().upper() in {"", "US", "USA", "GLOBAL"}:
+        update_pricing_overrides_from_rates(result["llm_gateway_input"], result["llm_gateway_output"])
     result["notes"] = fallback["notes"]
 
     categories = [

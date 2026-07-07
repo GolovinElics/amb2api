@@ -465,6 +465,12 @@ async def test_rates_response_preserves_dashboard_llm_rates_for_non_us_region(mo
     monkeypatch.setattr(account_api, "_make_dashboard_request", fake_dashboard_request)
     monkeypatch.setattr(account_api, "_parse_rates_rsc_data", fake_parse_rates)
     monkeypatch.setattr(account_api, "_fetch_official_pricing_page_rates", fake_official_pricing)
+    pricing_override_calls = []
+    monkeypatch.setattr(
+        account_api,
+        "update_pricing_overrides_from_rates",
+        lambda input_rates, output_rates: pricing_override_calls.append((input_rates, output_rates)),
+    )
     account_api._cache_store.clear()
 
     result = await account_api.get_rates(region="EU", force=True, account_email="user@example.com")
@@ -474,6 +480,7 @@ async def test_rates_response_preserves_dashboard_llm_rates_for_non_us_region(mo
     assert result["llm_gateway_output"][0]["rate"] == 11.0
     assert result["llm_gateway_output"][0]["price_source"] == "dashboard"
     assert result["metadata"]["official_count"] == 0
+    assert pricing_override_calls == []
 
 
 @pytest.mark.asyncio
