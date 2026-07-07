@@ -21,10 +21,17 @@ def test_performance_waterfall_surfaces_stream_and_cache_diagnostics():
     assert 'id="wfStreamReason"' in html
     assert 'id="wfUpstreamStream"' in html
     assert 'id="wfCacheApplied"' in html
+    assert 'id="wfCacheStatus"' in html
+    assert 'id="wfCostTotal"' in html
+    assert 'id="wfCostInput"' in html
+    assert 'id="wfCostCacheRead"' in html
+    assert 'id="wfCostOutput"' in html
     assert "metadata.stream_route_reason" in html
     assert "metadata.upstream_stream_requested" in html
     assert "metadata.prompt_cache_gateway_mode" in html
     assert "metadata.cache_prompt_details_present" in html
+    assert "trace.cache_status" in html
+    assert "trace.cost" in html
     assert "const hasExplicitCacheDirective = cacheControlApplied || cacheKeyApplied;" in html
     assert "cacheEnabled || hasExplicitCacheDirective" in html
     assert "' / helpers off'" in html
@@ -41,6 +48,30 @@ def test_account_cost_ui_uses_precise_currency_formatter_for_small_amounts():
     assert "const sign = amount < 0 ? '-' : '';" in html
     assert "sign + '$' + abs.toLocaleString" in html
     assert "sign + '$' + absText" in html
+
+
+def test_account_rates_table_surfaces_cache_prices():
+    html = Path("front/control_panel.html").read_text(encoding="utf-8")
+
+    assert "cachedInputDisplay" in html
+    assert "cache5mDisplay" in html
+    assert "cache1hDisplay" in html
+    assert "<th>缓存读取</th>" in html
+    assert "<th>缓存写入 5m</th>" in html
+    assert "<th>缓存写入 1h</th>" in html
+
+
+def test_account_pages_cache_usage_cost_and_rates_by_filter_without_bad_query_strings():
+    html = Path("front/control_panel.html").read_text(encoding="utf-8")
+
+    assert "makeAccountCacheKey" in html
+    assert "accountCache.usage[summaryCacheKey]" in html
+    assert "accountCache.usage[detailCacheKey]" in html
+    assert "accountCache.cost[summaryCacheKey]" in html
+    assert "accountCache.cost[detailCacheKey]" in html
+    assert "accountCache.rates[region]" in html
+    assert "loadAccountUsageAll(false)" in html
+    assert "? account_email =" not in html
 
 
 def test_account_charts_share_coordinate_helpers_and_hide_tooltips_on_scroll():

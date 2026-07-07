@@ -7314,7 +7314,7 @@
                                         </svg>
                                     </span>
                                     <span class="col-toggle-btn__text">列显示</span>
-                                    <span class="col-toggle-btn__count" id="traceColCount">7/7</span>
+                                    <span class="col-toggle-btn__count" id="traceColCount">8/8</span>
                                 </button>
                                 <div class="col-toggle-dropdown" id="traceColDropdown"></div>
                             </div>
@@ -7330,13 +7330,14 @@
                                         <th data-col="output" style="width:85px;">输出</th>
                                         <th data-col="cache" style="width:85px;">缓存</th>
                                         <th data-col="total" style="width:95px;">总计</th>
+                                        <th data-col="cost" style="width:95px;">成本</th>
                                         <th data-col="latency" style="width:90px;">延迟</th>
                                         <th style="width:60px;">操作</th>
                                     </tr>
                                 </thead>
                                 <tbody id="usageRequestTracesBody">
                                     <tr>
-                                        <td colspan="9" style="text-align:center; color:var(--text-secondary);">暂无数据</td>
+                                        <td colspan="10" style="text-align:center; color:var(--text-secondary);">暂无数据</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -9012,6 +9013,9 @@
                         <div class="wf-field"><div class="wf-label">上游流式</div><div id="wfUpstreamStream" class="wf-val">-</div></div>
                         <div class="wf-field"><div class="wf-label">缓存应用</div><div id="wfCacheApplied" class="wf-val">-</div></div>
                     </div>
+                    <div class="wf-info-grid">
+                        <div class="wf-field"><div class="wf-label">缓存状态</div><div id="wfCacheStatus" class="wf-val">-</div></div>
+                    </div>
                 </div>
                 <div class="wf-section-label">Latency Path</div>
                 <div id="perfWaterfallChart" class="wf-waterfall-card"></div>
@@ -9031,6 +9035,12 @@
                 <div class="wf-metrics-grid wf-metrics-grid--cache">
                     <div class="wf-metric-item" title="Anthropic ephemeral_5m_input_tokens"><div class="wf-label">缓存创建 5m</div><div id="wfCache5mTokens" class="wf-metric-val">0</div></div>
                     <div class="wf-metric-item" title="Anthropic ephemeral_1h_input_tokens"><div class="wf-label">缓存创建 1h</div><div id="wfCache1hTokens" class="wf-metric-val">0</div></div>
+                </div>
+                <div class="wf-metrics-grid wf-metrics-grid--cost">
+                    <div class="wf-metric-item"><div class="wf-label">估算成本</div><div id="wfCostTotal" class="wf-metric-val">-</div></div>
+                    <div class="wf-metric-item"><div class="wf-label">输入成本</div><div id="wfCostInput" class="wf-metric-val">-</div></div>
+                    <div class="wf-metric-item"><div class="wf-label">缓存读取成本</div><div id="wfCostCacheRead" class="wf-metric-val">-</div></div>
+                    <div class="wf-metric-item"><div class="wf-label">输出成本</div><div id="wfCostOutput" class="wf-metric-val">-</div></div>
                 </div>
             </div>
             <div class="modal-footer wf-modal-footer">
@@ -9080,6 +9090,7 @@
             { key: 'output', label: '输出' },
             { key: 'cache', label: '缓存' },
             { key: 'total', label: '总计' },
+            { key: 'cost', label: '成本' },
             { key: 'latency', label: '延迟' }
         ];
         let traceColVisible = {};
@@ -14214,7 +14225,7 @@
             currentUsageTracePage = safePage;
 
             if (!silent) {
-                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color: var(--text-secondary);">正在加载...</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; color: var(--text-secondary);">正在加载...</td></tr>';
             }
 
             try {
@@ -14242,7 +14253,7 @@
                 const traces = Array.isArray(data.traces) ? data.traces : [];
 
                 if (!traces.length) {
-                    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color: var(--text-secondary);">暂无请求明细</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; color: var(--text-secondary);">暂无请求明细</td></tr>';
                     if (paginationEl) paginationEl.style.display = 'none';
                     if (statusEl && !silent) statusEl.innerHTML = '<div class="status info">没有符合筛选条件的请求记录</div>';
                     return;
@@ -14269,6 +14280,11 @@
                     const completion = tokenVal(trace, 'completion_tokens');
                     const cached = tokenVal(trace, 'cached_tokens');
                     const total = tokenVal(trace, 'total_tokens');
+                    const requestCost = trace.cost || trace.usage?.cost || {};
+                    const totalCost = Number(requestCost.total_cost || trace.total_cost || 0);
+                    const costText = Number.isFinite(totalCost) && totalCost > 0
+                        ? formatAccountCurrency(totalCost, { fixedDigits: 6 })
+                        : '-';
                     const traceIdSafe = traceId.replace(/'/g, "\\'");
 
                     return `
@@ -14280,6 +14296,7 @@
                             <td data-col="output" class="trace-token-cell">${completion.toLocaleString()}</td>
                             <td data-col="cache" class="trace-token-cell">${cached.toLocaleString()}</td>
                             <td data-col="total" class="trace-token-cell">${total.toLocaleString()}</td>
+                            <td data-col="cost" class="trace-token-cell">${escapeHtml(String(costText))}</td>
                             <td data-col="latency" style="font-size:11px;">${latency > 0 ? formatMs(latency) : '-'}</td>
                             <td>
                                 <button class="btn btn-sm trace-detail-btn" style="background:#17a2b8; padding:2px 6px; font-size:10px;" onclick="showPerfWaterfall('${traceIdSafe}')">详情</button>
@@ -14302,7 +14319,7 @@
                     statusEl.innerHTML = `<div class="status success">已加载请求明细 ${traces.length} 条（总计 ${data.total || traces.length}）</div>`;
                 }
             } catch (e) {
-                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:#dc3545;">请求明细加载失败</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; color:#dc3545;">请求明细加载失败</td></tr>';
                 if (paginationEl) paginationEl.style.display = 'none';
                 if (statusEl) {
                     statusEl.innerHTML = `<div class="status error">请求明细加载失败: ${escapeHtml(String(e.message || e))}</div>`;
@@ -15738,6 +15755,9 @@
                     cacheAppliedText = `${applied.join('+')}${helperText} / ${usageText}`;
                 }
                 document.getElementById('wfCacheApplied').textContent = cacheAppliedText;
+                const cacheStatus = trace.cache_status || {};
+                document.getElementById('wfCacheStatus').textContent =
+                    cacheStatus.message || cacheStatus.status || '-';
                 if (streamMode === 'real') {
                     let bootstrapText = `attempts=${retryAttempts}, retries=${retriesUsed}`;
                     if (bootstrapFailed) bootstrapText += ', failed';
@@ -15768,6 +15788,17 @@
                 document.getElementById('wfCache5mTokens').textContent = toToken('cache_creation_5m_tokens').toLocaleString();
                 document.getElementById('wfCache1hTokens').textContent = toToken('cache_creation_1h_tokens').toLocaleString();
                 document.getElementById('wfTotalTokens').textContent = toToken('total_tokens').toLocaleString();
+                const cost = trace.cost || usage.cost || {};
+                const costText = (field) => {
+                    const parsed = Number(cost[field] || 0);
+                    return Number.isFinite(parsed) && parsed > 0
+                        ? formatAccountCurrency(parsed, { fixedDigits: 6 })
+                        : '-';
+                };
+                document.getElementById('wfCostTotal').textContent = costText('total_cost');
+                document.getElementById('wfCostInput').textContent = costText('input_cost');
+                document.getElementById('wfCostCacheRead').textContent = costText('cache_read_cost');
+                document.getElementById('wfCostOutput').textContent = costText('output_cost');
 
                 // 渲染瀑布图
                 renderWaterfall(trace);
@@ -17031,9 +17062,24 @@
             billing: { ts: 0, html: '' },
             usage: {},  // key: dateParams -> { ts, html }
             cost: {},   // key: dateParams|group_by -> { ts, html }
-            rates: { ts: 0, html: '' }
+            rates: {}
         };
         function isFresh(ts) { return !!ts && (Date.now() - ts) < ACCOUNT_CACHE_TTL_MS; }
+        function makeAccountCacheKey(scope, params = '') {
+            const account = currentAccountEmail || 'default';
+            let suffix = '';
+            if (params instanceof URLSearchParams) {
+                suffix = Array.from(params.entries())
+                    .sort(([aKey, aVal], [bKey, bVal]) => (aKey + '=' + aVal).localeCompare(bKey + '=' + bVal))
+                    .map(([key, value]) => key + '=' + value)
+                    .join('&');
+            } else if (params && typeof params === 'object') {
+                suffix = Object.keys(params).sort().map(key => key + '=' + params[key]).join('&');
+            } else {
+                suffix = String(params || '');
+            }
+            return account + '|' + scope + '|' + suffix;
+        }
         function startAccountAutoRefresh() {
             if (accountAutoRefreshTimer) clearInterval(accountAutoRefreshTimer);
             accountAutoRefreshTimer = setInterval(() => {
@@ -17042,7 +17088,7 @@
                     loadAccountBilling(true);
                     loadAccountApiKeys(false); // 非强制刷新，使用缓存或后台更新
                 } else if (currentAccountSubTab === 'usage') {
-                    loadAccountUsage(true);
+                    loadAccountUsageAll(true);
                 } else if (currentAccountSubTab === 'cost') {
                     loadAccountCost(true);
                 } else if (currentAccountSubTab === 'rates') {
@@ -17266,7 +17312,7 @@
             accountCache.billing = { ts: 0, html: '' };
             accountCache.usage = {};
             accountCache.cost = {};
-            accountCache.rates = { ts: 0, html: '' };
+            accountCache.rates = {};
 
             // 强制浏览器重绘，确保加载状态立即显示
             await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
@@ -17313,7 +17359,7 @@
                     Promise.allSettled([
                         loadAccountsList(true),
                         loadAccountOverviewData(false),  // 合并的 info + billing + apiKeys，优先使用缓存
-                        loadAccountUsage(false, true),   // 优先使用缓存
+                        loadAccountUsageAll(false),      // 优先使用缓存
                         loadAccountCost(false, true),    // 优先使用缓存
                         loadAccountRates(false, true)    // 优先使用缓存
                     ]).then(results => {
@@ -17521,7 +17567,7 @@
                         // 首次加载不强制刷新，优先使用预加载缓存
                         Promise.allSettled([
                             loadAccountOverviewData(false),  // 合并的 info + billing + apiKeys，优先使用缓存
-                            loadAccountUsage(false, true),   // 优先使用缓存
+                            loadAccountUsageAll(false),      // 优先使用缓存
                             loadAccountCost(false, true),    // 优先使用缓存
                             loadAccountRates(false, true)    // 优先使用缓存
                         ]).then(results => {
@@ -17596,8 +17642,9 @@
             }
 
             try {
-                const params = email ? `? account_email = ${encodeURIComponent(email)} ` : '';
-                await fetch('/api/account/logout' + params, { method: 'POST', headers: getAuthHeaders() });
+                const params = new URLSearchParams();
+                if (email) params.append('account_email', email);
+                await fetch('/api/account/logout' + (params.toString() ? '?' + params.toString() : ''), { method: 'POST', headers: getAuthHeaders() });
 
                 // 如果登出的是当前账户，清空当前账户
                 if (email === currentAccountEmail) {
@@ -17609,7 +17656,7 @@
                     accountCache.billing = { ts: 0, html: '' };
                     accountCache.usage = {};
                     accountCache.cost = {};
-                    accountCache.rates = { ts: 0, html: '' };
+                    accountCache.rates = {};
                     document.getElementById('accountDetailsSection').classList.add('hidden');
                 }
 
@@ -17700,8 +17747,10 @@
                 }
 
                 const el = document.getElementById('accountRatesContent');
-                if (el && accountCache.rates.html && isFresh(accountCache.rates.ts)) {
-                    el.innerHTML = accountCache.rates.html;
+                const region = regionSelect?.value || 'US';
+                const cachedRates = accountCache.rates[region];
+                if (el && cachedRates?.html && isFresh(cachedRates.ts)) {
+                    el.innerHTML = cachedRates.html;
                 } else {
                     loadAccountRates();
                 }
@@ -17735,8 +17784,9 @@
             }
             el.innerHTML = getOverviewLoadingHTML();
             try {
-                const params = currentAccountEmail ? `? account_email = ${encodeURIComponent(currentAccountEmail)} ` : '';
-                const res = await fetch('/api/account/info' + params, { headers: getAuthHeaders() });
+                const params = new URLSearchParams();
+                if (currentAccountEmail) params.append('account_email', currentAccountEmail);
+                const res = await fetch('/api/account/info' + (params.toString() ? '?' + params.toString() : ''), { headers: getAuthHeaders() });
                 if (!res.ok) {
                     if (res.status === 401) {
                         await checkAccountSession();
@@ -18463,6 +18513,15 @@
 
             const el = document.getElementById('accountUsageSummarySection');
             if (!el) return;
+            const summaryCacheKey = makeAccountCacheKey('usage-summary', 'last30');
+            if (force) {
+                delete accountCache.usage[summaryCacheKey];
+            }
+            const cachedSummary = accountCache.usage[summaryCacheKey];
+            if (!force && cachedSummary?.html && isFresh(cachedSummary.ts)) {
+                el.innerHTML = cachedSummary.html;
+                return;
+            }
 
             try {
                 const params = new URLSearchParams();
@@ -18485,6 +18544,7 @@
                 html += '</div>';
                 html += '</div>';
 
+                accountCache.usage[summaryCacheKey] = { ts: Date.now(), html };
                 el.innerHTML = html;
             } catch (e) {
                 console.error('Failed to load usage summary:', e);
@@ -18501,16 +18561,29 @@
             const dateRangeEl = document.getElementById('usageDetailDateRange');
             if (!el) return;
 
+            const params = buildUsageFilterParams();
+            params.append('account_email', currentAccountEmail);
+            const detailCacheKey = makeAccountCacheKey('usage-details', params);
+            if (force) {
+                delete accountCache.usage[detailCacheKey];
+            }
+            const cachedDetail = accountCache.usage[detailCacheKey];
+            if (!force && cachedDetail?.data && isFresh(cachedDetail.ts)) {
+                window.lastUsageDetailData = cachedDetail.data;
+                if (totalEl) totalEl.textContent = cachedDetail.totalText || '0';
+                if (dateRangeEl) dateRangeEl.textContent = cachedDetail.dateRangeText || '';
+                renderUsageDetails(cachedDetail.data);
+                return;
+            }
+
             // 骨架屏加载动画
             el.innerHTML = getUsageDetailLoadingHTML();
 
             try {
-                const params = buildUsageFilterParams();
                 if (force) {
                     params.append('force', '1');
                     params.append('_t', Date.now());  // 防止浏览器缓存
                 }
-                params.append('account_email', currentAccountEmail);
 
                 const res = await fetch('/api/account/usage?' + params.toString(), { headers: getAuthHeaders() });
                 if (!res.ok) throw new Error('Failed to load details');
@@ -18536,6 +18609,12 @@
 
                 // 渲染详情
                 renderUsageDetails(data);
+                accountCache.usage[detailCacheKey] = {
+                    ts: Date.now(),
+                    data,
+                    totalText: totalEl ? totalEl.textContent : String(detailTotal),
+                    dateRangeText: dateRangeEl ? dateRangeEl.textContent : '',
+                };
 
             } catch (e) {
                 console.error('Failed to load usage details:', e);
@@ -19807,6 +19886,15 @@
 
             const el = document.getElementById('accountCostSummarySection');
             if (!el) return;
+            const summaryCacheKey = makeAccountCacheKey('cost-summary', 'last30');
+            if (force) {
+                delete accountCache.cost[summaryCacheKey];
+            }
+            const cachedSummary = accountCache.cost[summaryCacheKey];
+            if (!force && cachedSummary?.html && isFresh(cachedSummary.ts)) {
+                el.innerHTML = cachedSummary.html;
+                return;
+            }
 
             try {
                 const params = new URLSearchParams();
@@ -19860,6 +19948,7 @@
                 }
 
                 html += '</div>';
+                accountCache.cost[summaryCacheKey] = { ts: Date.now(), html };
                 el.innerHTML = html;
             } catch (e) {
                 console.error('Failed to load cost summary:', e);
@@ -19876,16 +19965,29 @@
             const dateRangeEl = document.getElementById('costDetailDateRange');
             if (!el) return;
 
+            const params = buildCostFilterParams();
+            params.append('account_email', currentAccountEmail);
+            const detailCacheKey = makeAccountCacheKey('cost-details', params);
+            if (force) {
+                delete accountCache.cost[detailCacheKey];
+            }
+            const cachedDetail = accountCache.cost[detailCacheKey];
+            if (!force && cachedDetail?.data && isFresh(cachedDetail.ts)) {
+                window.lastCostDetailData = cachedDetail.data;
+                if (totalEl) totalEl.textContent = cachedDetail.totalText || '$0.00';
+                if (dateRangeEl) dateRangeEl.textContent = cachedDetail.dateRangeText || '';
+                renderCostDetails(cachedDetail.data);
+                return;
+            }
+
             // 骨架屏加载动画
             el.innerHTML = getCostDetailLoadingHTML();
 
             try {
-                const params = buildCostFilterParams();
                 if (force) {
                     params.append('force', '1');
                     params.append('_t', Date.now());  // 防止浏览器缓存
                 }
-                params.append('account_email', currentAccountEmail);
 
                 const res = await fetch('/api/account/cost?' + params.toString(), { headers: getAuthHeaders() });
                 if (!res.ok) throw new Error('Failed to load details');
@@ -19932,6 +20034,12 @@
                 }
 
                 renderCostDetails(data);
+                accountCache.cost[detailCacheKey] = {
+                    ts: Date.now(),
+                    data,
+                    totalText: totalEl ? totalEl.textContent : formatAccountCurrency(detailTotal),
+                    dateRangeText: dateRangeEl ? dateRangeEl.textContent : '',
+                };
             } catch (e) {
                 console.error('Failed to load cost details:', e);
                 el.innerHTML = '<div class="status error">加载失败</div>';
@@ -20624,21 +20732,21 @@
             }
             const el = document.getElementById('accountRatesContent');
             if (!el) return;
+            const region = document.getElementById('accountRatesRegion')?.value || 'US';
 
             // 强制刷新时清除缓存
             if (force) {
-                accountCache.rates = { ts: 0, html: '' };
+                delete accountCache.rates[region];
             }
 
-            if (!force && accountCache.rates.html && isFresh(accountCache.rates.ts)) {
-                el.innerHTML = accountCache.rates.html;
+            if (!force && accountCache.rates[region]?.html && isFresh(accountCache.rates[region].ts)) {
+                el.innerHTML = accountCache.rates[region].html;
                 return;
             }
             // 静默模式不显示加载中
             if (!silent) {
                 el.innerHTML = getRatesLoadingHTML();
             }
-            const region = document.getElementById('accountRatesRegion')?.value || 'US';
             try {
                 const params = new URLSearchParams();
                 params.append('region', region);
@@ -20674,9 +20782,15 @@
                         const originalName = item.model || '-';
                         const k = normalizeModelName(originalName);
                         if (!modelDisplayNames[k]) modelDisplayNames[k] = originalName;
-                        if (!map[k]) map[k] = { in: 0, out: 0, inDisplay: '-', outDisplay: '-', unit: item.unit || '', source: item.price_source || '' };
+                        if (!map[k]) map[k] = { in: 0, out: 0, cachedInput: null, cache5m: null, cache1h: null, inDisplay: '-', outDisplay: '-', cachedInputDisplay: '-', cache5mDisplay: '-', cache1hDisplay: '-', unit: item.unit || '', source: item.price_source || '' };
                         map[k].in = item.rate || 0;
                         map[k].inDisplay = item.rate_display || ('$' + (item.rate || 0).toFixed(2));
+                        map[k].cachedInput = item.cached_input_rate ?? null;
+                        map[k].cache5m = item.cache_creation_5m_rate ?? null;
+                        map[k].cache1h = item.cache_creation_1h_rate ?? null;
+                        map[k].cachedInputDisplay = item.cached_input_rate_display || (item.cached_input_rate != null ? ('$' + Number(item.cached_input_rate || 0).toFixed(2)) : '-');
+                        map[k].cache5mDisplay = item.cache_creation_5m_rate_display || (item.cache_creation_5m_rate != null ? ('$' + Number(item.cache_creation_5m_rate || 0).toFixed(2)) : '-');
+                        map[k].cache1hDisplay = item.cache_creation_1h_rate_display || (item.cache_creation_1h_rate != null ? ('$' + Number(item.cache_creation_1h_rate || 0).toFixed(2)) : '-');
                         map[k].unit = item.unit || map[k].unit || '';
                         if (item.price_source === 'fallback') map[k].source = 'fallback';
                     });
@@ -20684,7 +20798,7 @@
                         const originalName = item.model || '-';
                         const k = normalizeModelName(originalName);
                         if (!modelDisplayNames[k]) modelDisplayNames[k] = originalName;
-                        if (!map[k]) map[k] = { in: 0, out: 0, inDisplay: '-', outDisplay: '-', unit: item.unit || '', source: item.price_source || '' };
+                        if (!map[k]) map[k] = { in: 0, out: 0, cachedInput: null, cache5m: null, cache1h: null, inDisplay: '-', outDisplay: '-', cachedInputDisplay: '-', cache5mDisplay: '-', cache1hDisplay: '-', unit: item.unit || '', source: item.price_source || '' };
                         map[k].out = item.rate || 0;
                         map[k].outDisplay = item.rate_display || ('$' + (item.rate || 0).toFixed(2));
                         map[k].unit = item.unit || map[k].unit || '';
@@ -20696,6 +20810,9 @@
                         out: map[k].out,
                         inDisplay: map[k].inDisplay,
                         outDisplay: map[k].outDisplay,
+                        cachedInputDisplay: map[k].cachedInputDisplay,
+                        cache5mDisplay: map[k].cache5mDisplay,
+                        cache1hDisplay: map[k].cache1hDisplay,
                         unit: map[k].unit,
                         source: map[k].source
                     })).sort((a, b) => {
@@ -20773,7 +20890,7 @@
                     html += '<div class="rates-card" style="padding: 16px; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color);">';
                     html += '<h5 style="color: var(--text-color);">LLM Gateway</h5>';
                     html += '<div class="rates-table-wrap">';
-                    html += '<table class="table rates-table"><thead><tr><th>模型</th><th>输入</th><th>输出</th><th class="rates-unit-col">单位</th></tr></thead><tbody>';
+                    html += '<table class="table rates-table"><thead><tr><th>模型</th><th>输入</th><th>缓存读取</th><th>缓存写入 5m</th><th>缓存写入 1h</th><th>输出</th><th class="rates-unit-col">单位</th></tr></thead><tbody>';
 
                     // 按分组渲染，每组加分隔行
                     let isFirstGroup = true;
@@ -20781,16 +20898,19 @@
                         if (groupRows.length === 0) return;
                         // 添加分组标题行
                         if (!isFirstGroup) {
-                            html += '<tr><td colspan="4" style="height: 8px; background: transparent;"></td></tr>';
+                            html += '<tr><td colspan="7" style="height: 8px; background: transparent;"></td></tr>';
                         }
-                        html += `<tr class="rates-group-header"><td colspan="4" style="font-weight: 600; color: var(--text-secondary); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; padding: 8px 0 4px 0; border-bottom: none;">${groupName}</td></tr>`;
+                        html += `<tr class="rates-group-header"><td colspan="7" style="font-weight: 600; color: var(--text-secondary); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; padding: 8px 0 4px 0; border-bottom: none;">${groupName}</td></tr>`;
                         groupRows.forEach(r => {
                             const inTxt = r.inDisplay || '-';
                             const outTxt = r.outDisplay || '-';
+                            const cachedTxt = r.cachedInputDisplay || '-';
+                            const cache5mTxt = r.cache5mDisplay || '-';
+                            const cache1hTxt = r.cache1hDisplay || '-';
                             const sourceBadge = r.source === 'fallback'
                                 ? ' <span style="display: inline-flex; align-items: center; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--border-color); color: var(--text-secondary); font-size: 11px;">备用</span>'
                                 : '';
-                            html += `<tr><td>${escapeHtml(String(r.model))}${sourceBadge}</td><td>${escapeHtml(String(inTxt))}</td><td>${escapeHtml(String(outTxt))}</td><td class="rates-unit-col">${escapeHtml(String(r.unit || '-'))}</td></tr>`;
+                            html += `<tr><td>${escapeHtml(String(r.model))}${sourceBadge}</td><td>${escapeHtml(String(inTxt))}</td><td>${escapeHtml(String(cachedTxt))}</td><td>${escapeHtml(String(cache5mTxt))}</td><td>${escapeHtml(String(cache1hTxt))}</td><td>${escapeHtml(String(outTxt))}</td><td class="rates-unit-col">${escapeHtml(String(r.unit || '-'))}</td></tr>`;
                         });
                         isFirstGroup = false;
                     });
@@ -20827,7 +20947,7 @@
                 }
 
                 html += '</div>';
-                accountCache.rates = { ts: Date.now(), html };
+                accountCache.rates[region] = { ts: Date.now(), html };
                 el.innerHTML = html;
             } catch (e) {
                 el.innerHTML = `<div class="status error">加载失败: ${escapeHtml(String(e.message || e))}</div>`;

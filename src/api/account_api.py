@@ -18,6 +18,11 @@ from pydantic import BaseModel
 from log import log
 from .auth import authenticate
 from ..core.httpx_client import http_client
+from ..core.model_pricing import (
+    enrich_llm_input_rates,
+    llm_gateway_rate_items,
+    update_pricing_overrides_from_rates,
+)
 from ..storage.storage_adapter import get_storage_adapter
 from ..services.session_security import (
     decode_jwt_exp,
@@ -1439,11 +1444,7 @@ async def get_account_api_keys(force: bool = False, account_email: Optional[str]
     
     result = {"projects": [], "api_keys": []}
     if api_token:
-        result["api_keys"].append({
-            "id": None, "project_id": None, "project_name": "Default",
-            "api_key": api_token, "name": "Default API Key",
-            "is_disabled": False, "created": session.get("logged_in_at"),
-        })
+        result["api_keys"].append(_default_api_key_record(api_token, session.get("logged_in_at")))
     
     # 尝试从 Dashboard 获取完整列表（只尝试一个最可靠的端点）
     try:
@@ -1454,18 +1455,10 @@ async def get_account_api_keys(force: bool = False, account_email: Optional[str]
             log.info(f"Got RSC from {endpoint}, length={len(raw)}, has_tokens={'tokens' in raw}")
             projects = _parse_projects_from_rsc(raw)
             if projects:
-                full_result = {"projects": projects, "api_keys": []}
-                for project in projects:
-                    for token in project.get("tokens", []):
-                        full_result["api_keys"].append({
-                            "id": token.get("id"),
-                            "project_id": token.get("project_id"),
-                            "project_name": project.get("project", {}).get("name"),
-                            "api_key": token.get("api_key"),
-                            "name": token.get("name"),
-                            "is_disabled": token.get("is_disabled"),
-                            "created": token.get("created"),
-                        })
+                full_result = {
+                    "projects": projects,
+                    "api_keys": _flatten_account_api_keys(projects, session.get("logged_in_at")),
+                }
                 if full_result["api_keys"]:
                     log.info(f"Fetched {len(full_result['api_keys'])} API keys for {session_email}")
                     _cache_set(cache_key, full_result)
@@ -1568,11 +1561,7 @@ async def get_account_overview(force: bool = False, account_email: Optional[str]
             
             result = []
             if api_token:
-                result.append({
-                    "id": None, "project_id": None, "project_name": "Default",
-                    "api_key": api_token, "name": "Default API Key",
-                    "is_disabled": False, "created": session.get("logged_in_at"),
-                })
+                result.append(_default_api_key_record(api_token, session.get("logged_in_at")))
             
             # 尝试从 Dashboard 获取完整列表
             endpoint = "/dashboard/code"
@@ -1580,18 +1569,7 @@ async def get_account_overview(force: bool = False, account_email: Optional[str]
             if rsc and "raw" in rsc:
                 projects = _parse_projects_from_rsc(rsc["raw"])
                 if projects:
-                    result = []
-                    for project in projects:
-                        for token in project.get("tokens", []):
-                            result.append({
-                                "id": token.get("id"),
-                                "project_id": token.get("project_id"),
-                                "project_name": project.get("project", {}).get("name"),
-                                "api_key": token.get("api_key"),
-                                "name": token.get("name"),
-                                "is_disabled": token.get("is_disabled"),
-                                "created": token.get("created"),
-                            })
+                    result = _flatten_account_api_keys(projects, session.get("logged_in_at"))
             return result
         except Exception as e:
             log.warning(f"Failed to get api_keys in overview: {e}")
@@ -1710,73 +1688,220 @@ def _parse_projects_from_rsc(raw_text: str) -> List[Dict[str, Any]]:
     projects = []
     
     try:
-        # 方法1：查找 "projects":[ 开始的 JSON 数组
-        start_marker = '"projects":['
-        start_pos = raw_text.find(start_marker)
-        
-        if start_pos >= 0:
-            # 找到 projects 数组的开始位置
-            array_start = start_pos + len(start_marker) - 1  # 包含 [
-            
-            # 找到匹配的 ] 结束位置
-            bracket_count = 0
-            array_end = -1
-            for i in range(array_start, min(array_start + 20000, len(raw_text))):
-                if raw_text[i] == '[':
-                    bracket_count += 1
-                elif raw_text[i] == ']':
-                    bracket_count -= 1
-                    if bracket_count == 0:
-                        array_end = i + 1
-                        break
-            
-            if array_end > array_start:
-                json_str = raw_text[array_start:array_end]
-                try:
-                    projects = json.loads(json_str)
-                    # 统计解析到的 tokens 数量
+        for candidate in _rsc_json_text_candidates(raw_text):
+            projects_json = _extract_json_array_after_key(candidate, "projects", max_scan=50000)
+            if isinstance(projects_json, list):
+                projects = _normalize_dashboard_projects(projects_json)
+                if projects:
                     total_tokens = sum(len(p.get("tokens", [])) for p in projects)
                     log.info(f"Parsed {len(projects)} projects with {total_tokens} tokens from RSC data")
                     return projects
-                except json.JSONDecodeError as e:
-                    log.warning(f"Failed to parse projects JSON: {e}, json_str length: {len(json_str)}")
-        
-        # 方法2：尝试查找 "tokens":[ 数组（备用方案）
-        if not projects:
-            tokens_marker = '"tokens":['
-            tokens_pos = raw_text.find(tokens_marker)
-            if tokens_pos >= 0:
-                array_start = tokens_pos + len(tokens_marker) - 1
-                bracket_count = 0
-                array_end = -1
-                for i in range(array_start, min(array_start + 10000, len(raw_text))):
-                    if raw_text[i] == '[':
-                        bracket_count += 1
-                    elif raw_text[i] == ']':
-                        bracket_count -= 1
-                        if bracket_count == 0:
-                            array_end = i + 1
-                            break
-                
-                if array_end > array_start:
-                    json_str = raw_text[array_start:array_end]
-                    try:
-                        tokens = json.loads(json_str)
-                        if tokens:
-                            # 构造一个虚拟的 project 结构
-                            projects = [{"project": {"name": "Default"}, "tokens": tokens}]
-                            log.info(f"Parsed {len(tokens)} tokens directly from RSC data (fallback)")
-                            return projects
-                    except json.JSONDecodeError as e:
-                        log.warning(f"Failed to parse tokens JSON: {e}")
-        
-        if not projects:
-            log.debug(f"No 'projects' or 'tokens' marker found in RSC data (length: {len(raw_text)})")
+
+            tokens_json = _extract_json_array_after_key(candidate, "tokens", max_scan=30000)
+            if isinstance(tokens_json, list):
+                tokens = _normalize_token_collection(tokens_json)
+                if tokens:
+                    projects = [{"project": {"name": "Default"}, "tokens": tokens}]
+                    log.info(f"Parsed {len(tokens)} tokens directly from RSC data (fallback)")
+                    return projects
+
+        log.debug(f"No parseable projects or tokens found in RSC data (length: {len(raw_text)})")
         
     except Exception as e:
         log.error(f"Failed to parse projects from RSC: {e}")
     
     return projects
+
+
+def _rsc_json_text_candidates(raw_text: str) -> List[str]:
+    """Return raw and decoded text candidates from Next/RSC payloads."""
+    import re
+
+    candidates: List[str] = []
+    seen = set()
+
+    def add(value: Any) -> None:
+        if isinstance(value, (dict, list)):
+            value = json.dumps(value, ensure_ascii=False)
+        if not isinstance(value, str):
+            return
+        if not any(marker in value for marker in ("projects", "tokens", "api_key", "apiKey")):
+            return
+        if value in seen:
+            return
+        seen.add(value)
+        candidates.append(value)
+
+    add(raw_text)
+
+    suffix = raw_text.split(":", 1)[1].strip() if ":" in raw_text else raw_text.strip()
+    try:
+        add(json.loads(suffix))
+    except Exception:
+        pass
+
+    # Next/RSC often embeds useful JSON as escaped string chunks.
+    for match in re.finditer(r'"(?:\\.|[^"\\])*"', raw_text):
+        chunk = match.group(0)
+        if not any(marker in chunk for marker in ("projects", "tokens", "api_key", "apiKey")):
+            continue
+        try:
+            add(json.loads(chunk))
+        except Exception:
+            continue
+
+    return candidates
+
+
+def _extract_json_array_after_key(text: str, key: str, *, max_scan: int) -> Optional[List[Any]]:
+    import re
+
+    pattern = re.compile(rf'"{re.escape(key)}"\s*:\s*\[')
+    for match in pattern.finditer(text):
+        array_start = text.find("[", match.start())
+        if array_start < 0:
+            continue
+        array_end = _find_balanced_json_array_end(text, array_start, max_scan=max_scan)
+        if array_end <= array_start:
+            continue
+        try:
+            value = json.loads(text[array_start:array_end])
+        except json.JSONDecodeError as e:
+            log.debug(f"Failed to parse {key} array from RSC: {e}")
+            continue
+        if isinstance(value, list):
+            return value
+    return None
+
+
+def _find_balanced_json_array_end(text: str, start: int, *, max_scan: int) -> int:
+    depth = 0
+    in_string = False
+    escape = False
+    end_limit = min(len(text), start + max_scan)
+
+    for idx in range(start, end_limit):
+        ch = text[idx]
+        if in_string:
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == '"':
+                in_string = False
+            continue
+
+        if ch == '"':
+            in_string = True
+        elif ch == "[":
+            depth += 1
+        elif ch == "]":
+            depth -= 1
+            if depth == 0:
+                return idx + 1
+    return -1
+
+
+def _first_present(mapping: Dict[str, Any], *keys: str) -> Any:
+    for key in keys:
+        value = mapping.get(key)
+        if value is not None and value != "":
+            return value
+    return None
+
+
+def _bool_from_dashboard_value(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "disabled", "inactive"}
+    if isinstance(value, (int, float)):
+        return value != 0
+    return False
+
+
+def _normalize_token_collection(tokens: Any) -> List[Dict[str, Any]]:
+    if isinstance(tokens, list):
+        return [token for token in tokens if isinstance(token, dict)]
+    if isinstance(tokens, dict):
+        if _first_present(tokens, "api_key", "apiKey", "api_token", "apiToken", "key", "token", "value"):
+            return [tokens]
+        return [token for token in tokens.values() if isinstance(token, dict)]
+    return []
+
+
+def _normalize_dashboard_projects(projects: Any) -> List[Dict[str, Any]]:
+    normalized: List[Dict[str, Any]] = []
+    if not isinstance(projects, list):
+        return normalized
+
+    for item in projects:
+        if not isinstance(item, dict):
+            continue
+        project = item.get("project") if isinstance(item.get("project"), dict) else {}
+        if not project:
+            project = {
+                "id": _first_present(item, "project_id", "projectId", "id"),
+                "name": _first_present(item, "project_name", "projectName", "name") or "Default",
+            }
+
+        tokens = []
+        for token_key in ("tokens", "api_keys", "apiKeys", "api_tokens", "apiTokens", "keys"):
+            tokens = _normalize_token_collection(item.get(token_key))
+            if tokens:
+                break
+        if not tokens:
+            tokens = _normalize_token_collection(item)
+
+        normalized.append({"project": project, "tokens": tokens})
+    return normalized
+
+
+def _default_api_key_record(api_token: str, created: Any) -> Dict[str, Any]:
+    return {
+        "id": None,
+        "project_id": None,
+        "project_name": "Default",
+        "api_key": api_token,
+        "name": "Default API Key",
+        "is_disabled": False,
+        "created": created,
+    }
+
+
+def _flatten_account_api_keys(projects: List[Dict[str, Any]], default_created: Any = None) -> List[Dict[str, Any]]:
+    records: List[Dict[str, Any]] = []
+    for project in projects or []:
+        if not isinstance(project, dict):
+            continue
+        project_info = project.get("project") if isinstance(project.get("project"), dict) else {}
+        project_id = _first_present(project_info, "id", "project_id", "projectId")
+        project_name = _first_present(project_info, "name", "project_name", "projectName") or "Default"
+        for token in _normalize_token_collection(project.get("tokens")):
+            api_key = _first_present(
+                token,
+                "api_key",
+                "apiKey",
+                "api_token",
+                "apiToken",
+                "key",
+                "token",
+                "value",
+            )
+            if not api_key:
+                continue
+            records.append({
+                "id": _first_present(token, "id", "token_id", "tokenId"),
+                "project_id": _first_present(token, "project_id", "projectId") or project_id,
+                "project_name": _first_present(token, "project_name", "projectName") or project_name,
+                "api_key": api_key,
+                "name": _first_present(token, "name", "label", "description") or "API Key",
+                "is_disabled": _bool_from_dashboard_value(
+                    _first_present(token, "is_disabled", "isDisabled", "disabled", "revoked", "inactive")
+                ),
+                "created": _first_present(token, "created", "created_at", "createdAt") or default_created,
+            })
+    return records
 
 
 @router.get("/billing")
@@ -2397,6 +2522,7 @@ async def get_rates(region: str = "US", force: bool = False, account_email: Opti
         official_error = str(e)
         log.warning(f"Failed to fetch official pricing page rates: {e}")
 
+    llm_gateway_fallback = llm_gateway_rate_items()
     fallback = {
         "region": region,
         "speech_to_text": [
@@ -2420,48 +2546,8 @@ async def get_rates(region: str = "US", force: bool = False, account_email: Opti
             {"feature": "PII Redaction", "rate": 0.05, "unit": "hour"},
             {"feature": "Auto Chapters", "rate": 0.10, "unit": "hour"},
         ],
-        "llm_gateway_input": [
-            # GPT / OpenAI
-            {"model": "ChatGPT-4o", "rate": 5.00, "unit": "1M tokens"},
-            {"model": "GPT 4.1", "rate": 2.00, "unit": "1M tokens"},
-            {"model": "GPT-5", "rate": 1.25, "unit": "1M tokens"},
-            {"model": "GPT-5-Mini", "rate": 0.25, "unit": "1M tokens"},
-            {"model": "gpt-oss-120b", "rate": 0.15, "unit": "1M tokens"},
-            {"model": "gpt-oss-20b", "rate": 0.07, "unit": "1M tokens"},
-            {"model": "GPT-5 Nano", "rate": 0.05, "unit": "1M tokens"},
-            # Claude
-            {"model": "Claude 4 Opus", "rate": 15.00, "unit": "1M tokens"},
-            {"model": "Claude 4.5 Sonnet", "rate": 3.00, "unit": "1M tokens"},
-            {"model": "Claude 4 Sonnet", "rate": 3.00, "unit": "1M tokens"},
-            {"model": "Claude 4.5 Haiku", "rate": 1.00, "unit": "1M tokens"},
-            {"model": "Claude 3.5 Haiku", "rate": 0.80, "unit": "1M tokens"},
-            {"model": "Claude 3 Haiku", "rate": 0.25, "unit": "1M tokens"},
-            # Gemini
-            {"model": "Gemini 3 Pro", "rate": 2.00, "unit": "1M tokens"},
-            {"model": "Gemini 2.5 Pro", "rate": 1.25, "unit": "1M tokens"},
-            {"model": "Gemini 2.5 Flash", "rate": 0.30, "unit": "1M tokens"},
-        ],
-        "llm_gateway_output": [
-            # Claude
-            {"model": "Claude 4 Opus", "rate": 75.00, "unit": "1M tokens"},
-            {"model": "Claude 4.5 Sonnet", "rate": 15.00, "unit": "1M tokens"},
-            {"model": "Claude 4 Sonnet", "rate": 15.00, "unit": "1M tokens"},
-            {"model": "Claude 4.5 Haiku", "rate": 5.00, "unit": "1M tokens"},
-            {"model": "Claude 3.5 Haiku", "rate": 4.00, "unit": "1M tokens"},
-            {"model": "Claude 3 Haiku", "rate": 1.25, "unit": "1M tokens"},
-            # GPT / OpenAI
-            {"model": "ChatGPT-4o", "rate": 15.00, "unit": "1M tokens"},
-            {"model": "GPT-5", "rate": 10.00, "unit": "1M tokens"},
-            {"model": "GPT 4.1", "rate": 8.00, "unit": "1M tokens"},
-            {"model": "GPT-5-Mini", "rate": 2.00, "unit": "1M tokens"},
-            {"model": "gpt-oss-120b", "rate": 0.60, "unit": "1M tokens"},
-            {"model": "GPT-5 Nano", "rate": 0.40, "unit": "1M tokens"},
-            {"model": "gpt-oss-20b", "rate": 0.30, "unit": "1M tokens"},
-            # Gemini
-            {"model": "Gemini 3 Pro", "rate": 12.00, "unit": "1M tokens"},
-            {"model": "Gemini 2.5 Pro", "rate": 10.00, "unit": "1M tokens"},
-            {"model": "Gemini 2.5 Flash", "rate": 2.50, "unit": "1M tokens"},
-        ],
+        "llm_gateway_input": llm_gateway_fallback["llm_gateway_input"],
+        "llm_gateway_output": llm_gateway_fallback["llm_gateway_output"],
         "notes": [
             "LLM Gateway pricing is per million tokens",
         ],
@@ -2476,6 +2562,13 @@ async def get_rates(region: str = "US", force: bool = False, account_email: Opti
         for item in items:
             if "rate" in item:
                 item["rate_display"] = format_price(item["rate"], region)
+            for rate_key, display_key in (
+                ("cached_input_rate", "cached_input_rate_display"),
+                ("cache_creation_5m_rate", "cache_creation_5m_rate_display"),
+                ("cache_creation_1h_rate", "cache_creation_1h_rate_display"),
+            ):
+                if item.get(rate_key) is not None:
+                    item[display_key] = format_price(item[rate_key], region)
         return items
 
     def mark_price_source(items, source):
@@ -2588,11 +2681,16 @@ async def get_rates(region: str = "US", force: bool = False, account_email: Opti
     )
     # LLM Gateway: 合并 API 数据与 fallback，补充缺失的模型
     result["llm_gateway_input"] = add_price_display(
-        merge_rates_with_fallback(parsed.get("llm_gateway_input"), fallback["llm_gateway_input"]), region
+        enrich_llm_input_rates(
+            merge_rates_with_fallback(parsed.get("llm_gateway_input"), fallback["llm_gateway_input"])
+        ),
+        region,
     )
     result["llm_gateway_output"] = add_price_display(
         merge_rates_with_fallback(parsed.get("llm_gateway_output"), fallback["llm_gateway_output"]), region
     )
+    if (region or "").strip().upper() in {"", "US", "USA", "GLOBAL"}:
+        update_pricing_overrides_from_rates(result["llm_gateway_input"], result["llm_gateway_output"])
     result["notes"] = fallback["notes"]
 
     categories = [

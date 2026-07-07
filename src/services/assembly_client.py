@@ -399,12 +399,12 @@ def _prompt_cache_gateway_mode(model: str) -> str:
     model_lower = str(model or "").strip().lower()
     if _is_claude_model(model_lower):
         return "cache_control"
+    if _is_kimi_model(model_lower):
+        return "provider_implicit"
     if _supports_prompt_cache_key(model_lower):
         return "prompt_cache_key"
     if "gemini" in model_lower:
         return "provider_implicit"
-    if _drops_prompt_cache_key(model_lower):
-        return "unsupported"
     return "unknown"
 
 
@@ -2041,6 +2041,8 @@ async def send_assembly_request(
                 payload["model_region"] = default_region
         except Exception as e:
             log.warning(f"Failed to resolve global model_region default: {e}")
+    if trace:
+        trace.metadata["model_region"] = payload.get("model_region", "")
 
     # temperature 和 top_p 处理
     temp = getattr(openai_request, "temperature", None)

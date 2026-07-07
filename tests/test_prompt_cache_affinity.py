@@ -287,6 +287,37 @@ def test_prompt_cache_metadata_records_auto_defaults_without_sensitive_values():
     assert "stable system instructions" not in repr(metadata)
 
 
+def test_prompt_cache_metadata_reports_kimi_provider_implicit_without_key():
+    payload = {
+        "model": "kimi-k2.5",
+        "messages": [{"role": "user", "content": "short question"}],
+        "prompt_cache_key": "client-key-that-kimi-rejects",
+    }
+    out = _apply_prompt_cache_defaults(
+        payload,
+        model="kimi-k2.5",
+        auto_mode="conservative",
+        default_ttl="5m",
+    )
+    out.pop("prompt_cache_key", None)
+
+    metadata = assembly_client._build_prompt_cache_metadata(
+        payload,
+        out,
+        model="kimi-k2.5",
+        enabled=True,
+        auto_mode="conservative",
+        default_ttl="5m",
+        affinity_enabled=False,
+        affinity_key=None,
+    )
+
+    assert metadata["prompt_cache_gateway_mode"] == "provider_implicit"
+    assert metadata["prompt_cache_key_before"] is True
+    assert metadata["prompt_cache_key_after"] is False
+    assert metadata["prompt_cache_auto_applied_key"] is False
+
+
 def test_prompt_cache_metadata_tolerates_missing_or_null_messages():
     for before_payload, after_payload in (
         ({}, {}),

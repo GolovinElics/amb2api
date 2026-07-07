@@ -322,6 +322,82 @@ async def test_overview_billing_uses_cost_total_when_billing_spend_is_missing():
     assert result["billing"]["debug_info"]["spend_source"] == "dashboard cost"
 
 
+@pytest.mark.asyncio
+async def test_account_api_keys_parse_spaced_rsc_and_key_aliases():
+    session = {"email": "user@example.com", "user_info": {}, "logged_in_at": "2026-07-07T00:00:00Z"}
+    raw = """
+    1:["$","div",null,{
+      "projects" : [
+        {
+          "project": {"id": "proj_1", "name": "Production"},
+          "tokens": [
+            {
+              "id": "tok_1",
+              "projectId": "proj_1",
+              "apiKey": "sk-live-123",
+              "label": "Prod Key",
+              "disabled": false,
+              "createdAt": "2026-07-01T00:00:00Z"
+            }
+          ]
+        }
+      ]
+    }]
+    """
+
+    with patch.object(account_api, "_get_session", AsyncMock(return_value=session)), \
+        patch.object(account_api, "_cache_get", return_value=None), \
+        patch.object(account_api, "_cache_set") as mock_cache_set, \
+        patch.object(account_api, "_make_dashboard_request", AsyncMock(return_value={"raw": raw})):
+        result = await account_api.get_account_api_keys(force=False, account_email="user@example.com")
+
+    assert result["api_keys"] == [
+        {
+            "id": "tok_1",
+            "project_id": "proj_1",
+            "project_name": "Production",
+            "api_key": "sk-live-123",
+            "name": "Prod Key",
+            "is_disabled": False,
+            "created": "2026-07-01T00:00:00Z",
+        }
+    ]
+    mock_cache_set.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_account_api_keys_parse_escaped_rsc_json_string():
+    session = {"email": "user@example.com", "user_info": {}, "logged_in_at": "2026-07-07T00:00:00Z"}
+    embedded = {
+        "projects": [
+            {
+                "project": {"id": "proj_2", "name": "Escaped"},
+                "tokens": [
+                    {
+                        "id": "tok_2",
+                        "project_id": "proj_2",
+                        "api_key": "sk-escaped-456",
+                        "name": "Escaped Key",
+                        "is_disabled": True,
+                        "created": "2026-07-02T00:00:00Z",
+                    }
+                ],
+            }
+        ]
+    }
+    raw = '2:' + json.dumps(json.dumps(embedded))
+
+    with patch.object(account_api, "_get_session", AsyncMock(return_value=session)), \
+        patch.object(account_api, "_cache_get", return_value=None), \
+        patch.object(account_api, "_cache_set"), \
+        patch.object(account_api, "_make_dashboard_request", AsyncMock(return_value={"raw": raw})):
+        result = await account_api.get_account_api_keys(force=False, account_email="user@example.com")
+
+    assert result["api_keys"][0]["api_key"] == "sk-escaped-456"
+    assert result["api_keys"][0]["project_name"] == "Escaped"
+    assert result["api_keys"][0]["is_disabled"] is True
+
+
 def test_extract_aai_extended_session_handles_multiple_set_cookie():
     # httpx.Headers 风格：get_list 返回多条 Set-Cookie
     class FakeHeaders:
