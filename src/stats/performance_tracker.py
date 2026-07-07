@@ -300,7 +300,26 @@ class RequestTrace:
         trace.key_index = data.get("key_index", -1)
         trace.key_masked = data.get("key_masked", "")
         trace.account_email = data.get("account_email", "")
-        trace.refresh_cost()
+        persisted_cost = _extract_persisted_cost(data)
+        if persisted_cost is not None:
+            trace.cost = dict(persisted_cost)
+            try:
+                trace.total_cost = float(trace.cost.get("total_cost") or 0.0)
+            except (TypeError, ValueError):
+                trace.total_cost = 0.0
+            stored_cache_status = data.get("cache_status")
+            if isinstance(stored_cache_status, dict):
+                trace.cache_status = dict(stored_cache_status)
+            else:
+                trace.cache_status = cache_status_for_usage(
+                    trace.model,
+                    prompt_tokens=trace.prompt_tokens,
+                    cached_tokens=trace.cached_tokens,
+                    cache_creation_5m_tokens=trace.cache_creation_5m_tokens,
+                    cache_creation_1h_tokens=trace.cache_creation_1h_tokens,
+                )
+        else:
+            trace.refresh_cost()
         return trace
 
 

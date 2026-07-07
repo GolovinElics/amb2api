@@ -202,6 +202,27 @@ def test_request_trace_dict_round_trip_preserves_cache_creation():
     assert revived.cost["total_cost"] == trace.cost["total_cost"]
 
 
+def test_request_trace_from_dict_preserves_persisted_cost():
+    raw = _trace_with_cache("t1", 200, 30)
+    raw["cost"] = {
+        "total_cost": 123.0,
+        "input_cost": 10.0,
+        "cache_read_cost": 20.0,
+        "cache_creation_5m_cost": 30.0,
+        "cache_creation_1h_cost": 40.0,
+        "output_cost": 23.0,
+    }
+    raw["total_cost"] = 123.0
+    raw["cache_status"] = {"status": "stored"}
+
+    trace = RequestTrace.from_dict(raw)
+
+    assert trace.cost["total_cost"] == 123.0
+    assert trace.cost["input_cost"] == 10.0
+    assert trace.total_cost == 123.0
+    assert trace.cache_status["status"] == "stored"
+
+
 @pytest.mark.asyncio
 async def test_get_stats_aggregates_cache_creation_totals():
     traces = [
