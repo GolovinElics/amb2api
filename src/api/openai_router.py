@@ -50,6 +50,7 @@ def _openai_v1_discovery_payload() -> Dict[str, Any]:
         "endpoints": {
             "models": "/v1/models",
             "chat_completions": "/v1/chat/completions",
+            "responses": "/v1/responses",
             "anthropic_messages": "/v1/messages",
         },
     }
@@ -90,6 +91,818 @@ def _normalize_request_model_ids(request_data: ChatCompletionRequest) -> None:
 
     if changed:
         setattr(request_data, "fallbacks", normalized_fallbacks)
+
+
+class _JsonRequestProxy:
+    """Small request shim used when compatibility routes reuse chat_completions."""
+
+    def __init__(self, request: Request, payload: Dict[str, Any]):
+        self._request = request
+        self.state = request.state
+        self._payload = payload
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._request, name)
+
+    async def json(self) -> Dict[str, Any]:
+        return self._payload
+
+
+class _ResponsesCompatibilityError(ValueError):
+    """Raised when a Responses API feature cannot be represented safely."""
+
+
+_RESPONSES_UNSUPPORTED_STATE_KEYS = {
+    "background",
+    "conversation",
+    "context_management",
+    "previous_response_id",
+}
+_RESPONSES_BUILTIN_TOOL_TYPES = {
+    "code_interpreter",
+    "computer_use_preview",
+    "file_search",
+    "image_generation",
+    "mcp",
+    "web_search",
+    "web_search_preview",
+}
+_RESPONSES_TRUNCATION_FINISH_REASONS = {"length", "max_tokens"}
+
+
+def _responses_role_to_chat(role: Any) -> str:
+    role_text = str(role or "user")
+    if role_text == "developer":
+        return "system"
+    return role_text
+
+
+def _responses_content_part_to_chat(part: Any) -> Any:
+    if not isinstance(part, dict):
+        return part
+
+    part_type = part.get("type")
+    if part_type in {"input_text", "output_text"}:
+        return {"type": "text", "text": str(part.get("text") or "")}
+    if part_type == "input_image":
+        image_url = part.get("image_url") or part.get("file_url")
+        if image_url:
+            image_part = {"type": "image_url", "image_url": {"url": image_url}}
+            if isinstance(part.get("detail"), str):
+                image_part["image_url"]["detail"] = part["detail"]
+            return image_part
+        raise _ResponsesCompatibilityError("input_image with file_id is not supported")
+    if part_type == "input_file":
+        if isinstance(part.get("file_data"), str):
+            filename = part.get("filename") or "file"
+            return {"type": "text", "text": f"File {filename}:\n{part['file_data']}"}
+        if isinstance(part.get("file_url"), str):
+            filename = part.get("filename") or "file"
+            return {"type": "text", "text": f"File {filename}: {part['file_url']}"}
+        raise _ResponsesCompatibilityError("input_file requires file_data or file_url")
+    if part_type == "refusal":
+        return {"type": "text", "text": str(part.get("refusal") or "")}
+    if part_type is None:
+        return part
+    raise _ResponsesCompatibilityError(f"Unsupported Responses content type: {part_type}")
+
+
+def _responses_output_message_to_chat(item: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    content = item.get("content")
+    if isinstance(content, list):
+        converted_parts = [_responses_content_part_to_chat(part) for part in content]
+        text_parts = []
+        rich_parts = []
+        for part in converted_parts:
+            if isinstance(part, dict) and part.get("type") == "text":
+                text_parts.append(str(part.get("text") or ""))
+            else:
+                rich_parts.append(part)
+        if rich_parts:
+            return {"role": _responses_role_to_chat(item.get("role") or "assistant"), "content": converted_parts}
+        return {"role": _responses_role_to_chat(item.get("role") or "assistant"), "content": "".join(text_parts)}
+    if isinstance(content, str):
+        return {"role": _responses_role_to_chat(item.get("role") or "assistant"), "content": content}
+    return None
+
+
+def _responses_function_call_to_chat(item: Dict[str, Any]) -> Dict[str, Any]:
+    arguments = item.get("arguments")
+    if arguments is None:
+        arguments = "{}"
+    elif not isinstance(arguments, str):
+        arguments = json.dumps(arguments, ensure_ascii=False)
+
+    call_id = str(item.get("call_id") or item.get("id") or f"call_{uuid.uuid4().hex[:24]}")
+    return {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+            {
+                "id": call_id,
+                "type": "function",
+                "function": {
+                    "name": str(item.get("name") or "unknown_function"),
+                    "arguments": arguments,
+                },
+            }
+        ],
+    }
+
+
+def _responses_function_call_output_to_chat(item: Dict[str, Any]) -> Dict[str, Any]:
+    output = item.get("output")
+    if output is None:
+        output = ""
+    elif not isinstance(output, str):
+        output = json.dumps(output, ensure_ascii=False)
+    return {
+        "role": "tool",
+        "tool_call_id": str(item.get("call_id") or item.get("id") or ""),
+        "content": output,
+    }
+
+
+def _responses_input_to_chat_messages(raw_input: Any, instructions: Any = None) -> List[Dict[str, Any]]:
+    messages: List[Dict[str, Any]] = []
+    if isinstance(instructions, str) and instructions.strip():
+        messages.append({"role": "system", "content": instructions})
+
+    input_items = raw_input if isinstance(raw_input, list) else [raw_input]
+    for item in input_items:
+        if isinstance(item, str):
+            if item.strip():
+                messages.append({"role": "user", "content": item})
+            continue
+
+        if not isinstance(item, dict):
+            continue
+
+        item_type = item.get("type")
+        if item_type == "reasoning":
+            continue
+        if item_type in {"input_text", "output_text"}:
+            text = str(item.get("text") or "")
+            if text.strip():
+                messages.append({"role": "user", "content": text})
+            continue
+        if item_type in {"input_image", "input_file"}:
+            messages.append({"role": "user", "content": [_responses_content_part_to_chat(item)]})
+            continue
+        if item_type == "message" or "role" in item:
+            message = _responses_output_message_to_chat(item)
+            if message is not None:
+                messages.append(message)
+            continue
+        if item_type == "function_call":
+            messages.append(_responses_function_call_to_chat(item))
+            continue
+        if item_type == "function_call_output":
+            messages.append(_responses_function_call_output_to_chat(item))
+            continue
+
+        role = item.get("role") or "user"
+        content = item.get("content")
+        if isinstance(content, list):
+            content = [_responses_content_part_to_chat(part) for part in content]
+        elif isinstance(content, dict):
+            content = [_responses_content_part_to_chat(content)]
+        elif content is None and isinstance(item.get("text"), str):
+            content = item.get("text")
+
+        if content is None:
+            continue
+        messages.append({"role": str(role), "content": content})
+
+    return messages
+
+
+def _responses_tools_to_chat_tools(tools: Any) -> Any:
+    if tools is None:
+        return None
+    if not isinstance(tools, list):
+        raise _ResponsesCompatibilityError("tools must be an array")
+
+    chat_tools: List[Dict[str, Any]] = []
+    for tool in tools:
+        if not isinstance(tool, dict):
+            raise _ResponsesCompatibilityError("tool entries must be objects")
+        tool_type = tool.get("type")
+        if tool_type in _RESPONSES_BUILTIN_TOOL_TYPES:
+            raise _ResponsesCompatibilityError(f"Responses built-in tool is not supported: {tool_type}")
+        if tool_type != "function":
+            raise _ResponsesCompatibilityError(f"Unsupported Responses tool type: {tool_type}")
+        if isinstance(tool.get("function"), dict):
+            chat_tools.append(tool)
+            continue
+
+        function: Dict[str, Any] = {"name": tool.get("name")}
+        for key in ("description", "parameters", "strict"):
+            if key in tool:
+                function[key] = tool[key]
+        if not function.get("name"):
+            raise _ResponsesCompatibilityError("function tool name is required")
+        chat_tools.append({"type": "function", "function": function})
+    return chat_tools
+
+
+def _responses_tool_choice_to_chat_tool_choice(tool_choice: Any) -> Any:
+    if tool_choice is None or isinstance(tool_choice, str):
+        return tool_choice
+    if not isinstance(tool_choice, dict):
+        raise _ResponsesCompatibilityError("tool_choice must be a string or object")
+
+    choice_type = tool_choice.get("type")
+    if choice_type == "function":
+        name = tool_choice.get("name")
+        if not name and isinstance(tool_choice.get("function"), dict):
+            name = tool_choice["function"].get("name")
+        if not name:
+            raise _ResponsesCompatibilityError("function tool_choice name is required")
+        return {"type": "function", "function": {"name": name}}
+    if choice_type in _RESPONSES_BUILTIN_TOOL_TYPES:
+        raise _ResponsesCompatibilityError(f"Responses built-in tool_choice is not supported: {choice_type}")
+    return tool_choice
+
+
+def _responses_text_format_to_chat_response_format(text_config: Any, raw_data: Dict[str, Any]) -> Any:
+    if isinstance(text_config, dict) and isinstance(text_config.get("format"), dict):
+        text_format = dict(text_config["format"])
+        format_type = text_format.get("type")
+        if format_type == "text":
+            return None
+        if format_type == "json_schema" and "json_schema" not in text_format:
+            json_schema: Dict[str, Any] = {
+                "name": text_format.get("name") or "response",
+                "schema": text_format.get("schema") or {},
+            }
+            if "description" in text_format:
+                json_schema["description"] = text_format["description"]
+            if "strict" in text_format:
+                json_schema["strict"] = text_format["strict"]
+            return {"type": "json_schema", "json_schema": json_schema}
+        return text_format
+    return raw_data.get("response_format")
+
+
+def _responses_request_to_chat_payload(raw_data: Dict[str, Any]) -> Dict[str, Any]:
+    unsupported = [
+        key for key in _RESPONSES_UNSUPPORTED_STATE_KEYS
+        if key in raw_data and raw_data.get(key) not in (None, False)
+    ]
+    if unsupported:
+        raise _ResponsesCompatibilityError(
+            "Unsupported Responses API state/background parameter(s): " + ", ".join(sorted(unsupported))
+        )
+    if raw_data.get("include"):
+        raise _ResponsesCompatibilityError("Responses API include is not supported by this gateway")
+
+    if "messages" in raw_data:
+        messages = raw_data["messages"]
+    else:
+        messages = _responses_input_to_chat_messages(
+            raw_data.get("input"),
+            instructions=raw_data.get("instructions"),
+        )
+
+    payload: Dict[str, Any] = {
+        "model": raw_data.get("model"),
+        "messages": messages,
+        "stream": bool(raw_data.get("stream", False)),
+    }
+
+    field_map = {
+        "temperature": "temperature",
+        "top_p": "top_p",
+        "stop": "stop",
+        "parallel_tool_calls": "parallel_tool_calls",
+        "reasoning": "reasoning",
+        "reasoning_effort": "reasoning_effort",
+        "verbosity": "verbosity",
+        "prompt_cache_key": "prompt_cache_key",
+        "prompt_cache_retention": "prompt_cache_retention",
+        "cache_control": "cache_control",
+        "fallbacks": "fallbacks",
+        "fallback_config": "fallback_config",
+        "model_region": "model_region",
+        "metadata": "metadata",
+        "stream_options": "stream_options",
+    }
+    for source_key, target_key in field_map.items():
+        if source_key in raw_data:
+            payload[target_key] = raw_data[source_key]
+
+    if "tools" in raw_data:
+        payload["tools"] = _responses_tools_to_chat_tools(raw_data.get("tools"))
+    if "tool_choice" in raw_data:
+        payload["tool_choice"] = _responses_tool_choice_to_chat_tool_choice(raw_data.get("tool_choice"))
+
+    if "max_output_tokens" in raw_data:
+        payload["max_completion_tokens"] = raw_data["max_output_tokens"]
+    elif "max_tokens" in raw_data:
+        payload["max_tokens"] = raw_data["max_tokens"]
+
+    response_format = _responses_text_format_to_chat_response_format(raw_data.get("text"), raw_data)
+    if response_format is not None:
+        payload["response_format"] = response_format
+
+    return payload
+
+
+def _json_response_to_payload(response: Any) -> Optional[Dict[str, Any]]:
+    try:
+        body = getattr(response, "body", None)
+        if isinstance(body, bytes):
+            return json.loads(body.decode("utf-8"))
+        if isinstance(body, str):
+            return json.loads(body)
+    except Exception:
+        return None
+    return None
+
+
+def _message_content_to_text(content: Any) -> str:
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: List[str] = []
+        for item in content:
+            if isinstance(item, dict):
+                text = item.get("text")
+                if isinstance(text, str):
+                    parts.append(text)
+            elif isinstance(item, str):
+                parts.append(item)
+        return "".join(parts)
+    if content is None:
+        return ""
+    return str(content)
+
+
+def _chat_tool_call_to_response_item(tool_call: Dict[str, Any]) -> Dict[str, Any]:
+    function = tool_call.get("function") if isinstance(tool_call.get("function"), dict) else {}
+    arguments = function.get("arguments")
+    if arguments is None and "input" in function:
+        arguments = json.dumps(function.get("input") or {}, ensure_ascii=False)
+    elif arguments is None:
+        arguments = "{}"
+    elif not isinstance(arguments, str):
+        arguments = json.dumps(arguments, ensure_ascii=False)
+
+    call_id = str(tool_call.get("id") or f"call_{uuid.uuid4().hex[:24]}")
+    return {
+        "id": f"fc_{uuid.uuid4().hex}",
+        "type": "function_call",
+        "status": "completed",
+        "call_id": call_id,
+        "name": str(function.get("name") or "unknown_function"),
+        "arguments": arguments,
+    }
+
+
+def _chat_message_to_response_output_items(message: Dict[str, Any]) -> tuple[List[Dict[str, Any]], str]:
+    output_items: List[Dict[str, Any]] = []
+    output_text = _message_content_to_text(message.get("content"))
+
+    if output_text:
+        output_items.append(
+            {
+                "id": f"msg_{uuid.uuid4().hex}",
+                "type": "message",
+                "status": "completed",
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "output_text",
+                        "text": output_text,
+                        "annotations": [],
+                    }
+                ],
+            }
+        )
+
+    refusal = message.get("refusal")
+    if isinstance(refusal, str) and refusal:
+        output_items.append(
+            {
+                "id": f"msg_{uuid.uuid4().hex}",
+                "type": "message",
+                "status": "completed",
+                "role": "assistant",
+                "content": [{"type": "refusal", "refusal": refusal}],
+            }
+        )
+
+    tool_calls = message.get("tool_calls")
+    if isinstance(tool_calls, list):
+        for tool_call in tool_calls:
+            if isinstance(tool_call, dict):
+                output_items.append(_chat_tool_call_to_response_item(tool_call))
+
+    if not output_items:
+        output_items.append(
+            {
+                "id": f"msg_{uuid.uuid4().hex}",
+                "type": "message",
+                "status": "completed",
+                "role": "assistant",
+                "content": [{"type": "output_text", "text": "", "annotations": []}],
+            }
+        )
+
+    return output_items, output_text
+
+
+def _response_usage_token_count(usage: Dict[str, Any], primary_key: str, fallback_key: str) -> int:
+    value = usage.get(primary_key, usage.get(fallback_key, 0))
+    try:
+        parsed = int(value)
+        return parsed if parsed >= 0 else 0
+    except (TypeError, ValueError):
+        return 0
+
+
+def _chat_usage_to_response_usage(
+    usage: Any,
+    *,
+    allow_empty: bool = False,
+) -> Optional[Dict[str, Any]]:
+    if not isinstance(usage, dict):
+        return None
+    usage_keys = {
+        "prompt_tokens",
+        "input_tokens",
+        "completion_tokens",
+        "output_tokens",
+        "total_tokens",
+        "prompt_tokens_details",
+        "input_tokens_details",
+        "completion_tokens_details",
+        "output_tokens_details",
+    }
+    if not allow_empty and not any(key in usage for key in usage_keys):
+        return None
+
+    response_usage = {
+        "input_tokens": _response_usage_token_count(usage, "prompt_tokens", "input_tokens"),
+        "output_tokens": _response_usage_token_count(usage, "completion_tokens", "output_tokens"),
+        "total_tokens": _response_usage_token_count(usage, "total_tokens", "total_tokens"),
+    }
+    if not response_usage["total_tokens"]:
+        response_usage["total_tokens"] = response_usage["input_tokens"] + response_usage["output_tokens"]
+
+    prompt_token_details = usage.get("prompt_tokens_details")
+    if not isinstance(prompt_token_details, dict):
+        prompt_token_details = usage.get("input_tokens_details")
+    if isinstance(prompt_token_details, dict):
+        response_usage["input_tokens_details"] = prompt_token_details
+
+    completion_token_details = usage.get("completion_tokens_details")
+    if not isinstance(completion_token_details, dict):
+        completion_token_details = usage.get("output_tokens_details")
+    if isinstance(completion_token_details, dict):
+        response_usage["output_tokens_details"] = completion_token_details
+
+    return response_usage
+
+
+def _chat_completion_to_response_payload(
+    chat_payload: Dict[str, Any],
+    model: str,
+    request_payload: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    now = int(time.time())
+    response_id = str(chat_payload.get("id") or f"resp_{uuid.uuid4().hex}")
+    choices = chat_payload.get("choices") if isinstance(chat_payload.get("choices"), list) else []
+    first_choice = choices[0] if choices and isinstance(choices[0], dict) else {}
+    message = first_choice.get("message") if isinstance(first_choice.get("message"), dict) else {}
+    output_items, output_text = _chat_message_to_response_output_items(message)
+    finish_reason = first_choice.get("finish_reason")
+    is_truncated = finish_reason in _RESPONSES_TRUNCATION_FINISH_REASONS
+    status_value = "incomplete" if is_truncated else "completed"
+    incomplete_details = {"reason": "max_output_tokens"} if is_truncated else None
+
+    usage = chat_payload.get("usage") if isinstance(chat_payload.get("usage"), dict) else {}
+    response_usage = _chat_usage_to_response_usage(usage, allow_empty=True) or {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "total_tokens": 0,
+    }
+
+    request_payload = request_payload or {}
+    store = request_payload.get("store", False)
+    if not isinstance(store, bool):
+        store = False
+
+    return {
+        "id": response_id,
+        "object": "response",
+        "created_at": int(chat_payload.get("created") or now),
+        "status": status_value,
+        "model": chat_payload.get("model") or model,
+        "output": output_items,
+        "output_text": output_text,
+        "usage": response_usage,
+        "error": None,
+        "incomplete_details": incomplete_details,
+        "instructions": request_payload.get("instructions"),
+        "max_output_tokens": request_payload.get("max_output_tokens"),
+        "metadata": request_payload.get("metadata") or {},
+        "parallel_tool_calls": request_payload.get("parallel_tool_calls"),
+        "previous_response_id": None,
+        "reasoning": request_payload.get("reasoning"),
+        "store": store,
+        "temperature": request_payload.get("temperature"),
+        "text": request_payload.get("text"),
+        "tool_choice": request_payload.get("tool_choice"),
+        "tools": request_payload.get("tools") or [],
+        "top_p": request_payload.get("top_p"),
+        "truncation": request_payload.get("truncation", "disabled"),
+        "user": request_payload.get("user"),
+    }
+
+
+def _responses_sse_event(event: str, payload: Dict[str, Any]) -> bytes:
+    event_payload = dict(payload)
+    event_payload.setdefault("type", event)
+    event_payload.setdefault("event_id", f"event_{uuid.uuid4().hex}")
+    return (
+        f"event: {event}\n"
+        f"data: {json.dumps(event_payload, ensure_ascii=False, separators=(',', ':'))}\n\n"
+    ).encode("utf-8")
+
+
+def _iter_sse_data_payloads(chunk: Any) -> List[str]:
+    if isinstance(chunk, bytes):
+        text = chunk.decode("utf-8", errors="replace")
+    else:
+        text = str(chunk)
+
+    payloads: List[str] = []
+    for event_block in text.split("\n\n"):
+        for line in event_block.splitlines():
+            line = line.strip()
+            if line.startswith("data:"):
+                payloads.append(line[5:].strip())
+    return payloads
+
+
+def _chat_stream_chunk_delta(payload: Dict[str, Any]) -> str:
+    choices = payload.get("choices")
+    if not isinstance(choices, list):
+        return ""
+
+    parts: List[str] = []
+    for choice in choices:
+        if not isinstance(choice, dict):
+            continue
+        delta = choice.get("delta")
+        if isinstance(delta, dict):
+            content = delta.get("content")
+            if isinstance(content, str):
+                parts.append(content)
+        message = choice.get("message")
+        if isinstance(message, dict):
+            content = message.get("content")
+            if isinstance(content, str):
+                parts.append(content)
+    return "".join(parts)
+
+
+def _chat_stream_to_responses_stream(chat_stream: StreamingResponse, model: str) -> StreamingResponse:
+    async def responses_stream_generator():
+        response_id = f"resp_{uuid.uuid4().hex}"
+        text_item_id = f"msg_{uuid.uuid4().hex}"
+        created_at = int(time.time())
+        output_text_parts: List[str] = []
+        output_items: List[Dict[str, Any]] = []
+        text_output_index: Optional[int] = None
+        next_output_index = 0
+        function_calls: Dict[int, Dict[str, Any]] = {}
+        finish_reason: Optional[str] = None
+        response_usage: Optional[Dict[str, Any]] = None
+
+        response_payload = {
+            "id": response_id,
+            "object": "response",
+            "created_at": created_at,
+            "status": "in_progress",
+            "model": model,
+            "output": [],
+            "error": None,
+            "incomplete_details": None,
+        }
+
+        yield _responses_sse_event("response.created", {"response": response_payload})
+        yield _responses_sse_event("response.in_progress", {"response": response_payload})
+
+        async for chunk in chat_stream.body_iterator:
+            for data_payload in _iter_sse_data_payloads(chunk):
+                if not data_payload or data_payload == "[DONE]":
+                    continue
+                try:
+                    chat_chunk = json.loads(data_payload)
+                except Exception:
+                    continue
+                chunk_usage = _chat_usage_to_response_usage(chat_chunk.get("usage"))
+                if chunk_usage is not None:
+                    response_usage = chunk_usage
+                delta = _chat_stream_chunk_delta(chat_chunk)
+                if delta:
+                    if text_output_index is None:
+                        text_output_index = next_output_index
+                        next_output_index += 1
+                        yield _responses_sse_event(
+                            "response.output_item.added",
+                            {
+                                "response_id": response_id,
+                                "output_index": text_output_index,
+                                "item": {
+                                    "id": text_item_id,
+                                    "type": "message",
+                                    "status": "in_progress",
+                                    "role": "assistant",
+                                    "content": [],
+                                },
+                            },
+                        )
+                        yield _responses_sse_event(
+                            "response.content_part.added",
+                            {
+                                "response_id": response_id,
+                                "item_id": text_item_id,
+                                "output_index": text_output_index,
+                                "content_index": 0,
+                                "part": {"type": "output_text", "text": "", "annotations": []},
+                            },
+                        )
+                    output_text_parts.append(delta)
+                    yield _responses_sse_event(
+                        "response.output_text.delta",
+                        {
+                            "response_id": response_id,
+                            "item_id": text_item_id,
+                            "output_index": text_output_index,
+                            "content_index": 0,
+                            "delta": delta,
+                        },
+                    )
+
+                for choice in chat_chunk.get("choices") or []:
+                    if not isinstance(choice, dict):
+                        continue
+                    if isinstance(choice.get("finish_reason"), str) and choice.get("finish_reason"):
+                        finish_reason = str(choice["finish_reason"])
+                    choice_delta = choice.get("delta")
+                    if not isinstance(choice_delta, dict):
+                        choice_delta = choice.get("message") if isinstance(choice.get("message"), dict) else {}
+                    tool_calls = choice_delta.get("tool_calls")
+                    if not isinstance(tool_calls, list):
+                        continue
+                    for tool_call in tool_calls:
+                        if not isinstance(tool_call, dict):
+                            continue
+                        try:
+                            tool_index = int(tool_call.get("index") or 0)
+                        except (TypeError, ValueError):
+                            tool_index = 0
+                        function = tool_call.get("function") if isinstance(tool_call.get("function"), dict) else {}
+                        entry = function_calls.get(tool_index)
+                        if entry is None:
+                            entry = {
+                                "item_id": f"fc_{uuid.uuid4().hex}",
+                                "call_id": str(tool_call.get("id") or f"call_{uuid.uuid4().hex[:24]}"),
+                                "name": str(function.get("name") or ""),
+                                "arguments_parts": [],
+                                "output_index": next_output_index,
+                            }
+                            next_output_index += 1
+                            function_calls[tool_index] = entry
+                            yield _responses_sse_event(
+                                "response.output_item.added",
+                                {
+                                    "response_id": response_id,
+                                    "output_index": entry["output_index"],
+                                    "item": {
+                                        "id": entry["item_id"],
+                                        "type": "function_call",
+                                        "status": "in_progress",
+                                        "call_id": entry["call_id"],
+                                        "name": entry["name"],
+                                        "arguments": "",
+                                    },
+                                },
+                            )
+                        if tool_call.get("id"):
+                            entry["call_id"] = str(tool_call["id"])
+                        if function.get("name"):
+                            entry["name"] = str(function["name"])
+                        arguments_delta = function.get("arguments")
+                        if arguments_delta:
+                            arguments_delta = str(arguments_delta)
+                            entry["arguments_parts"].append(arguments_delta)
+                            yield _responses_sse_event(
+                                "response.function_call_arguments.delta",
+                                {
+                                    "response_id": response_id,
+                                    "item_id": entry["item_id"],
+                                    "output_index": entry["output_index"],
+                                    "call_id": entry["call_id"],
+                                    "delta": arguments_delta,
+                                },
+                            )
+
+        output_text = "".join(output_text_parts)
+        if text_output_index is not None:
+            done_part = {"type": "output_text", "text": output_text, "annotations": []}
+            done_item = {
+                "id": text_item_id,
+                "type": "message",
+                "status": "completed",
+                "role": "assistant",
+                "content": [done_part],
+            }
+            output_items.append(done_item)
+            yield _responses_sse_event(
+                "response.output_text.done",
+                {
+                    "response_id": response_id,
+                    "item_id": text_item_id,
+                    "output_index": text_output_index,
+                    "content_index": 0,
+                    "text": output_text,
+                },
+            )
+            yield _responses_sse_event(
+                "response.content_part.done",
+                {
+                    "response_id": response_id,
+                    "item_id": text_item_id,
+                    "output_index": text_output_index,
+                    "content_index": 0,
+                    "part": done_part,
+                },
+            )
+            yield _responses_sse_event(
+                "response.output_item.done",
+                {"response_id": response_id, "output_index": text_output_index, "item": done_item},
+            )
+
+        for entry in sorted(function_calls.values(), key=lambda item: item["output_index"]):
+            arguments = "".join(entry["arguments_parts"]) or "{}"
+            done_item = {
+                "id": entry["item_id"],
+                "type": "function_call",
+                "status": "completed",
+                "call_id": entry["call_id"],
+                "name": entry["name"] or "unknown_function",
+                "arguments": arguments,
+            }
+            output_items.append(done_item)
+            yield _responses_sse_event(
+                "response.function_call_arguments.done",
+                {
+                    "response_id": response_id,
+                    "item_id": entry["item_id"],
+                    "output_index": entry["output_index"],
+                    "call_id": entry["call_id"],
+                    "name": done_item["name"],
+                    "arguments": arguments,
+                },
+            )
+            yield _responses_sse_event(
+                "response.output_item.done",
+                {"response_id": response_id, "output_index": entry["output_index"], "item": done_item},
+            )
+
+        if not output_items:
+            output_items.append(
+                {
+                    "id": text_item_id,
+                    "type": "message",
+                    "status": "completed",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": "", "annotations": []}],
+                }
+            )
+
+        is_truncated = finish_reason in _RESPONSES_TRUNCATION_FINISH_REASONS
+        final_status = "incomplete" if is_truncated else "completed"
+        incomplete_details = {"reason": "max_output_tokens"} if is_truncated else None
+        completed_response = dict(response_payload)
+        completed_response["status"] = final_status
+        completed_response["incomplete_details"] = incomplete_details
+        completed_response["output"] = output_items
+        completed_response["output_text"] = output_text
+        if response_usage is not None:
+            completed_response["usage"] = response_usage
+        yield _responses_sse_event(
+            "response.incomplete" if final_status == "incomplete" else "response.completed",
+            {"response": completed_response},
+        )
+        yield b"data: [DONE]\n\n"
+
+    return StreamingResponse(responses_stream_generator(), media_type="text/event-stream")
 
 
 async def _should_use_fake_streaming(model: str, forced_by_model_prefix: bool) -> tuple[bool, str]:
@@ -1237,6 +2050,55 @@ async def chat_completions(
         except Exception:
             log.error(f"RES model={model} status=FAIL conversion_error")
         raise HTTPException(status_code=500, detail="Response conversion failed")
+
+
+@router.post("/v1/responses")
+async def responses_api(
+    request: Request,
+    token: str = Depends(authenticate),
+):
+    """Compatibility bridge for clients that use OpenAI's Responses API."""
+    try:
+        raw_data = await request.json()
+    except Exception as e:
+        log.error(f"Failed to parse Responses API JSON request: {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid JSON: {str(e)}")
+
+    if not isinstance(raw_data, dict):
+        raise HTTPException(status_code=400, detail="Request body must be a JSON object")
+
+    try:
+        chat_payload = _responses_request_to_chat_payload(raw_data)
+    except _ResponsesCompatibilityError as e:
+        log.warning(f"Responses API compatibility unsupported request: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+    if not chat_payload.get("model"):
+        raise HTTPException(status_code=400, detail="model is required")
+    if not chat_payload.get("messages"):
+        raise HTTPException(status_code=400, detail="input is required")
+
+    log.info(
+        "Responses API compatibility route: "
+        f"model={chat_payload.get('model')}, stream={chat_payload.get('stream')}, "
+        f"messages={len(chat_payload.get('messages') or [])}"
+    )
+
+    chat_response = await chat_completions(_JsonRequestProxy(request, chat_payload), token)
+    response_status = getattr(chat_response, "status_code", 200)
+    if response_status >= 400:
+        return chat_response
+
+    model = normalize_model_id(str(chat_payload.get("model") or ""))
+    if isinstance(chat_response, StreamingResponse):
+        return _chat_stream_to_responses_stream(chat_response, model)
+
+    parsed = _json_response_to_payload(chat_response)
+    if parsed is None:
+        log.error("Responses API compatibility route failed to parse chat response")
+        raise HTTPException(status_code=500, detail="Response conversion failed")
+
+    return JSONResponse(content=_chat_completion_to_response_payload(parsed, model, request_payload=raw_data))
 
 
 @router.post("/v1")
