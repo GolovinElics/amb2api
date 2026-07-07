@@ -805,6 +805,8 @@ class PerformanceTracker:
         cache_discount_savings_total = 0.0
 
         for t in all_traces:
+            if not isinstance(t, dict):
+                continue
             ts = t.get("timestamps", {})
             usage = _extract_usage_tokens(t)
             prompt_tokens = usage["prompt_tokens"]
@@ -823,6 +825,8 @@ class PerformanceTracker:
             )
             models_set.add(t.get("model", "unknown"))
             metadata = t.get("metadata") or {}
+            if not isinstance(metadata, dict):
+                metadata = {}
             stream_mode = str(metadata.get("stream_mode", "none")).lower()
 
             prompt_tokens_total += prompt_tokens

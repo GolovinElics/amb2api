@@ -9,6 +9,7 @@ official pricing page.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 import re
 from typing import Any, Dict, Iterable, List, Optional
 
@@ -156,31 +157,18 @@ def update_pricing_overrides_from_rates(
         key = _normalize_model_key(model)
         if not model or not key:
             continue
-        try:
-            input_rate = float(item.get("rate") or 0.0)
-        except (TypeError, ValueError):
-            continue
+        input_rate = _finite_float(item.get("rate"), default=0.0)
         if input_rate <= 0:
             continue
         output_item = output_by_key.get(key) or {}
-        try:
-            output_rate = float(output_item.get("rate") or 0.0)
-        except (TypeError, ValueError):
+        output_rate = _finite_float(output_item.get("rate"), default=0.0)
+        if output_rate < 0:
             output_rate = 0.0
 
         provider = _provider_from_model(model)
-        try:
-            cached_rate = float(item["cached_input_rate"]) if item.get("cached_input_rate") is not None else None
-        except (TypeError, ValueError):
-            cached_rate = None
-        try:
-            cache_5m = float(item["cache_creation_5m_rate"]) if item.get("cache_creation_5m_rate") is not None else None
-        except (TypeError, ValueError):
-            cache_5m = None
-        try:
-            cache_1h = float(item["cache_creation_1h_rate"]) if item.get("cache_creation_1h_rate") is not None else None
-        except (TypeError, ValueError):
-            cache_1h = None
+        cached_rate = _optional_finite_rate(item.get("cached_input_rate"))
+        cache_5m = _optional_finite_rate(item.get("cache_creation_5m_rate"))
+        cache_1h = _optional_finite_rate(item.get("cache_creation_1h_rate"))
 
         pricing = ModelPricing(
             model=model,
@@ -211,6 +199,23 @@ def _provider_from_model(model: Any) -> str:
     if "gpt" in key or "chatgpt" in key or key.startswith("o"):
         return "openai"
     return "unknown"
+
+
+def _finite_float(value: Any, default: float = 0.0) -> float:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return default
+    if not math.isfinite(parsed):
+        return default
+    return parsed
+
+
+def _optional_finite_rate(value: Any) -> Optional[float]:
+    if value is None:
+        return None
+    parsed = _finite_float(value, default=-1.0)
+    return parsed if parsed >= 0 else None
 
 
 def _region_multiplier(model_region: Any) -> float:
@@ -395,9 +400,8 @@ def enrich_llm_input_rate_item(item: Dict[str, Any]) -> Dict[str, Any]:
     out = dict(item)
     model = out.get("model")
     provider = _provider_from_model(model)
-    try:
-        input_rate = float(out.get("rate") or 0.0)
-    except (TypeError, ValueError):
+    input_rate = _finite_float(out.get("rate"), default=0.0)
+    if input_rate < 0:
         input_rate = 0.0
 
     out["cached_input_rate"] = _cache_rate(provider, input_rate, str(model or ""))

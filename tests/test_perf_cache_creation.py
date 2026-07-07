@@ -229,6 +229,25 @@ async def test_get_stats_aggregates_cache_creation_totals():
 
 
 @pytest.mark.asyncio
+async def test_get_stats_tolerates_non_dict_trace_metadata():
+    trace = _trace_with_cache("t1", 200, 30)
+    trace["metadata"] = ["unexpected"]
+    perf_data = {"perf_traces_0": [trace]}
+
+    tracker = PerformanceTracker()
+    tracker._initialized = True
+
+    with patch(
+        "src.storage.storage_adapter.get_storage_adapter",
+        new=AsyncMock(return_value=FakeAdapter(perf_data)),
+    ):
+        stats = await tracker.get_stats(use_cache=False)
+
+    assert stats["tokens"]["cache_creation_5m_total"] == 200
+    assert stats["cost"]["total"] > 0
+
+
+@pytest.mark.asyncio
 async def test_get_traces_paginated_exposes_cost_and_cache_status():
     traces = [_trace_with_cache("t1", 200, 30)]
     perf_data = {"perf_traces_0": traces}

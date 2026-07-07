@@ -3,6 +3,7 @@ import math
 from src.core.model_pricing import (
     cache_status_for_usage,
     calculate_token_cost,
+    enrich_llm_input_rate_item,
     get_model_pricing,
     llm_gateway_rate_items,
     update_pricing_overrides_from_rates,
@@ -142,3 +143,45 @@ def test_runtime_rate_sync_updates_cost_catalog():
     assert pricing.source == "official_pricing"
     assert cost["pricing"]["model"] == "Runtime Price Model"
     assert math.isclose(cost["total_cost"], 0.0031, rel_tol=0, abs_tol=1e-12)
+
+
+def test_runtime_rate_sync_rejects_non_finite_input_rates():
+    updated = update_pricing_overrides_from_rates(
+        [{"model": "Runtime NaN Model", "rate": "NaN"}],
+        [{"model": "Runtime NaN Model", "rate": 10.0}],
+    )
+
+    assert updated == 0
+    assert get_model_pricing("runtime-nan-model") is None
+
+
+def test_runtime_rate_sync_sanitizes_non_finite_optional_rates():
+    updated = update_pricing_overrides_from_rates(
+        [
+            {
+                "model": "GPT Runtime Finite Model",
+                "rate": 2.0,
+                "cached_input_rate": "Infinity",
+                "cache_creation_5m_rate": "NaN",
+                "cache_creation_1h_rate": -1,
+            }
+        ],
+        [{"model": "GPT Runtime Finite Model", "rate": "Infinity"}],
+    )
+
+    pricing = get_model_pricing("gpt-runtime-finite-model")
+
+    assert updated == 1
+    assert pricing is not None
+    assert pricing.output_per_million == 0.0
+    assert pricing.cached_input_per_million == 0.2
+    assert pricing.cache_creation_5m_per_million is None
+    assert pricing.cache_creation_1h_per_million is None
+
+
+def test_enrich_llm_input_rate_item_sanitizes_non_finite_rates():
+    item = enrich_llm_input_rate_item({"model": "gpt-runtime-display", "rate": "NaN"})
+
+    assert item["cached_input_rate"] == 0.0
+    assert item["cache_creation_5m_rate"] is None
+    assert item["cache_creation_1h_rate"] is None
