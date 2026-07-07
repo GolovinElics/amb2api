@@ -82,6 +82,177 @@ def test_sanitize_messages_supports_function_input_when_arguments_missing():
     assert fc["content"][0]["tool_use"]["input"] == {"path": "/tmp/a.txt"}
 
 
+def test_sanitize_gemini_tools_strips_anyof_sibling_fields():
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "Task",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "value": {
+                            "description": "string or integer",
+                            "type": "string",
+                            "nullable": True,
+                            "anyOf": [
+                                {"type": "string", "description": "text"},
+                                {"type": "integer"},
+                            ],
+                        },
+                        "nullable_union": {
+                            "description": "nullable string or integer",
+                            "anyOf": [
+                                {"type": "string"},
+                                {"type": "integer"},
+                                {"type": "null"},
+                            ],
+                        },
+                        "maybe": {
+                            "description": "optional text",
+                            "anyOf": [{"type": "string"}, {"type": "null"}],
+                        },
+                        "single": {
+                            "description": "single branch",
+                            "anyOf": [{"type": "integer"}],
+                        },
+                    },
+                },
+            },
+        }
+    ]
+
+    sanitized = _sanitize_gemini_tools(tools)
+    properties = sanitized[0]["function"]["parameters"]["properties"]
+
+    assert properties["value"] == {
+        "anyOf": [
+            {"type": "string", "description": "text", "nullable": True},
+            {"type": "integer", "nullable": True},
+        ]
+    }
+    assert properties["nullable_union"] == {
+        "anyOf": [
+            {"type": "string", "nullable": True},
+            {"type": "integer", "nullable": True},
+        ]
+    }
+    assert properties["maybe"] == {"type": "string", "nullable": True, "description": "optional text"}
+    assert properties["single"] == {"type": "integer", "description": "single branch"}
+
+
+def test_sanitize_gemini_tools_preserves_defs_for_anyof_refs():
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "Task",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "item": {
+                            "type": "object",
+                            "description": "local ref union",
+                            "anyOf": [
+                                {"$ref": "#/$defs/Cat"},
+                                {"$ref": "#/$defs/Dog"},
+                            ],
+                            "$defs": {
+                                "Cat": {
+                                    "type": "object",
+                                    "title": "Cat",
+                                    "properties": {
+                                        "name": {
+                                            "type": ["string", "null"],
+                                            "default": None,
+                                        }
+                                    },
+                                    "required": ["name"],
+                                },
+                                "Dog": {
+                                    "type": "object",
+                                    "additionalProperties": False,
+                                    "properties": {"age": {"type": "integer"}},
+                                },
+                            },
+                        }
+                    },
+                },
+            },
+        }
+    ]
+
+    sanitized = _sanitize_gemini_tools(tools)
+    item = sanitized[0]["function"]["parameters"]["properties"]["item"]
+
+    assert item == {
+        "anyOf": [
+            {"$ref": "#/$defs/Cat"},
+            {"$ref": "#/$defs/Dog"},
+        ],
+        "$defs": {
+            "Cat": {
+                "type": "object",
+                "properties": {"name": {"type": "string", "nullable": True}},
+                "required": ["name"],
+            },
+            "Dog": {
+                "type": "object",
+                "properties": {"age": {"type": "integer"}},
+            },
+        },
+    }
+
+
+def test_sanitize_gemini_tools_preserves_defs_for_collapsed_nullable_ref_union():
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "Task",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "item": {
+                            "anyOf": [
+                                {"$ref": "#/$defs/Cat"},
+                                {"type": "null"},
+                            ],
+                            "$defs": {
+                                "Cat": {
+                                    "type": "object",
+                                    "properties": {
+                                        "name": {
+                                            "type": ["string", "null"],
+                                            "title": "Name",
+                                        }
+                                    },
+                                    "required": ["name"],
+                                },
+                            },
+                        }
+                    },
+                },
+            },
+        }
+    ]
+
+    sanitized = _sanitize_gemini_tools(tools)
+    item = sanitized[0]["function"]["parameters"]["properties"]["item"]
+
+    assert item == {
+        "$ref": "#/$defs/Cat",
+        "nullable": True,
+        "$defs": {
+            "Cat": {
+                "type": "object",
+                "properties": {"name": {"type": "string", "nullable": True}},
+                "required": ["name"],
+            },
+        },
+    }
+
+
 def test_sanitize_messages_guarantees_input_for_empty_or_invalid_arguments():
     messages = [
         {

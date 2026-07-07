@@ -220,6 +220,21 @@ def _const_value_to_type(value: Any) -> Optional[str]:
     return None
 
 
+def _sanitize_gemini_schema_defs(schema: Dict[str, Any]) -> Dict[str, Any]:
+    sanitized_defs: Dict[str, Any] = {}
+    for defs_key in ("$defs", "defs"):
+        defs_value = schema.get(defs_key)
+        if not isinstance(defs_value, dict):
+            continue
+        defs: Dict[str, Any] = {}
+        for def_name, def_schema in defs_value.items():
+            if isinstance(def_name, str) and isinstance(def_schema, dict):
+                defs[def_name] = _sanitize_gemini_schema(def_schema)
+        if defs:
+            sanitized_defs[defs_key] = defs
+    return sanitized_defs
+
+
 def _sanitize_gemini_schema(schema: Any) -> Any:
     """
     Convert OpenAI/JSON Schema tool parameter schemas to Gemini's narrower schema.
@@ -230,6 +245,39 @@ def _sanitize_gemini_schema(schema: Any) -> Any:
     """
     if not isinstance(schema, dict):
         return schema
+
+    union_schema = schema.get("anyOf")
+    if union_schema is None:
+        union_schema = schema.get("oneOf")
+    if isinstance(union_schema, list):
+        any_of = []
+        nullable = bool(schema.get("nullable"))
+        for item in union_schema:
+            if not isinstance(item, dict):
+                continue
+            item_type = item.get("type")
+            if isinstance(item_type, str) and item_type.lower() == "null":
+                nullable = True
+                continue
+            any_of.append(_sanitize_gemini_schema(item))
+        if len(any_of) == 1 and isinstance(any_of[0], dict):
+            collapsed = dict(any_of[0])
+            if nullable:
+                collapsed["nullable"] = True
+            for metadata_key in ("description", "format"):
+                if metadata_key not in collapsed and metadata_key in schema:
+                    collapsed[metadata_key] = schema[metadata_key]
+            collapsed.update(_sanitize_gemini_schema_defs(schema))
+            return collapsed
+        if any_of:
+            if nullable:
+                any_of = [
+                    {**item, "nullable": True} if isinstance(item, dict) else item
+                    for item in any_of
+                ]
+            sanitized_union: Dict[str, Any] = {"anyOf": any_of}
+            sanitized_union.update(_sanitize_gemini_schema_defs(schema))
+            return sanitized_union
 
     sanitized: Dict[str, Any] = {}
     nullable = bool(schema.get("nullable"))
@@ -271,18 +319,6 @@ def _sanitize_gemini_schema(schema: Any) -> Any:
                     sanitized["items"] = _sanitize_gemini_schema(first_item)
             continue
         if key in {"anyOf", "oneOf"}:
-            if isinstance(value, list):
-                any_of = []
-                for item in value:
-                    if not isinstance(item, dict):
-                        continue
-                    item_type = item.get("type")
-                    if isinstance(item_type, str) and item_type.lower() == "null":
-                        nullable = True
-                        continue
-                    any_of.append(_sanitize_gemini_schema(item))
-                if any_of:
-                    sanitized["anyOf"] = any_of
             continue
         if key in {"$defs", "defs"}:
             if isinstance(value, dict):
